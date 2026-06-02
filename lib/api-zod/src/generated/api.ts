@@ -80,6 +80,17 @@ export const ImportBookingsResponse = zod.object({
 
 
 /**
+ * @summary Calculate driving distance and duration for all bookings missing route data
+ */
+export const CalculateRoutesResponse = zod.object({
+  "processed": zod.number(),
+  "failed": zod.number(),
+  "skipped": zod.number(),
+  "errors": zod.array(zod.string()).optional()
+})
+
+
+/**
  * @summary List all bookings (admin)
  */
 export const listAdminBookingsQueryPageDefault = 1;
@@ -116,6 +127,8 @@ export const ListAdminBookingsResponse = zod.object({
   "createdAt": zod.string(),
   "siblingCount": zod.number(),
   "priceCents": zod.number().nullish(),
+  "distanceKm": zod.number().nullish().describe('Driving distance from home to school in km'),
+  "durationMinutes": zod.number().nullish().describe('Estimated driving duration in minutes'),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
   "childName": zod.string(),
@@ -162,6 +175,8 @@ export const GetAdminBookingResponse = zod.object({
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional(),
   "priceCents": zod.number().nullish(),
+  "distanceKm": zod.number().nullish().describe('Driving distance from home to school in km'),
+  "durationMinutes": zod.number().nullish().describe('Estimated driving duration in minutes'),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
   "childName": zod.string(),
@@ -233,6 +248,8 @@ export const UpdateAdminBookingResponse = zod.object({
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional(),
   "priceCents": zod.number().nullish(),
+  "distanceKm": zod.number().nullish().describe('Driving distance from home to school in km'),
+  "durationMinutes": zod.number().nullish().describe('Estimated driving duration in minutes'),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
   "childName": zod.string(),
@@ -284,6 +301,8 @@ export const GetAdminStatsResponse = zod.object({
   "createdAt": zod.string(),
   "siblingCount": zod.number(),
   "priceCents": zod.number().nullish(),
+  "distanceKm": zod.number().nullish().describe('Driving distance from home to school in km'),
+  "durationMinutes": zod.number().nullish().describe('Estimated driving duration in minutes'),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
   "childName": zod.string(),

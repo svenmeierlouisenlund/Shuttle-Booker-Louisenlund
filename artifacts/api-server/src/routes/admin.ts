@@ -13,6 +13,7 @@ import * as XLSX from "xlsx";
 import multer from "multer";
 import { calcBookingPrice } from "../pricing.js";
 import { recalcFamilyPrices } from "../services/family.js";
+import { calcRouteToSchool, sleep } from "../services/routing.js";
 
 type ListParams = ReturnType<typeof ListAdminBookingsQueryParams.parse>;
 type ExportParams = ReturnType<typeof ExportBookingsQueryParams.parse>;
@@ -691,6 +692,8 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
     createdAt: b.createdAt.toISOString(),
     siblingCount: (siblingsByBooking[b.id] ?? []).length,
     priceCents: b.priceCents,
+    distanceKm: b.distanceKm ?? null,
+    durationMinutes: b.durationMinutes ?? null,
     siblings: (siblingsByBooking[b.id] ?? []).map((s) => ({
       id: s.id,
       childName: s.childName,
@@ -703,6 +706,56 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
   }));
 
   res.json({ bookings, total: Number(total), page, limit, totalPriceCents: Number(totalPriceCents ?? 0) + siblingTotalCents });
+});
+
+router.post("/admin/bookings/calculate-routes", requireAuth, async (req, res) => {
+  // Fetch all bookings without distance/duration data
+  const bookings = await db
+    .select({
+      id: bookingsTable.id,
+      childName: bookingsTable.childName,
+      childAddress: bookingsTable.childAddress,
+      childPostalCode: bookingsTable.childPostalCode,
+      childCity: bookingsTable.childCity,
+      distanceKm: bookingsTable.distanceKm,
+      durationMinutes: bookingsTable.durationMinutes,
+    })
+    .from(bookingsTable)
+    .orderBy(bookingsTable.id);
+
+  const pending = bookings.filter((b) => b.distanceKm == null || b.durationMinutes == null);
+
+  let processed = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  for (const b of pending) {
+    try {
+      const result = await calcRouteToSchool(b.childAddress, b.childPostalCode ?? "", b.childCity ?? "");
+      if (result) {
+        await db
+          .update(bookingsTable)
+          .set({ distanceKm: result.distanceKm, durationMinutes: result.durationMinutes })
+          .where(eq(bookingsTable.id, b.id));
+        processed++;
+      } else {
+        errors.push(`${b.childName}: Adresse konnte nicht geocodiert werden`);
+        failed++;
+      }
+    } catch (err: any) {
+      errors.push(`${b.childName}: ${err.message ?? "Fehler"}`);
+      failed++;
+    }
+    // Nominatim rate limit: max 1 req/sec
+    await sleep(1100);
+  }
+
+  res.json({
+    processed,
+    failed,
+    skipped: bookings.length - pending.length,
+    errors,
+  });
 });
 
 router.delete("/admin/bookings/:id", requireAuth, async (req, res) => {
@@ -770,6 +823,8 @@ router.get("/admin/bookings/:id", requireAuth, async (req, res) => {
     createdAt: booking.createdAt.toISOString(),
     updatedAt: booking.updatedAt.toISOString(),
     priceCents: booking.priceCents,
+    distanceKm: booking.distanceKm ?? null,
+    durationMinutes: booking.durationMinutes ?? null,
     siblings: siblings.map((s) => ({
       id: s.id,
       childName: s.childName,

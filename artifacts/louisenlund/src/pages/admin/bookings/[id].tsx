@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ChevronLeft, Save, Trash2, Pencil, X } from "lucide-react";
+import { ChevronLeft, Save, Trash2, Pencil, X, MapPin } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -516,6 +516,40 @@ export default function AdminBookingDetail() {
                 </Card>
               );
             })()}
+
+            {(booking.distanceKm != null || booking.durationMinutes != null) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-primary" />
+                    Fahrtweg zur Schule
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {booking.distanceKm != null && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Entfernung</span>
+                      <span className="font-medium tabular-nums">
+                        {booking.distanceKm.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km
+                      </span>
+                    </div>
+                  )}
+                  {booking.durationMinutes != null && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Fahrzeit</span>
+                      <span className="font-medium tabular-nums">
+                        {booking.durationMinutes >= 60
+                          ? `${Math.floor(booking.durationMinutes / 60)} h ${booking.durationMinutes % 60} min`
+                          : `${booking.durationMinutes} min`}
+                      </span>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground pt-1">
+                    Fahrzeit via OSRM (Auto) zur Stiftung Louisenlund, Güby
+                  </p>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>

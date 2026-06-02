@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
-import { Upload, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { Upload, CheckCircle2, AlertCircle, Loader2, Route } from "lucide-react";
 
 const statusMap: Record<string, string> = {
   received: "Eingegangen",
@@ -66,6 +66,8 @@ function loadColWidths(): number[] {
   return DEFAULT_COL_WIDTHS;
 }
 
+type RouteCalcResult = { processed: number; failed: number; skipped: number; errors: string[] };
+
 export default function AdminBookingsList() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<string>("all");
@@ -78,6 +80,11 @@ export default function AdminBookingsList() {
   const [importError, setImportError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [routeCalcOpen, setRouteCalcOpen] = useState(false);
+  const [routeCalcRunning, setRouteCalcRunning] = useState(false);
+  const [routeCalcResult, setRouteCalcResult] = useState<RouteCalcResult | null>(null);
+  const [routeCalcError, setRouteCalcError] = useState<string | null>(null);
 
   const [colWidths, setColWidths] = useState<number[]>(loadColWidths);
   const resizeRef = useRef<{ col: number; startX: number; startW: number } | null>(null);
@@ -176,6 +183,35 @@ export default function AdminBookingsList() {
     setImportOpen(false);
   }
 
+  function handleOpenRouteCalc() {
+    setRouteCalcResult(null);
+    setRouteCalcError(null);
+    setRouteCalcOpen(true);
+  }
+
+  async function handleCalculateRoutes() {
+    setRouteCalcRunning(true);
+    setRouteCalcError(null);
+    setRouteCalcResult(null);
+    try {
+      const res = await fetch("/api/admin/bookings/calculate-routes", {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Unbekannter Fehler" }));
+        throw new Error(err.error ?? `HTTP ${res.status}`);
+      }
+      const result: RouteCalcResult = await res.json();
+      setRouteCalcResult(result);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] });
+    } catch (err: any) {
+      setRouteCalcError(err.message ?? "Berechnung fehlgeschlagen");
+    } finally {
+      setRouteCalcRunning(false);
+    }
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -191,6 +227,10 @@ export default function AdminBookingsList() {
             </Button>
             <Button variant="outline" onClick={() => window.open("/api/admin/bookings/export", "_blank")}>
               CSV Export
+            </Button>
+            <Button variant="outline" onClick={handleOpenRouteCalc}>
+              <Route className="w-4 h-4 mr-2" />
+              Routen berechnen
             </Button>
           </div>
         </div>
@@ -435,6 +475,65 @@ export default function AdminBookingsList() {
                   <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Importiere…</>
                 ) : (
                   <><Upload className="w-4 h-4 mr-2" />Importieren</>
+                )}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Route Calculation Dialog */}
+      <Dialog open={routeCalcOpen} onOpenChange={setRouteCalcOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Fahrtzeiten berechnen</DialogTitle>
+            <DialogDescription>
+              Berechnet Entfernung und Fahrzeit (Auto) vom Wohnort jedes Kindes zur Stiftung Louisenlund für alle Buchungen ohne vorhandene Routendaten. Die Berechnung kann bei vielen Buchungen mehrere Minuten dauern (Nominatim-Limit: 1 Anfrage/Sek.).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-3">
+            {routeCalcError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{routeCalcError}</AlertDescription>
+              </Alert>
+            )}
+
+            {routeCalcRunning && (
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Berechne Fahrtzeiten… bitte warten.
+              </div>
+            )}
+
+            {routeCalcResult && (
+              <Alert className="border-green-200 bg-green-50">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">
+                  <span className="font-medium">{routeCalcResult.processed} Buchungen berechnet</span>
+                  {routeCalcResult.skipped > 0 && `, ${routeCalcResult.skipped} übersprungen (bereits vorhanden)`}
+                  {routeCalcResult.failed > 0 && `, ${routeCalcResult.failed} fehlgeschlagen`}
+                  {routeCalcResult.errors.length > 0 && (
+                    <ul className="mt-1 text-xs list-disc list-inside">
+                      {routeCalcResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+                    </ul>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setRouteCalcOpen(false)}>
+              {routeCalcResult ? "Schließen" : "Abbrechen"}
+            </Button>
+            {!routeCalcResult && (
+              <Button onClick={handleCalculateRoutes} disabled={routeCalcRunning}>
+                {routeCalcRunning ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Berechne…</>
+                ) : (
+                  <><Route className="w-4 h-4 mr-2" />Jetzt berechnen</>
                 )}
               </Button>
             )}

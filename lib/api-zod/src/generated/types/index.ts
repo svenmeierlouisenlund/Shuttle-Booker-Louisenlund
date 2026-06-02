@@ -26,6 +26,7 @@ export * from './bookingStatusUpdateOutboundRoute';
 export * from './bookingStatusUpdateReturnRoute';
 export * from './bookingStatusUpdateTariffZone';
 export * from './bookingType';
+export * from './calculateRoutes200';
 export * from './deleteBookingResponse';
 export * from './errorResponse';
 export * from './exportBookingsParams';
