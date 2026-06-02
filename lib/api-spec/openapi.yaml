@@ -336,6 +336,61 @@ paths:
         "401":
           description: Unauthorized
 
+  /admin/smtp-config:
+    get:
+      operationId: getSmtpConfig
+      tags: [admin]
+      summary: Get SMTP configuration (password masked)
+      responses:
+        "200":
+          description: SMTP config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmtpConfig"
+        "401":
+          description: Unauthorized
+    put:
+      operationId: updateSmtpConfig
+      tags: [admin]
+      summary: Update SMTP configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SmtpConfigUpdate"
+      responses:
+        "200":
+          description: Updated config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmtpConfig"
+        "401":
+          description: Unauthorized
+
+  /admin/smtp-config/test:
+    post:
+      operationId: testSmtpConfig
+      tags: [admin]
+      summary: Send a test email using current SMTP config
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SmtpTestRequest"
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SmtpTestResult"
+        "401":
+          description: Unauthorized
+
 components:
   schemas:
     HealthStatus:
@@ -775,4 +830,64 @@ components:
         authenticated:
           type: boolean
         username:
+          type: ["string", "null"]
+
+    SmtpConfig:
+      type: object
+      required:
+        - host
+        - port
+        - user
+        - fromAddress
+        - secure
+        - configured
+      properties:
+        host:
+          type: string
+        port:
+          type: integer
+        user:
+          type: string
+        fromAddress:
+          type: string
+        secure:
+          type: boolean
+        configured:
+          type: boolean
+          description: True if host and user are set
+
+    SmtpConfigUpdate:
+      type: object
+      properties:
+        host:
+          type: string
+        port:
+          type: integer
+        user:
+          type: string
+        pass:
+          type: string
+          description: Leave empty to keep existing password
+        fromAddress:
+          type: string
+        secure:
+          type: boolean
+
+    SmtpTestRequest:
+      type: object
+      required:
+        - to
+      properties:
+        to:
+          type: string
+          format: email
+
+    SmtpTestResult:
+      type: object
+      required:
+        - success
+      properties:
+        success:
+          type: boolean
+        error:
           type: ["string", "null"]

@@ -274,6 +274,36 @@ export interface AdminSession {
   username?: string | null;
 }
 
+export interface SmtpConfig {
+  host: string;
+  port: number;
+  user: string;
+  fromAddress: string;
+  secure: boolean;
+  /** True if host and user are set */
+  configured: boolean;
+}
+
+export interface SmtpConfigUpdate {
+  host?: string;
+  port?: number;
+  user?: string;
+  /** Leave empty to keep existing password */
+  pass?: string;
+  fromAddress?: string;
+  secure?: boolean;
+}
+
+export interface SmtpTestRequest {
+  to: string;
+}
+
+export interface SmtpTestResult {
+  success: boolean;
+  /** @nullable */
+  error?: string | null;
+}
+
 export type ListAdminBookingsParams = {
 /**
  * @nullable
