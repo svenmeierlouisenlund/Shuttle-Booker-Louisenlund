@@ -1,4 +1,4 @@
-modules = ["nodejs-24"]
+modules = ["nodejs-24", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -37,3 +37,6 @@ externalPort = 3000
 SMTP_HOST = "mail.louisenlund.de"
 SMTP_PORT = "587"
 SMTP_FROM = "sven.meier@louisenlund.de"
+
+[nix]
+channel = "stable-25_05"

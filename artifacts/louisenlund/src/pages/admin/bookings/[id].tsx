@@ -56,6 +56,11 @@ const bookingTypeMap: Record<string, string> = {
   first_half: "1. Schulhalbjahr 2026/27"
 };
 
+function fmtPrice(cents: number | null | undefined): string {
+  if (cents == null) return "–";
+  return (cents / 100).toLocaleString("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
 export default function AdminBookingDetail() {
   const params = useParams();
   const id = Number(params.id);
@@ -218,7 +223,15 @@ export default function AdminBookingDetail() {
                     <div className="space-y-4">
                       {booking.siblings.map((sibling, idx) => (
                         <div key={sibling.id} className="bg-muted p-4 rounded-md">
-                          <h4 className="font-medium mb-2">{idx + 1}. {sibling.childName}</h4>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-medium">{idx + 1}. {sibling.childName}</h4>
+                            {sibling.priceCents != null && (
+                              <span className="text-sm font-semibold text-primary tabular-nums">
+                                {fmtPrice(sibling.priceCents)}
+                                <span className="text-xs font-normal text-muted-foreground ml-1">(–20 %)</span>
+                              </span>
+                            )}
+                          </div>
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <div><span className="text-muted-foreground">Klasse:</span> {sibling.gradeYear}</div>
                             <div><span className="text-muted-foreground">Schülernummer:</span> {sibling.studentNumber || "-"}</div>
@@ -261,6 +274,36 @@ export default function AdminBookingDetail() {
           </div>
 
           <div className="space-y-6">
+            {(booking.priceCents != null || (booking.siblings && booking.siblings.some(s => s.priceCents != null))) && (() => {
+              const total = (booking.priceCents ?? 0) + (booking.siblings ?? []).reduce((s, sib) => s + (sib.priceCents ?? 0), 0);
+              return (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Preisübersicht</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{booking.childName} (Vollzahler)</span>
+                      <span className="font-medium tabular-nums">{fmtPrice(booking.priceCents)}</span>
+                    </div>
+                    {(booking.siblings ?? []).map((sib) => sib.priceCents != null && (
+                      <div key={sib.id} className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">{sib.childName} <span className="text-xs">(–20 %)</span></span>
+                        <span className="font-medium tabular-nums">{fmtPrice(sib.priceCents)}</span>
+                      </div>
+                    ))}
+                    <div className="pt-2 border-t flex justify-between">
+                      <span className="font-semibold">Gesamt</span>
+                      <span className="font-bold text-primary tabular-nums text-base">{fmtPrice(total)}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground pt-1">
+                      inkl. MwSt. · {bookingTypeMap[booking.bookingType]}
+                    </p>
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Bearbeitung</CardTitle>

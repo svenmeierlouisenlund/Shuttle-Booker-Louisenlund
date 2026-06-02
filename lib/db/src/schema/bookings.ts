@@ -52,6 +52,7 @@ export const bookingsTable = pgTable("bookings", {
   confirmationAccepted: boolean("confirmation_accepted").notNull().default(false),
   signatureName: text("signature_name").notNull(),
   gdprConsent: boolean("gdpr_consent").notNull().default(false),
+  priceCents: integer("price_cents"),
   status: bookingStatusEnum("status").notNull().default("received"),
   adminNotes: text("admin_notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -68,6 +69,7 @@ export const siblingsTable = pgTable("siblings", {
   gradeYear: text("grade_year").notNull(),
   outboundRoute: routeOptionEnum("outbound_route").notNull(),
   returnRoute: routeOptionEnum("return_route").notNull(),
+  priceCents: integer("price_cents"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

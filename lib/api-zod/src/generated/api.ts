@@ -106,7 +106,8 @@ export const ListAdminBookingsResponse = zod.object({
   "returnRoute": zod.string(),
   "status": zod.string(),
   "createdAt": zod.string(),
-  "siblingCount": zod.number()
+  "siblingCount": zod.number(),
+  "priceCents": zod.number().nullish()
 })),
   "total": zod.number(),
   "page": zod.number(),
@@ -140,13 +141,15 @@ export const GetAdminBookingResponse = zod.object({
   "adminNotes": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional(),
+  "priceCents": zod.number().nullish(),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
   "childName": zod.string(),
   "studentNumber": zod.string().nullish(),
   "gradeYear": zod.string(),
   "outboundRoute": zod.string(),
-  "returnRoute": zod.string()
+  "returnRoute": zod.string(),
+  "priceCents": zod.number().nullish()
 }))
 })
 
@@ -194,13 +197,15 @@ export const UpdateAdminBookingResponse = zod.object({
   "adminNotes": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string().optional(),
+  "priceCents": zod.number().nullish(),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
   "childName": zod.string(),
   "studentNumber": zod.string().nullish(),
   "gradeYear": zod.string(),
   "outboundRoute": zod.string(),
-  "returnRoute": zod.string()
+  "returnRoute": zod.string(),
+  "priceCents": zod.number().nullish()
 }))
 })
 
@@ -240,7 +245,8 @@ export const GetAdminStatsResponse = zod.object({
   "returnRoute": zod.string(),
   "status": zod.string(),
   "createdAt": zod.string(),
-  "siblingCount": zod.number()
+  "siblingCount": zod.number(),
+  "priceCents": zod.number().nullish()
 }))
 })
 

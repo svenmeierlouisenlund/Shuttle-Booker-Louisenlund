@@ -98,6 +98,8 @@ export interface Sibling {
   gradeYear: string;
   outboundRoute: string;
   returnRoute: string;
+  /** @nullable */
+  priceCents?: number | null;
 }
 
 export interface AdminBooking {
@@ -116,6 +118,8 @@ export interface AdminBooking {
   status: string;
   createdAt: string;
   siblingCount: number;
+  /** @nullable */
+  priceCents?: number | null;
 }
 
 export interface AdminBookingDetail {
@@ -139,6 +143,8 @@ export interface AdminBookingDetail {
   adminNotes?: string | null;
   createdAt: string;
   updatedAt?: string;
+  /** @nullable */
+  priceCents?: number | null;
   siblings: Sibling[];
 }
 

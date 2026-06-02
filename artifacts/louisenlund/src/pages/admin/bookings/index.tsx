@@ -39,6 +39,11 @@ const bookingTypeMap: Record<string, string> = {
   first_half: "1. Schulhalbjahr 2026/27"
 };
 
+function fmtPrice(cents: number | null | undefined): string {
+  if (cents == null) return "–";
+  return (cents / 100).toLocaleString("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
 type ImportResult = {
   imported: number;
   skipped: number;
@@ -195,6 +200,7 @@ export default function AdminBookingsList() {
                     <TableHead>Zone</TableHead>
                     <TableHead>Typ</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Preis</TableHead>
                     <TableHead className="text-right">Aktion</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -216,6 +222,9 @@ export default function AdminBookingsList() {
                         <Badge variant="outline" className={statusColorMap[booking.status]}>
                           {statusMap[booking.status]}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-medium tabular-nums">
+                        {fmtPrice(booking.priceCents)}
                       </TableCell>
                       <TableCell className="text-right">
                         <Link href={`/admin/bookings/${booking.id}`}>
