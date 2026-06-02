@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ChevronRight, ChevronLeft, Plus, Trash2 } from "lucide-react";
+import logo from "@assets/Logo_-_Stiftung_Louisenlund_Print_1780387424925.png";
 
 const siblingSchema = z.object({
   childName: z.string().min(2, "Bitte geben Sie den Namen ein"),
@@ -638,12 +639,14 @@ export default function BookingForm() {
     <div className="min-h-[100dvh] flex flex-col bg-white">
       {/* Louisenlund branded header */}
       <header className="ll-header">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
-            <a href="/" className="text-white font-semibold text-base tracking-wide hover:text-blue-100">
-              Stiftung Louisenlund
+        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <a href="/">
+              <div className="bg-white rounded px-2 py-1">
+                <img src={logo} alt="Stiftung Louisenlund" className="h-9 w-auto" />
+              </div>
             </a>
-            <div className="text-blue-200 text-xs tracking-widest uppercase mt-0.5">
+            <div className="text-blue-200 text-xs tracking-widest uppercase hidden sm:block">
               Buchungsportal Regionalshuttle
             </div>
           </div>

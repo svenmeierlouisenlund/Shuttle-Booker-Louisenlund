@@ -1,17 +1,18 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import { CheckCircle2 } from "lucide-react";
+import logo from "@assets/Logo_-_Stiftung_Louisenlund_Print_1780387424925.png";
 
 export default function BookingSuccess() {
   return (
     <div className="min-h-[100dvh] flex flex-col bg-white">
       {/* Header */}
       <header className="ll-header">
-        <div className="max-w-5xl mx-auto px-6 py-4">
-          <div className="text-white font-semibold text-base tracking-wide">
-            Stiftung Louisenlund
+        <div className="max-w-5xl mx-auto px-6 py-3 flex items-center gap-3">
+          <div className="bg-white rounded px-2 py-1">
+            <img src={logo} alt="Stiftung Louisenlund" className="h-9 w-auto" />
           </div>
-          <div className="text-blue-200 text-xs tracking-widest uppercase mt-0.5">
+          <div className="text-blue-200 text-xs tracking-widest uppercase hidden sm:block">
             Buchungsportal Regionalshuttle
           </div>
         </div>

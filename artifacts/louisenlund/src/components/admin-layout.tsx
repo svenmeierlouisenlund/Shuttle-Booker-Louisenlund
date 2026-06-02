@@ -3,6 +3,7 @@ import { Redirect } from "wouter";
 import { Loader2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
+import logo from "@assets/Logo_-_Stiftung_Louisenlund_Print_1780387424925.png";
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const { data: me, isLoading } = useGetAdminMe();
@@ -33,14 +34,9 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
       {/* Blue admin header */}
       <header className="ll-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-0 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <div>
-              <span className="text-white font-semibold text-sm tracking-wide">
-                Stiftung Louisenlund
-              </span>
-              <span className="text-blue-300 text-xs ml-3 hidden sm:inline">
-                Administration Regionalshuttle
-              </span>
+          <div className="flex items-center gap-4">
+            <div className="bg-white rounded px-2 py-0.5">
+              <img src={logo} alt="Stiftung Louisenlund" className="h-8 w-auto" />
             </div>
             <nav className="flex items-center gap-1">
               <Link href="/admin">
