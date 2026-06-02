@@ -30,3 +30,10 @@ externalPort = 8081
 [[ports]]
 localPort = 22499
 externalPort = 3000
+
+[userenv]
+
+[userenv.shared]
+SMTP_HOST = "mail.louisenlund.de"
+SMTP_PORT = "587"
+SMTP_FROM = "sven.meier@louisenlund.de"
