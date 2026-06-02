@@ -1,14 +1,15 @@
 import { db } from "@workspace/db";
 import { bookingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { calcBookingPrice } from "../pricing.js";
+import { calcBookingPrice, gradeRank } from "../pricing.js";
 
 const SIBLING_DISCOUNT = 0.8;
 
 /**
  * Recalculates prices for all bookings with the same parentName.
- * The first booking (lowest id) pays full price.
- * All subsequent bookings pay 80% of their own full price (20% sibling discount).
+ * The child with the highest grade rank is the Vollzahler (full price).
+ * Tie-breaker: the booking with the lowest id wins.
+ * All other bookings pay 80% of their own full price (20% sibling discount).
  * Also updates adminNotes to reflect sibling status.
  */
 export async function recalcFamilyPrices(parentName: string): Promise<void> {
@@ -20,20 +21,28 @@ export async function recalcFamilyPrices(parentName: string): Promise<void> {
 
   if (bookings.length <= 1) return;
 
-  for (let i = 0; i < bookings.length; i++) {
-    const b = bookings[i];
+  // Sort descending by grade rank; tie-breaker: oldest booking (lowest id) first
+  const sorted = [...bookings].sort((a, b) => {
+    const diff = gradeRank(b.gradeYear) - gradeRank(a.gradeYear);
+    return diff !== 0 ? diff : a.id - b.id;
+  });
+
+  const vollzahler = sorted[0];
+  const siblingCount = bookings.length - 1;
+
+  for (let i = 0; i < sorted.length; i++) {
+    const b = sorted[i];
     const fullPrice = calcBookingPrice(
       b.tariffZone,
       b.bookingType,
       b.outboundRoute,
       b.returnRoute,
     );
-    const isFirst = i === 0;
-    const priceCents = isFirst ? fullPrice : Math.round(fullPrice * SIBLING_DISCOUNT);
-    const siblingCount = bookings.length - 1;
-    const adminNotes = isFirst
-      ? `Vollzahler (${siblingCount} Geschwisterkind${siblingCount > 1 ? "er" : ""})`
-      : `Geschwisterkind – 20 % Rabatt (${bookings[0].childName})`;
+    const isFullPayer = i === 0;
+    const priceCents = isFullPayer ? fullPrice : Math.round(fullPrice * SIBLING_DISCOUNT);
+    const adminNotes = isFullPayer
+      ? `Vollzahler (${siblingCount} Geschwisterkind${siblingCount > 1 ? "er" : ""}, Klasse ${b.gradeYear})`
+      : `Geschwisterkind – 20 % Rabatt (${vollzahler.childName}, Klasse ${vollzahler.gradeYear})`;
 
     await db
       .update(bookingsTable)
