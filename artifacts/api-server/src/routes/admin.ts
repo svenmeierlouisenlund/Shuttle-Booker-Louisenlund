@@ -1,6 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
-import { bookingsTable, siblingsTable, notificationEmailsTable, smtpConfigTable } from "@workspace/db";
+import { bookingsTable, siblingsTable, notificationEmailsTable, smtpConfigTable, pricingConfigTable } from "@workspace/db";
 import {
   ListAdminBookingsQueryParams,
   UpdateAdminBookingBody,
@@ -11,7 +11,8 @@ import {
 import { eq, and, count, sum, desc, sql, inArray, or } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import multer from "multer";
-import { calcBookingPrice } from "../pricing.js";
+import { calcBookingPriceFromConfig } from "../pricing.js";
+import { getPricingConfig, invalidatePricingConfig } from "../services/pricing-cache.js";
 import { recalcFamilyPrices } from "../services/family.js";
 import { calcRouteToSchool, sleep } from "../services/routing.js";
 
@@ -211,6 +212,8 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
     return;
   }
 
+  const importPricingConfig = await getPricingConfig();
+
   let wb: XLSX.WorkBook;
   try {
     wb = XLSX.read(req.file.buffer, { type: "buffer" });
@@ -326,7 +329,7 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
           .limit(1);
         if (existingSib.length > 0) { skipped++; continue; }
 
-        const sibPriceCents = calcBookingPrice(tariffZone as any, bookingType, outboundRoute, returnRoute);
+        const sibPriceCents = calcBookingPriceFromConfig(importPricingConfig, tariffZone as any, bookingType, outboundRoute, returnRoute);
         await db.insert(siblingsTable).values({
           bookingId: mainId,
           childName,
@@ -363,7 +366,7 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
         ref = genRef();
       }
 
-      const priceCents = calcBookingPrice(tariffZone as any, bookingType, outboundRoute, returnRoute);
+      const priceCents = calcBookingPriceFromConfig(importPricingConfig, tariffZone as any, bookingType, outboundRoute, returnRoute);
 
       const [inserted] = await db.insert(bookingsTable).values({
         referenceNumber: ref,
@@ -884,8 +887,8 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
     const bType = (d.bookingType ?? current.bookingType) as string;
     const out = (d.outboundRoute ?? current.outboundRoute) as string;
     const ret = (d.returnRoute ?? current.returnRoute) as string;
-    const { calcBookingPrice } = await import("../pricing.js");
-    updates.priceCents = calcBookingPrice(zone as any, bType as any, out as any, ret as any);
+    const patchConfig = await getPricingConfig();
+    updates.priceCents = calcBookingPriceFromConfig(patchConfig, zone as any, bType as any, out as any, ret as any);
   }
 
   const [updated] = await db
@@ -1030,6 +1033,67 @@ router.put("/admin/smtp-config", requireAuth, async (req, res) => {
     fromAddress: row.fromAddress,
     secure: row.secure,
     configured: !!(row.host && row.user && row.pass),
+  });
+});
+
+router.get("/admin/pricing", requireAuth, async (req, res) => {
+  const c = await getPricingConfig();
+  res.json({
+    fullYear: {
+      both:   { zone1: c.fullYearBothZone1,   zone2: c.fullYearBothZone2,   zone3: c.fullYearBothZone3 },
+      oneWay: { zone1: c.fullYearOneWayZone1, zone2: c.fullYearOneWayZone2, zone3: c.fullYearOneWayZone3 },
+    },
+    firstHalf: {
+      both:   { zone1: c.firstHalfBothZone1,   zone2: c.firstHalfBothZone2,   zone3: c.firstHalfBothZone3 },
+      oneWay: { zone1: c.firstHalfOneWayZone1, zone2: c.firstHalfOneWayZone2, zone3: c.firstHalfOneWayZone3 },
+    },
+    updatedAt: c.updatedAt.toISOString(),
+  });
+});
+
+router.put("/admin/pricing", requireAuth, async (req, res) => {
+  const { fullYear, firstHalf } = req.body ?? {};
+  const parse = (v: unknown) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+  };
+  const updates = {
+    fullYearBothZone1:    parse(fullYear?.both?.zone1),
+    fullYearBothZone2:    parse(fullYear?.both?.zone2),
+    fullYearBothZone3:    parse(fullYear?.both?.zone3),
+    fullYearOneWayZone1:  parse(fullYear?.oneWay?.zone1),
+    fullYearOneWayZone2:  parse(fullYear?.oneWay?.zone2),
+    fullYearOneWayZone3:  parse(fullYear?.oneWay?.zone3),
+    firstHalfBothZone1:   parse(firstHalf?.both?.zone1),
+    firstHalfBothZone2:   parse(firstHalf?.both?.zone2),
+    firstHalfBothZone3:   parse(firstHalf?.both?.zone3),
+    firstHalfOneWayZone1: parse(firstHalf?.oneWay?.zone1),
+    firstHalfOneWayZone2: parse(firstHalf?.oneWay?.zone2),
+    firstHalfOneWayZone3: parse(firstHalf?.oneWay?.zone3),
+    updatedAt: new Date(),
+  };
+  const invalid = Object.entries(updates).find(([k, v]) => k !== "updatedAt" && v === null);
+  if (invalid) {
+    res.status(400).json({ error: `Ungültiger Wert für ${invalid[0]}` });
+    return;
+  }
+  const safeUpdates = updates as Record<string, number | Date>;
+  const [row] = await db
+    .insert(pricingConfigTable)
+    .values({ id: 1, ...safeUpdates })
+    .onConflictDoUpdate({ target: pricingConfigTable.id, set: safeUpdates })
+    .returning();
+  invalidatePricingConfig();
+  res.json({
+    fullYear: {
+      both:   { zone1: row.fullYearBothZone1,   zone2: row.fullYearBothZone2,   zone3: row.fullYearBothZone3 },
+      oneWay: { zone1: row.fullYearOneWayZone1, zone2: row.fullYearOneWayZone2, zone3: row.fullYearOneWayZone3 },
+    },
+    firstHalf: {
+      both:   { zone1: row.firstHalfBothZone1,   zone2: row.firstHalfBothZone2,   zone3: row.firstHalfBothZone3 },
+      oneWay: { zone1: row.firstHalfOneWayZone1, zone2: row.firstHalfOneWayZone2, zone3: row.firstHalfOneWayZone3 },
+    },
+    updatedAt: row.updatedAt.toISOString(),
   });
 });
 

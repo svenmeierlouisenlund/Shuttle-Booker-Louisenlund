@@ -4,7 +4,8 @@ import { bookingsTable, siblingsTable } from "@workspace/db";
 import { CreateBookingBody } from "@workspace/api-zod";
 import { eq } from "drizzle-orm";
 import { sendBookingNotification, sendParentConfirmation } from "../services/email.js";
-import { calcBookingPrice, calcSiblingPrice, gradeRank } from "../pricing.js";
+import { calcBookingPriceFromConfig, calcSiblingPriceFromConfig, gradeRank } from "../pricing.js";
+import { getPricingConfig } from "../services/pricing-cache.js";
 import { recalcFamilyPrices } from "../services/family.js";
 
 const router = Router();
@@ -58,9 +59,11 @@ router.post("/bookings", async (req, res) => {
   const maxRank = Math.max(...allGrades.map(gradeRank));
   const mainIsFullPayer = gradeRank(data.gradeYear) >= maxRank;
 
+  const pricingConfig = await getPricingConfig();
+
   const priceCents = mainIsFullPayer
-    ? calcBookingPrice(data.tariffZone, data.bookingType, data.outboundRoute, data.returnRoute)
-    : calcSiblingPrice(data.tariffZone, data.bookingType, data.outboundRoute, data.returnRoute);
+    ? calcBookingPriceFromConfig(pricingConfig, data.tariffZone, data.bookingType, data.outboundRoute, data.returnRoute)
+    : calcSiblingPriceFromConfig(pricingConfig, data.tariffZone, data.bookingType, data.outboundRoute, data.returnRoute);
 
   const [booking] = await db
     .insert(bookingsTable)
@@ -84,8 +87,8 @@ router.post("/bookings", async (req, res) => {
       const isFullPayer = !fullPayerSiblingFound && gradeRank(sibling.gradeYear) === maxRank;
       if (isFullPayer) fullPayerSiblingFound = true;
       const siblingPriceCents = isFullPayer
-        ? calcBookingPrice(data.tariffZone, data.bookingType, sibling.outboundRoute, sibling.returnRoute)
-        : calcSiblingPrice(data.tariffZone, data.bookingType, sibling.outboundRoute, sibling.returnRoute);
+        ? calcBookingPriceFromConfig(pricingConfig, data.tariffZone, data.bookingType, sibling.outboundRoute, sibling.returnRoute)
+        : calcSiblingPriceFromConfig(pricingConfig, data.tariffZone, data.bookingType, sibling.outboundRoute, sibling.returnRoute);
       await db.insert(siblingsTable).values({
         bookingId: booking.id,
         ...sibling,

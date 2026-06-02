@@ -67,6 +67,53 @@ export function calcSiblingPrice(
   return Math.round(base * SIBLING_DISCOUNT);
 }
 
+/** Subset of PricingConfig used for price calculation (no id/updatedAt) */
+export interface PricingConfigValues {
+  fullYearBothZone1: number;    fullYearBothZone2: number;    fullYearBothZone3: number;
+  fullYearOneWayZone1: number;  fullYearOneWayZone2: number;  fullYearOneWayZone3: number;
+  firstHalfBothZone1: number;   firstHalfBothZone2: number;   firstHalfBothZone3: number;
+  firstHalfOneWayZone1: number; firstHalfOneWayZone2: number; firstHalfOneWayZone3: number;
+}
+
+export function calcBookingPriceFromConfig(
+  config: PricingConfigValues,
+  tariffZone: TariffZone,
+  bookingType: BookingType,
+  outboundRoute: RouteOption,
+  returnRoute: RouteOption,
+): number {
+  const rt = routeType(outboundRoute, returnRoute);
+  if (bookingType === "full_year") {
+    if (rt === "both") {
+      return tariffZone === "zone1" ? config.fullYearBothZone1
+           : tariffZone === "zone2" ? config.fullYearBothZone2
+           : config.fullYearBothZone3;
+    }
+    return tariffZone === "zone1" ? config.fullYearOneWayZone1
+         : tariffZone === "zone2" ? config.fullYearOneWayZone2
+         : config.fullYearOneWayZone3;
+  }
+  if (rt === "both") {
+    return tariffZone === "zone1" ? config.firstHalfBothZone1
+         : tariffZone === "zone2" ? config.firstHalfBothZone2
+         : config.firstHalfBothZone3;
+  }
+  return tariffZone === "zone1" ? config.firstHalfOneWayZone1
+       : tariffZone === "zone2" ? config.firstHalfOneWayZone2
+       : config.firstHalfOneWayZone3;
+}
+
+export function calcSiblingPriceFromConfig(
+  config: PricingConfigValues,
+  tariffZone: TariffZone,
+  bookingType: BookingType,
+  outboundRoute: RouteOption,
+  returnRoute: RouteOption,
+): number {
+  const base = calcBookingPriceFromConfig(config, tariffZone, bookingType, outboundRoute, returnRoute);
+  return Math.round(base * SIBLING_DISCOUNT);
+}
+
 export function formatPrice(cents: number): string {
   return (cents / 100).toLocaleString("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }

@@ -1,7 +1,8 @@
 import { db } from "@workspace/db";
 import { bookingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { calcBookingPrice, gradeRank } from "../pricing.js";
+import { calcBookingPriceFromConfig, gradeRank } from "../pricing.js";
+import { getPricingConfig } from "./pricing-cache.js";
 
 const SIBLING_DISCOUNT = 0.8;
 
@@ -21,6 +22,8 @@ export async function recalcFamilyPrices(parentName: string): Promise<void> {
 
   if (bookings.length <= 1) return;
 
+  const pricingConfig = await getPricingConfig();
+
   // Sort descending by grade rank; tie-breaker: oldest booking (lowest id) first
   const sorted = [...bookings].sort((a, b) => {
     const diff = gradeRank(b.gradeYear) - gradeRank(a.gradeYear);
@@ -32,7 +35,8 @@ export async function recalcFamilyPrices(parentName: string): Promise<void> {
 
   for (let i = 0; i < sorted.length; i++) {
     const b = sorted[i];
-    const fullPrice = calcBookingPrice(
+    const fullPrice = calcBookingPriceFromConfig(
+      pricingConfig,
       b.tariffZone,
       b.bookingType,
       b.outboundRoute,

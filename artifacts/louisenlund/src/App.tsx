@@ -13,6 +13,7 @@ import AdminBookingsList from "./pages/admin/bookings/index";
 import AdminBookingDetail from "./pages/admin/bookings/[id]";
 import AdminSettings from "./pages/admin/settings";
 import AdminMap from "./pages/admin/map";
+import AdminPricing from "./pages/admin/pricing";
 import Impressum from "./pages/impressum";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ function Router() {
       <Route path="/admin/bookings/:id" component={AdminBookingDetail} />
       <Route path="/admin/settings" component={AdminSettings} />
       <Route path="/admin/map" component={AdminMap} />
+      <Route path="/admin/pricing" component={AdminPricing} />
       <Route path="/impressum" component={Impressum} />
       <Route component={NotFound} />
     </Switch>
