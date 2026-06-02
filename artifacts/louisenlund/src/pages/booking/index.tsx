@@ -90,6 +90,13 @@ export default function BookingForm() {
     name: "siblings",
   });
 
+  const selectedZone = form.watch("tariffZone");
+  const zoneLabel: Record<string, string> = {
+    zone1: "Tarifzone 1",
+    zone2: "Tarifzone 2",
+    zone3: "Tarifzone 3",
+  };
+
   const validateStep = async () => {
     let fieldsToValidate: any[] = [];
     switch (currentStep) {
@@ -382,9 +389,9 @@ export default function BookingForm() {
                     <FormControl><SelectTrigger><SelectValue placeholder="Bitte wählen" /></SelectTrigger></FormControl>
                     <SelectContent>
                       <SelectItem value="none">Keine Hinfahrt benötigt</SelectItem>
-                      <SelectItem value="zone1">Tarifzone 1</SelectItem>
-                      <SelectItem value="zone2">Tarifzone 2</SelectItem>
-                      <SelectItem value="zone3">Tarifzone 3</SelectItem>
+                      {selectedZone && (
+                        <SelectItem value={selectedZone}>{zoneLabel[selectedZone]}</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -402,9 +409,9 @@ export default function BookingForm() {
                     <FormControl><SelectTrigger><SelectValue placeholder="Bitte wählen" /></SelectTrigger></FormControl>
                     <SelectContent>
                       <SelectItem value="none">Keine Rückfahrt benötigt</SelectItem>
-                      <SelectItem value="zone1">Tarifzone 1</SelectItem>
-                      <SelectItem value="zone2">Tarifzone 2</SelectItem>
-                      <SelectItem value="zone3">Tarifzone 3</SelectItem>
+                      {selectedZone && (
+                        <SelectItem value={selectedZone}>{zoneLabel[selectedZone]}</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -486,9 +493,9 @@ export default function BookingForm() {
                             <FormControl><SelectTrigger><SelectValue placeholder="Bitte wählen" /></SelectTrigger></FormControl>
                             <SelectContent>
                               <SelectItem value="none">Keine</SelectItem>
-                              <SelectItem value="zone1">Tarifzone 1</SelectItem>
-                              <SelectItem value="zone2">Tarifzone 2</SelectItem>
-                              <SelectItem value="zone3">Tarifzone 3</SelectItem>
+                              {selectedZone && (
+                                <SelectItem value={selectedZone}>{zoneLabel[selectedZone]}</SelectItem>
+                              )}
                             </SelectContent>
                           </Select>
                           <FormMessage />
@@ -505,9 +512,9 @@ export default function BookingForm() {
                             <FormControl><SelectTrigger><SelectValue placeholder="Bitte wählen" /></SelectTrigger></FormControl>
                             <SelectContent>
                               <SelectItem value="none">Keine</SelectItem>
-                              <SelectItem value="zone1">Tarifzone 1</SelectItem>
-                              <SelectItem value="zone2">Tarifzone 2</SelectItem>
-                              <SelectItem value="zone3">Tarifzone 3</SelectItem>
+                              {selectedZone && (
+                                <SelectItem value={selectedZone}>{zoneLabel[selectedZone]}</SelectItem>
+                              )}
                             </SelectContent>
                           </Select>
                           <FormMessage />
