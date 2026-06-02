@@ -5,6 +5,7 @@ import { CreateBookingBody } from "@workspace/api-zod";
 import { eq } from "drizzle-orm";
 import { sendBookingNotification, sendParentConfirmation } from "../services/email.js";
 import { calcBookingPrice, calcSiblingPrice } from "../pricing.js";
+import { recalcFamilyPrices } from "../services/family.js";
 
 const router = Router();
 
@@ -86,6 +87,9 @@ router.post("/bookings", async (req, res) => {
   }
 
   req.log.info({ bookingId: booking.id, referenceNumber }, "Booking created");
+
+  // Recalculate family prices: if same parent already has bookings, apply sibling discount
+  recalcFamilyPrices(data.parentName).catch(() => {});
 
   const insertedSiblings = siblings
     ? await db.select().from(siblingsTable).where(eq(siblingsTable.bookingId, booking.id))
