@@ -226,11 +226,33 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
   const allRows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1 }) as unknown[][];
 
   // ── Format detection ────────────────────────────────────────────────────────
-  // New format (18 cols): Ref | Typ | Name Kind | Straße | PLZ | Wohnort | ...
+  // New format: Ref | Typ | Name Kind | Straße | PLZ | Wohnort | [Schülernummer] | Jahrgang | ...
   // Old format (10 cols): Name Kind | Schülernummer | Jahrgang | Straße | PLZ | Ort | Elternteil | E-Mail | Telefon | Tarifzone
   const headerRow = allRows[0] as unknown[];
   const colCount = headerRow ? headerRow.length : 0;
   const isNewFormat = colCount >= 15 || cleanStr(headerRow?.[1]).toLowerCase() === "typ";
+
+  // Build dynamic column map from header row (name → index).
+  // Normalise: lowercase, collapse spaces, strip umlauts for matching.
+  const normalizeHeader = (v: unknown) =>
+    cleanStr(v).toLowerCase()
+      .replace(/ü/g, "u").replace(/ö/g, "o").replace(/ä/g, "a").replace(/ß/g, "ss")
+      .replace(/\s+/g, " ").trim();
+  const colMap = new Map<string, number>();
+  if (headerRow) {
+    for (let i = 0; i < headerRow.length; i++) {
+      colMap.set(normalizeHeader(headerRow[i]), i);
+    }
+  }
+  // Helper: read first matching column name from data row (names are normalised before lookup)
+  function colVal(row: unknown[], ...names: string[]): unknown {
+    for (const name of names) {
+      const idx = colMap.get(normalizeHeader(name));
+      if (idx !== undefined) return (row as any)[idx] ?? "";
+    }
+    return "";
+  }
+
   const rows = allRows.slice(1) as unknown[][];
 
   let imported = 0;
@@ -264,27 +286,24 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
       let adminNotes: string;
 
       if (isNewFormat) {
-        // New export format (18 cols):
-        // 0:Ref 1:Typ 2:Name Kind 3:Straße 4:PLZ 5:Wohnort 6:Schülernummer 7:Jahrgang
-        // 8:Name Elternteil 9:E-Mail 10:Telefon 11:Tarifzone 12:Buchungsart
-        // 13:Hinfahrt 14:Rückfahrt 15:Status 16:Notizen 17:Eingegangen am
-        typ = cleanStr((row as any)[1]).toLowerCase();
-        childName = cleanStr((row as any)[2]);
-        childAddress = cleanStr((row as any)[3]);
-        childPostalCode = cleanStr((row as any)[4]);
-        childCity = cleanStr((row as any)[5]);
-        studentNumber = cleanStr((row as any)[6]) || null;
-        gradeYear = mapGrade((row as any)[7]);
-        parentName = cleanStr((row as any)[8]) || "Unbekannt";
-        parentEmail = cleanStr((row as any)[9]);
-        parentPhone = cleanStr((row as any)[10]);
-        tariffZone = ZONE_MAP[cleanStr((row as any)[11])] ?? "zone1";
-        bookingType = (BOOKING_TYPE_MAP[cleanStr((row as any)[12])] ?? "full_year") as "full_year" | "first_half";
-        outboundRoute = (ROUTE_MAP[cleanStr((row as any)[13])] ?? tariffZone) as any;
-        returnRoute = (ROUTE_MAP[cleanStr((row as any)[14])] ?? tariffZone) as any;
-        // col 15 = Kosten (€) — skipped on import (recalculated)
-        status = (STATUS_IMPORT_MAP[cleanStr((row as any)[16])] ?? "confirmed") as any;
-        adminNotes = cleanStr((row as any)[17]) || "Importiert";
+        // New export format — use dynamic column map so column order/presence doesn't matter
+        typ = cleanStr(colVal(row, "typ")).toLowerCase();
+        childName = cleanStr(colVal(row, "name kind"));
+        childAddress = cleanStr(colVal(row, "straße", "strasse", "strase"));
+        childPostalCode = cleanStr(colVal(row, "plz"));
+        childCity = cleanStr(colVal(row, "wohnort"));
+        studentNumber = cleanStr(colVal(row, "schulernummer", "schülernummer")) || null;
+        gradeYear = mapGrade(colVal(row, "jahrgang"));
+        parentName = cleanStr(colVal(row, "name elternteil")) || "Unbekannt";
+        parentEmail = cleanStr(colVal(row, "e-mail", "email"));
+        parentPhone = cleanStr(colVal(row, "telefon"));
+        tariffZone = ZONE_MAP[cleanStr(colVal(row, "tarifzone"))] ?? "zone1";
+        bookingType = (BOOKING_TYPE_MAP[cleanStr(colVal(row, "buchungsart"))] ?? "full_year") as "full_year" | "first_half";
+        outboundRoute = (ROUTE_MAP[cleanStr(colVal(row, "hinfahrt"))] ?? tariffZone) as any;
+        returnRoute = (ROUTE_MAP[cleanStr(colVal(row, "ruckfahrt", "rückfahrt"))] ?? tariffZone) as any;
+        // "kosten (€)" skipped — recalculated from config
+        status = (STATUS_IMPORT_MAP[cleanStr(colVal(row, "status"))] ?? "confirmed") as any;
+        adminNotes = cleanStr(colVal(row, "notizen")) || "Importiert";
       } else {
         // Old format (10 cols):
         // 0:Name Kind 1:Schülernummer 2:Jahrgang 3:Straße 4:PLZ 5:Ort 6:Elternteil 7:E-Mail 8:Telefon 9:Tarifzone
