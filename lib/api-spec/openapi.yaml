@@ -465,6 +465,7 @@ components:
         - id
         - referenceNumber
         - childName
+        - childAddress
         - gradeYear
         - parentName
         - parentEmail
@@ -481,6 +482,8 @@ components:
         referenceNumber:
           type: string
         childName:
+          type: string
+        childAddress:
           type: string
         gradeYear:
           type: string

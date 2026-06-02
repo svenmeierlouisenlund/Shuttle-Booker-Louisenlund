@@ -1,6 +1,6 @@
 import { useGetAdminMe, useAdminLogout } from "@workspace/api-client-react";
 import { Redirect } from "wouter";
-import { Loader2 } from "lucide-react";
+import { Loader2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 
@@ -59,6 +59,16 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                   className="text-blue-100 hover:text-white hover:bg-white/10"
                 >
                   Buchungen
+                </Button>
+              </Link>
+              <Link href="/admin/map">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-blue-100 hover:text-white hover:bg-white/10"
+                >
+                  <MapPin className="w-3.5 h-3.5 mr-1" />
+                  Karte
                 </Button>
               </Link>
               <Link href="/admin/settings">

@@ -104,6 +104,7 @@ export interface AdminBooking {
   id: number;
   referenceNumber: string;
   childName: string;
+  childAddress: string;
   gradeYear: string;
   parentName: string;
   parentEmail: string;
