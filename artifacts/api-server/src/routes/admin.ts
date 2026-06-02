@@ -11,7 +11,7 @@ import {
 import { eq, and, count, sum, desc, sql, inArray, or } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import multer from "multer";
-import { calcBookingPriceFromConfig } from "../pricing.js";
+import { calcBookingPriceFromConfig, calcSiblingPriceFromConfig, gradeRank } from "../pricing.js";
 import { getPricingConfig, invalidatePricingConfig } from "../services/pricing-cache.js";
 import { recalcFamilyPrices } from "../services/family.js";
 import { calcRouteToSchool, sleep } from "../services/routing.js";
@@ -922,14 +922,37 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
   // Recalculate own price if any price-affecting field changes
   const priceFieldsChanged =
     d.tariffZone !== undefined || d.bookingType !== undefined ||
-    d.outboundRoute !== undefined || d.returnRoute !== undefined;
+    d.outboundRoute !== undefined || d.returnRoute !== undefined ||
+    d.gradeYear !== undefined;
   if (priceFieldsChanged) {
-    const zone = (d.tariffZone ?? current.tariffZone) as string;
-    const bType = (d.bookingType ?? current.bookingType) as string;
-    const out = (d.outboundRoute ?? current.outboundRoute) as string;
-    const ret = (d.returnRoute ?? current.returnRoute) as string;
+    const zone = (d.tariffZone ?? current.tariffZone) as any;
+    const bType = (d.bookingType ?? current.bookingType) as any;
+    const out = (d.outboundRoute ?? current.outboundRoute) as any;
+    const ret = (d.returnRoute ?? current.returnRoute) as any;
+    const mainGrade = d.gradeYear ?? current.gradeYear;
     const patchConfig = await getPricingConfig();
-    updates.priceCents = calcBookingPriceFromConfig(patchConfig, zone as any, bType as any, out as any, ret as any);
+
+    // Fetch siblings to determine full-payer across main + siblings
+    const currentSiblings = await db.select().from(siblingsTable).where(eq(siblingsTable.bookingId, id));
+
+    const allGrades = [mainGrade, ...currentSiblings.map((s) => s.gradeYear)];
+    const maxRank = Math.max(...allGrades.map((g) => gradeRank(g)));
+    let fullPayerFound = false;
+
+    const mainIsFullPayer = gradeRank(mainGrade) === maxRank && !fullPayerFound;
+    if (mainIsFullPayer) fullPayerFound = true;
+
+    const mainFullPrice = calcBookingPriceFromConfig(patchConfig, zone, bType, out, ret);
+    updates.priceCents = mainIsFullPayer ? mainFullPrice : Math.round(mainFullPrice * 0.8);
+
+    // Recalculate each sibling's price
+    for (const sib of currentSiblings) {
+      const sibIsFullPayer = gradeRank(sib.gradeYear) === maxRank && !fullPayerFound;
+      if (sibIsFullPayer) fullPayerFound = true;
+      const sibFullPrice = calcBookingPriceFromConfig(patchConfig, zone, bType, sib.outboundRoute as any, sib.returnRoute as any);
+      const sibPrice = sibIsFullPayer ? sibFullPrice : Math.round(sibFullPrice * 0.8);
+      await db.update(siblingsTable).set({ priceCents: sibPrice }).where(eq(siblingsTable.id, sib.id));
+    }
   }
 
   const [updated] = await db
@@ -938,7 +961,7 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
     .where(eq(bookingsTable.id, id))
     .returning();
 
-  // Recalculate family prices after update
+  // Recalculate family prices after update (separate bookings with same parentName)
   const newParentName = (d.parentName ?? current.parentName) as string;
   await recalcFamilyPrices(newParentName);
   if (d.parentName !== undefined && d.parentName !== current.parentName) {
@@ -974,6 +997,7 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
     signatureName: updated.signatureName,
     status: updated.status,
     adminNotes: updated.adminNotes,
+    priceCents: updated.priceCents,
     createdAt: updated.createdAt.toISOString(),
     updatedAt: updated.updatedAt.toISOString(),
     siblings: siblings.map((s) => ({
@@ -983,6 +1007,7 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
       gradeYear: s.gradeYear,
       outboundRoute: s.outboundRoute,
       returnRoute: s.returnRoute,
+      priceCents: s.priceCents,
     })),
   });
 });
