@@ -8,7 +8,7 @@ import {
   ExportBookingsQueryParams,
   AddNotificationEmailBody,
 } from "@workspace/api-zod";
-import { eq, and, count, sum, desc } from "drizzle-orm";
+import { eq, and, count, sum, desc, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import multer from "multer";
 import { calcBookingPrice } from "../pricing.js";
@@ -701,6 +701,46 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
       returnRoute: s.returnRoute,
     })),
   });
+});
+
+// ── Temporary seed endpoint (remove after data migration) ────────────────────
+
+router.post("/admin/seed-bookings", requireAuth, async (req, res) => {
+  const rows: any[] = req.body;
+  if (!Array.isArray(rows)) {
+    res.status(400).json({ error: "Expected array" });
+    return;
+  }
+  let inserted = 0;
+  for (const r of rows) {
+    await db.insert(bookingsTable).values({
+      id: Number(r.id),
+      referenceNumber: r.reference_number,
+      childName: r.child_name,
+      childAddress: r.child_address,
+      studentNumber: r.student_number || null,
+      gradeYear: r.grade_year,
+      parentName: r.parent_name,
+      parentEmail: r.parent_email,
+      parentPhone: r.parent_phone,
+      tariffZone: r.tariff_zone as any,
+      bookingType: r.booking_type as any,
+      outboundRoute: r.outbound_route as any,
+      returnRoute: r.return_route as any,
+      confirmationAccepted: r.confirmation_accepted === "t" || r.confirmation_accepted === true,
+      signatureName: r.signature_name || null,
+      gdprConsent: r.gdpr_consent === "t" || r.gdpr_consent === true,
+      status: (r.status || "received") as any,
+      adminNotes: r.admin_notes || null,
+      priceCents: r.price_cents ? Number(r.price_cents) : null,
+      createdAt: new Date(r.created_at),
+      updatedAt: new Date(r.updated_at),
+    }).onConflictDoNothing();
+    inserted++;
+  }
+  // Sync sequence
+  await db.execute(sql`SELECT setval('bookings_id_seq', (SELECT MAX(id) FROM bookings))`);
+  res.json({ inserted });
 });
 
 // ── SMTP Config ─────────────────────────────────────────────────────────────
