@@ -206,8 +206,8 @@ export default function BookingForm() {
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Bitte wählen" /></SelectTrigger></FormControl>
                         <SelectContent>
-                          {[5, 6, 7, 8, 9, 10, 11, 12, 13].map(g => (
-                            <SelectItem key={g} value={g.toString()}>Klasse {g}</SelectItem>
+                          {["Jahrgang 1","Jahrgang 2","Jahrgang 3","Jahrgang 4","Jahrgang 5","Jahrgang 6","Jahrgang 7","Jahrgang 8","Jahrgang 9","Jahrgang 10","E-Jahrgang","Q1-Jahrgang","Q2-Jahrgang","MYP3","MYP4","MYP5","DP1","DP2"].map(g => (
+                            <SelectItem key={g} value={g}>{g}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
@@ -454,8 +454,8 @@ export default function BookingForm() {
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl><SelectTrigger><SelectValue placeholder="Bitte wählen" /></SelectTrigger></FormControl>
                             <SelectContent>
-                              {[5, 6, 7, 8, 9, 10, 11, 12, 13].map(g => (
-                                <SelectItem key={g} value={g.toString()}>Klasse {g}</SelectItem>
+                              {["Jahrgang 1","Jahrgang 2","Jahrgang 3","Jahrgang 4","Jahrgang 5","Jahrgang 6","Jahrgang 7","Jahrgang 8","Jahrgang 9","Jahrgang 10","E-Jahrgang","Q1-Jahrgang","Q2-Jahrgang","MYP3","MYP4","MYP5","DP1","DP2"].map(g => (
+                                <SelectItem key={g} value={g}>{g}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
