@@ -303,22 +303,19 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(bookingsTable.createdAt));
 
-  const siblingRows = await db.select().from(siblingsTable);
+  const exportBookingIds = rows.map((b) => b.id);
+  const siblingRows = exportBookingIds.length > 0
+    ? await db.select().from(siblingsTable).where(inArray(siblingsTable.bookingId, exportBookingIds))
+    : [];
   const siblingsByBooking: Record<number, typeof siblingRows> = {};
   for (const s of siblingRows) {
     if (!siblingsByBooking[s.bookingId]) siblingsByBooking[s.bookingId] = [];
     siblingsByBooking[s.bookingId].push(s);
   }
 
-  const siblingCounts = await db
-    .select({ bookingId: siblingsTable.bookingId, cnt: count() })
-    .from(siblingsTable)
-    .groupBy(siblingsTable.bookingId);
-  const sibCountMap: Record<number, number> = {};
-  for (const r of siblingCounts) sibCountMap[r.bookingId] = Number(r.cnt);
-
   const headers = [
     "Referenznummer",
+    "Typ",
     "Name Kind",
     "Straße",
     "PLZ",
@@ -332,32 +329,58 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
     "Buchungsart",
     "Hinfahrt",
     "Rückfahrt",
-    "Geschwisterkinder",
     "Status",
     "Notizen",
     "Eingegangen am",
   ];
 
-  const dataRows = rows.map((b) => [
-    b.referenceNumber,
-    b.childName,
-    b.childAddress,
-    b.childPostalCode ?? "",
-    b.childCity ?? "",
-    b.studentNumber ?? "",
-    b.gradeYear,
-    b.parentName,
-    b.parentEmail,
-    b.parentPhone,
-    zoneLabels[b.tariffZone] ?? b.tariffZone,
-    typeLabels[b.bookingType] ?? b.bookingType,
-    zoneLabels[b.outboundRoute] ?? b.outboundRoute,
-    zoneLabels[b.returnRoute] ?? b.returnRoute,
-    String(sibCountMap[b.id] ?? 0),
-    statusLabels[b.status] ?? b.status,
-    b.adminNotes ?? "",
-    b.createdAt.toLocaleDateString("de-DE"),
-  ]);
+  const dataRows: (string | number | null)[][] = [];
+  for (const b of rows) {
+    // Main booking row
+    dataRows.push([
+      b.referenceNumber,
+      "Hauptkind",
+      b.childName,
+      b.childAddress,
+      b.childPostalCode ?? "",
+      b.childCity ?? "",
+      b.studentNumber ?? "",
+      b.gradeYear,
+      b.parentName,
+      b.parentEmail,
+      b.parentPhone,
+      zoneLabels[b.tariffZone] ?? b.tariffZone,
+      typeLabels[b.bookingType] ?? b.bookingType,
+      zoneLabels[b.outboundRoute] ?? b.outboundRoute,
+      zoneLabels[b.returnRoute] ?? b.returnRoute,
+      statusLabels[b.status] ?? b.status,
+      b.adminNotes ?? "",
+      b.createdAt.toLocaleDateString("de-DE"),
+    ]);
+    // Sibling rows
+    for (const s of siblingsByBooking[b.id] ?? []) {
+      dataRows.push([
+        b.referenceNumber,
+        "Geschwister",
+        s.childName,
+        b.childAddress,
+        b.childPostalCode ?? "",
+        b.childCity ?? "",
+        s.studentNumber ?? "",
+        s.gradeYear,
+        b.parentName,
+        b.parentEmail,
+        b.parentPhone,
+        zoneLabels[b.tariffZone] ?? b.tariffZone,
+        typeLabels[b.bookingType] ?? b.bookingType,
+        zoneLabels[s.outboundRoute] ?? s.outboundRoute,
+        zoneLabels[s.returnRoute] ?? s.returnRoute,
+        statusLabels[b.status] ?? b.status,
+        b.adminNotes ?? "",
+        b.createdAt.toLocaleDateString("de-DE"),
+      ]);
+    }
+  }
 
   const filename = `regionalshuttle-buchungen-${new Date().toISOString().split("T")[0]}`;
 
@@ -366,9 +389,9 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
     const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
 
     ws["!cols"] = [
-      { wch: 18 }, { wch: 28 }, { wch: 35 }, { wch: 16 }, { wch: 16 },
-      { wch: 28 }, { wch: 32 }, { wch: 18 }, { wch: 14 }, { wch: 30 },
-      { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 40 }, { wch: 16 },
+      { wch: 18 }, { wch: 12 }, { wch: 28 }, { wch: 35 }, { wch: 8 }, { wch: 18 },
+      { wch: 14 }, { wch: 12 }, { wch: 28 }, { wch: 30 }, { wch: 16 },
+      { wch: 14 }, { wch: 32 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 40 }, { wch: 16 },
     ];
 
     const headerRow = ws["1"] as Record<string, any> | undefined;
