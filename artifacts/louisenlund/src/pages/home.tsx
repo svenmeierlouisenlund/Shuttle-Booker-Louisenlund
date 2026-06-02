@@ -100,7 +100,7 @@ export default function Home() {
                 <h3 className="font-semibold text-[#004289] mb-2">Flexible Buchung</h3>
                 <p className="text-sm text-[#666666] leading-relaxed">
                   Buchen Sie das gesamte Schuljahr 2026/27 oder nur das erste Schulhalbjahr.
-                  Rückfahrten um 14:30 Uhr oder 16:30 Uhr, sofern angeboten.
+                  Rückfahrten um 14:30 Uhr oder 16:30 Uhr.
                 </p>
               </div>
 
