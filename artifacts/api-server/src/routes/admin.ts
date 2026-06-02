@@ -8,7 +8,7 @@ import {
   ExportBookingsQueryParams,
   AddNotificationEmailBody,
 } from "@workspace/api-zod";
-import { eq, and, count, sum, desc, sql } from "drizzle-orm";
+import { eq, and, count, sum, desc, sql, inArray, or } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import multer from "multer";
 import { calcBookingPrice } from "../pricing.js";
@@ -484,7 +484,15 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
   if (params.tariffZone) conditions.push(eq(bookingsTable.tariffZone, params.tariffZone as any));
   if (params.bookingType) conditions.push(eq(bookingsTable.bookingType, params.bookingType as any));
   if (params.status) conditions.push(eq(bookingsTable.status, params.status as any));
-  if (params.gradeYear) conditions.push(eq(bookingsTable.gradeYear, params.gradeYear as string));
+  if (params.gradeYear) {
+    // Match bookings where main child OR any sibling is in the requested grade year
+    conditions.push(
+      or(
+        eq(bookingsTable.gradeYear, params.gradeYear as string),
+        sql`EXISTS (SELECT 1 FROM siblings WHERE siblings.booking_id = ${bookingsTable.id} AND siblings.grade_year = ${params.gradeYear})`,
+      )!,
+    );
+  }
   if (params.outboundRoute) conditions.push(eq(bookingsTable.outboundRoute, params.outboundRoute as any));
   if (params.returnRoute) conditions.push(eq(bookingsTable.returnRoute, params.returnRoute as any));
 
@@ -503,12 +511,16 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
     .limit(limit)
     .offset(offset);
 
-  const siblingCounts = await db
-    .select({ bookingId: siblingsTable.bookingId, cnt: count() })
-    .from(siblingsTable)
-    .groupBy(siblingsTable.bookingId);
-  const sibCountMap: Record<number, number> = {};
-  for (const r of siblingCounts) sibCountMap[r.bookingId] = Number(r.cnt);
+  // Fetch all siblings for the returned bookings in one query
+  const bookingIds = rows.map((b) => b.id);
+  const allSiblings = bookingIds.length > 0
+    ? await db.select().from(siblingsTable).where(inArray(siblingsTable.bookingId, bookingIds))
+    : [];
+  const siblingsByBooking: Record<number, typeof allSiblings> = {};
+  for (const s of allSiblings) {
+    if (!siblingsByBooking[s.bookingId]) siblingsByBooking[s.bookingId] = [];
+    siblingsByBooking[s.bookingId].push(s);
+  }
 
   const bookings = rows.map((b) => ({
     id: b.id,
@@ -527,8 +539,17 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
     returnRoute: b.returnRoute,
     status: b.status,
     createdAt: b.createdAt.toISOString(),
-    siblingCount: sibCountMap[b.id] ?? 0,
+    siblingCount: (siblingsByBooking[b.id] ?? []).length,
     priceCents: b.priceCents,
+    siblings: (siblingsByBooking[b.id] ?? []).map((s) => ({
+      id: s.id,
+      childName: s.childName,
+      studentNumber: s.studentNumber,
+      gradeYear: s.gradeYear,
+      outboundRoute: s.outboundRoute,
+      returnRoute: s.returnRoute,
+      priceCents: s.priceCents,
+    })),
   }));
 
   res.json({ bookings, total: Number(total), page, limit, totalPriceCents: Number(totalPriceCents ?? 0) });

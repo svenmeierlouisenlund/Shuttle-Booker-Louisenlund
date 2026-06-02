@@ -282,7 +282,7 @@ export default function AdminBookingsList() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data?.bookings.map((booking) => (
+                    {data?.bookings.flatMap((booking) => [
                       <TableRow key={booking.id}>
                         <TableCell className="font-mono text-xs truncate">{booking.referenceNumber}</TableCell>
                         <TableCell className="truncate">{format(new Date(booking.createdAt), "dd.MM.yyyy")}</TableCell>
@@ -306,8 +306,37 @@ export default function AdminBookingsList() {
                             <Button variant="ghost" size="sm">Details</Button>
                           </Link>
                         </TableCell>
-                      </TableRow>
-                    ))}
+                      </TableRow>,
+                      ...(booking.siblings ?? []).map((sibling) => (
+                        <TableRow key={`sib-${sibling.id}`} className="bg-blue-50/60 hover:bg-blue-50">
+                          <TableCell className="font-mono text-xs truncate text-muted-foreground pl-6">↳ {booking.referenceNumber}</TableCell>
+                          <TableCell className="truncate text-muted-foreground">{format(new Date(booking.createdAt), "dd.MM.yyyy")}</TableCell>
+                          <TableCell className="font-medium truncate">
+                            <span className="mr-1.5 inline-flex items-center rounded-sm border border-blue-300 bg-blue-100 px-1 py-0 text-[10px] font-semibold text-blue-700">Geschwister</span>
+                            {sibling.childName}
+                          </TableCell>
+                          <TableCell className="truncate">{sibling.gradeYear}</TableCell>
+                          <TableCell className="truncate text-muted-foreground">{booking.parentName}</TableCell>
+                          <TableCell className="truncate text-muted-foreground">{tariffZoneMap[booking.tariffZone]}</TableCell>
+                          <TableCell className="truncate text-muted-foreground" title={bookingTypeMap[booking.bookingType]}>
+                            {bookingTypeMap[booking.bookingType]}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={statusColorMap[booking.status]}>
+                              {statusMap[booking.status]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-medium tabular-nums">
+                            {fmtPrice(sibling.priceCents)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Link href={`/admin/bookings/${booking.id}`}>
+                              <Button variant="ghost" size="sm">Details</Button>
+                            </Link>
+                          </TableCell>
+                        </TableRow>
+                      )),
+                    ])}
                   </TableBody>
                   {data && data.totalPriceCents > 0 && (
                     <tfoot>
