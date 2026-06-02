@@ -134,7 +134,10 @@ export default function Home() {
       <footer className="border-t border-gray-200 bg-[#f0f0f0]">
         <div className="max-w-5xl mx-auto px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="text-xs text-[#666666]">
-            © {new Date().getFullYear()} Stiftung Louisenlund · D-24357 Güby
+            © {new Date().getFullYear()} Stiftung Louisenlund · D-24357 Güby ·{" "}
+            <Link href="/impressum" className="hover:underline">
+              Impressum
+            </Link>
           </p>
           <p className="text-xs text-[#666666]">
             Regionalshuttle in Kooperation mit MediCall Fahrdienst GmbH
