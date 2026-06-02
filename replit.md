@@ -1,20 +1,23 @@
-# [Project name]
+# Regionalshuttle Louisenlund
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Buchungsportal für den Regionalshuttle der Stiftung Louisenlund für das Schuljahr 2026/27.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)
+- `pnpm --filter @workspace/louisenlund run dev` — run the frontend (port 22499)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
+- Optional env: `ADMIN_PASSWORD` — Admin password (default: `louisenlund2026`)
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
+- Frontend: React + Vite, Tailwind CSS, shadcn/ui, react-hook-form + zod, wouter
+- API: Express 5 with cookie-based admin auth
 - DB: PostgreSQL + Drizzle ORM
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
@@ -22,15 +25,28 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/api-spec/openapi.yaml` — OpenAPI contract (source of truth)
+- `lib/db/src/schema/bookings.ts` — DB schema (bookings + siblings tables)
+- `artifacts/api-server/src/routes/bookings.ts` — POST /api/bookings
+- `artifacts/api-server/src/routes/admin.ts` — Admin API routes
+- `artifacts/louisenlund/src/pages/` — All frontend pages
+- `artifacts/louisenlund/src/index.css` — Theme / design tokens
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Cookie-based admin auth (httpOnly session cookie, password stored in env var `ADMIN_PASSWORD`)
+- Admin default password: `louisenlund2026` — change via `ADMIN_PASSWORD` env var in production
+- CSV export uses BOM (UTF-8 with BOM) for proper Excel compatibility with German umlauts
+- Siblings stored in a separate `siblings` table linked to bookings via foreign key with CASCADE delete
+- Reference numbers format: `LL-YYYY-NNNNN` (e.g. `LL-2026-42387`)
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- 6-step booking form: contact details → tariff zone → booking type → routes → siblings → summary
+- Admin dashboard: statistics, booking list with filters, CSV export, status management, notes
+- Booking statuses: Eingegangen / Geprüft / Bestätigt / Rückfrage offen
+- 20% sibling discount (informational, displayed to user)
+- Supports up to 3 siblings per booking
 
 ## User preferences
 
@@ -38,7 +54,9 @@ _Populate as you build — explicit user instructions worth remembering across s
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- After any OpenAPI spec change, always run `pnpm --filter @workspace/api-spec run codegen` before touching routes or frontend
+- The `pnpm --filter @workspace/db run push` command applies schema to the database — run after any schema file change
+- Admin route `/admin/bookings/export` must come BEFORE `/admin/bookings/:id` in Express router to avoid the export path being treated as an ID param
 
 ## Pointers
 

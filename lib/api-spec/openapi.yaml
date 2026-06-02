@@ -3,20 +3,23 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Regionalshuttle Buchungssystem - Stiftung Louisenlund
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: bookings
+    description: Shuttle bookings
+  - name: admin
+    description: Admin operations
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +27,213 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /bookings:
+    post:
+      operationId: createBooking
+      tags: [bookings]
+      summary: Submit a new shuttle booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingInput"
+      responses:
+        "201":
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingConfirmation"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/bookings:
+    get:
+      operationId: listAdminBookings
+      tags: [admin]
+      summary: List all bookings (admin)
+      parameters:
+        - name: tariffZone
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: bookingType
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: gradeYear
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: outboundRoute
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: returnRoute
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: page
+          in: query
+          schema:
+            type: ["integer", "null"]
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: ["integer", "null"]
+            default: 50
+      responses:
+        "200":
+          description: List of bookings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBookingList"
+        "401":
+          description: Unauthorized
+
+  /admin/bookings/{id}:
+    get:
+      operationId: getAdminBooking
+      tags: [admin]
+      summary: Get booking detail (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Booking detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBookingDetail"
+        "404":
+          description: Not found
+
+    patch:
+      operationId: updateAdminBooking
+      tags: [admin]
+      summary: Update booking status or notes (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingStatusUpdate"
+      responses:
+        "200":
+          description: Updated booking
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminBookingDetail"
+        "404":
+          description: Not found
+
+  /admin/bookings/export:
+    get:
+      operationId: exportBookings
+      tags: [admin]
+      summary: Export bookings as CSV
+      parameters:
+        - name: tariffZone
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: bookingType
+          in: query
+          schema:
+            type: ["string", "null"]
+        - name: status
+          in: query
+          schema:
+            type: ["string", "null"]
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Get booking statistics overview
+      responses:
+        "200":
+          description: Stats overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminStats"
+
+  /admin/login:
+    post:
+      operationId: adminLogin
+      tags: [admin]
+      summary: Admin login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminCredentials"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSession"
+        "401":
+          description: Invalid credentials
+
+  /admin/logout:
+    post:
+      operationId: adminLogout
+      tags: [admin]
+      summary: Admin logout
+      responses:
+        "200":
+          description: Logged out
+
+  /admin/me:
+    get:
+      operationId: getAdminMe
+      tags: [admin]
+      summary: Get current admin session
+      responses:
+        "200":
+          description: Current session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminSession"
+        "401":
+          description: Not authenticated
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +244,325 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    TariffZone:
+      type: string
+      enum: [zone1, zone2, zone3]
+
+    RouteOption:
+      type: string
+      enum: [zone1, zone2, zone3, none]
+
+    BookingType:
+      type: string
+      enum: [full_year, first_half]
+
+    BookingStatus:
+      type: string
+      enum: [received, reviewed, confirmed, query_open]
+
+    SiblingInput:
+      type: object
+      required:
+        - childName
+        - gradeYear
+        - outboundRoute
+        - returnRoute
+      properties:
+        childName:
+          type: string
+        studentNumber:
+          type: ["string", "null"]
+        gradeYear:
+          type: string
+        outboundRoute:
+          $ref: "#/components/schemas/RouteOption"
+        returnRoute:
+          $ref: "#/components/schemas/RouteOption"
+
+    BookingInput:
+      type: object
+      required:
+        - childName
+        - childAddress
+        - gradeYear
+        - parentName
+        - parentEmail
+        - parentPhone
+        - tariffZone
+        - bookingType
+        - outboundRoute
+        - returnRoute
+        - siblings
+        - confirmationAccepted
+        - signatureName
+      properties:
+        childName:
+          type: string
+          minLength: 2
+        childAddress:
+          type: string
+          minLength: 5
+        studentNumber:
+          type: ["string", "null"]
+        gradeYear:
+          type: string
+        parentName:
+          type: string
+          minLength: 2
+        parentEmail:
+          type: string
+          format: email
+        parentPhone:
+          type: string
+          minLength: 6
+        tariffZone:
+          $ref: "#/components/schemas/TariffZone"
+        bookingType:
+          $ref: "#/components/schemas/BookingType"
+        outboundRoute:
+          $ref: "#/components/schemas/RouteOption"
+        returnRoute:
+          $ref: "#/components/schemas/RouteOption"
+        siblings:
+          type: array
+          items:
+            $ref: "#/components/schemas/SiblingInput"
+          maxItems: 3
+        confirmationAccepted:
+          type: boolean
+        signatureName:
+          type: string
+          minLength: 2
+        gdprConsent:
+          type: boolean
+
+    BookingConfirmation:
+      type: object
+      required:
+        - id
+        - referenceNumber
+        - message
+      properties:
+        id:
+          type: integer
+        referenceNumber:
+          type: string
+        message:
+          type: string
+
+    Sibling:
+      type: object
+      required:
+        - id
+        - childName
+        - gradeYear
+        - outboundRoute
+        - returnRoute
+      properties:
+        id:
+          type: integer
+        childName:
+          type: string
+        studentNumber:
+          type: ["string", "null"]
+        gradeYear:
+          type: string
+        outboundRoute:
+          type: string
+        returnRoute:
+          type: string
+
+    AdminBooking:
+      type: object
+      required:
+        - id
+        - referenceNumber
+        - childName
+        - gradeYear
+        - parentName
+        - parentEmail
+        - tariffZone
+        - bookingType
+        - outboundRoute
+        - returnRoute
+        - status
+        - createdAt
+        - siblingCount
+      properties:
+        id:
+          type: integer
+        referenceNumber:
+          type: string
+        childName:
+          type: string
+        gradeYear:
+          type: string
+        parentName:
+          type: string
+        parentEmail:
+          type: string
+        parentPhone:
+          type: string
+        tariffZone:
+          type: string
+        bookingType:
+          type: string
+        outboundRoute:
+          type: string
+        returnRoute:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+        siblingCount:
+          type: integer
+
+    AdminBookingDetail:
+      type: object
+      required:
+        - id
+        - referenceNumber
+        - childName
+        - childAddress
+        - gradeYear
+        - parentName
+        - parentEmail
+        - parentPhone
+        - tariffZone
+        - bookingType
+        - outboundRoute
+        - returnRoute
+        - status
+        - createdAt
+        - siblings
+      properties:
+        id:
+          type: integer
+        referenceNumber:
+          type: string
+        childName:
+          type: string
+        childAddress:
+          type: string
+        studentNumber:
+          type: ["string", "null"]
+        gradeYear:
+          type: string
+        parentName:
+          type: string
+        parentEmail:
+          type: string
+        parentPhone:
+          type: string
+        tariffZone:
+          type: string
+        bookingType:
+          type: string
+        outboundRoute:
+          type: string
+        returnRoute:
+          type: string
+        signatureName:
+          type: string
+        status:
+          type: string
+        adminNotes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        siblings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Sibling"
+
+    AdminBookingList:
+      type: object
+      required:
+        - bookings
+        - total
+        - page
+        - limit
+      properties:
+        bookings:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminBooking"
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+
+    BookingStatusUpdate:
+      type: object
+      properties:
+        status:
+          $ref: "#/components/schemas/BookingStatus"
+        adminNotes:
+          type: ["string", "null"]
+
+    AdminStats:
+      type: object
+      required:
+        - totalBookings
+        - byStatus
+        - byTariffZone
+        - byBookingType
+        - byGradeYear
+        - totalChildren
+        - recentBookings
+      properties:
+        totalBookings:
+          type: integer
+        byStatus:
+          type: object
+          additionalProperties:
+            type: integer
+        byTariffZone:
+          type: object
+          additionalProperties:
+            type: integer
+        byBookingType:
+          type: object
+          additionalProperties:
+            type: integer
+        byGradeYear:
+          type: object
+          additionalProperties:
+            type: integer
+        totalChildren:
+          type: integer
+        recentBookings:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminBooking"
+
+    AdminCredentials:
+      type: object
+      required:
+        - password
+      properties:
+        password:
+          type: string
+
+    AdminSession:
+      type: object
+      required:
+        - authenticated
+      properties:
+        authenticated:
+          type: boolean
+        username:
+          type: ["string", "null"]
