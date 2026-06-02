@@ -128,7 +128,7 @@ const SCHOOL_COORDS: [number, number] = [54.4936698, 9.6863704];
 
 // ---------------------------------------------------------------------------
 
-const CACHE_KEY = "ll_geocode_cache_v2";
+const CACHE_KEY = "ll_geocode_cache_v3";
 const GEOCODE_DELAY_MS = 1100;
 
 const statusMap: Record<string, string> = {
@@ -219,6 +219,8 @@ type GeocodedBooking = {
   referenceNumber: string;
   childName: string;
   childAddress: string;
+  childPostalCode: string;
+  childCity: string;
   gradeYear: string;
   parentName: string;
   tariffZone: string;
@@ -255,10 +257,11 @@ export default function AdminMap() {
     const needsGeocode: typeof bookings = [];
 
     for (const b of bookings) {
-      const cached = cache[b.childAddress];
+      const fullAddr = `${b.childAddress}, ${b.childPostalCode} ${b.childCity}`;
+      const cached = cache[fullAddr];
       if (cached !== undefined) {
         if (cached) {
-          initial.push({ id: b.id, referenceNumber: b.referenceNumber, childName: b.childName, childAddress: b.childAddress, gradeYear: b.gradeYear, parentName: b.parentName, tariffZone: b.tariffZone, status: b.status, coords: cached });
+          initial.push({ id: b.id, referenceNumber: b.referenceNumber, childName: b.childName, childAddress: b.childAddress, childPostalCode: b.childPostalCode, childCity: b.childCity, gradeYear: b.gradeYear, parentName: b.parentName, tariffZone: b.tariffZone, status: b.status, coords: cached });
         }
       } else {
         needsGeocode.push(b);
@@ -284,15 +287,16 @@ export default function AdminMap() {
       }
 
       const booking = needsGeocode[i++];
+      const fullAddr = `${booking.childAddress}, ${booking.childPostalCode} ${booking.childCity}`;
 
-      geocodeAddress(booking.childAddress).then((coords) => {
-        cache[booking.childAddress] = coords;
+      geocodeAddress(fullAddr).then((coords) => {
+        cache[fullAddr] = coords;
         saveCache(cache);
 
         if (coords) {
           setMarkers((prev) => [
             ...prev,
-            { id: booking.id, referenceNumber: booking.referenceNumber, childName: booking.childName, childAddress: booking.childAddress, gradeYear: booking.gradeYear, parentName: booking.parentName, tariffZone: booking.tariffZone, status: booking.status, coords },
+            { id: booking.id, referenceNumber: booking.referenceNumber, childName: booking.childName, childAddress: booking.childAddress, childPostalCode: booking.childPostalCode, childCity: booking.childCity, gradeYear: booking.gradeYear, parentName: booking.parentName, tariffZone: booking.tariffZone, status: booking.status, coords },
           ]);
         } else {
           setFailedCount((n) => n + 1);
@@ -416,8 +420,9 @@ export default function AdminMap() {
                   <Marker key={m.id} position={m.coords} icon={createColoredIcon(statusColorMap[m.status] ?? "#6b7280")}>
                     <Popup>
                       <div style={{ minWidth: 190, fontFamily: "sans-serif", fontSize: 13 }}>
-                        <div style={{ fontWeight: 600, marginBottom: 4 }}>{m.childName}</div>
-                        <div style={{ color: "#888", fontSize: 11, marginBottom: 6 }}>{m.referenceNumber}</div>
+                        <div style={{ fontWeight: 600, marginBottom: 2 }}>{m.childName}</div>
+                        <div style={{ color: "#888", fontSize: 11 }}>{m.childAddress}</div>
+                        <div style={{ color: "#888", fontSize: 11, marginBottom: 6 }}>{m.childPostalCode} {m.childCity} · {m.referenceNumber}</div>
                         <table style={{ width: "100%", borderCollapse: "collapse" }}>
                           <tbody>
                             <tr>
