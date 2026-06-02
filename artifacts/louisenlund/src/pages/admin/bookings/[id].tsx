@@ -5,13 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ChevronLeft, Save, Trash2 } from "lucide-react";
+import { ChevronLeft, Save, Trash2, Pencil, X } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,9 +57,37 @@ const bookingTypeMap: Record<string, string> = {
   first_half: "1. Schulhalbjahr 2026/27"
 };
 
+const gradeYearOptions = [
+  "Jahrgang 1","Jahrgang 2","Jahrgang 3","Jahrgang 4","Jahrgang 5",
+  "Jahrgang 6","Jahrgang 7","Jahrgang 8","Jahrgang 9","MYP5","DP1","DP2"
+];
+
 function fmtPrice(cents: number | null | undefined): string {
   if (cents == null) return "–";
   return (cents / 100).toLocaleString("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+interface EditFields {
+  childName: string;
+  studentNumber: string;
+  gradeYear: string;
+  childAddress: string;
+  parentName: string;
+  parentEmail: string;
+  parentPhone: string;
+  tariffZone: string;
+  bookingType: string;
+  outboundRoute: string;
+  returnRoute: string;
+}
+
+function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-sm font-medium text-muted-foreground mb-1">{label}</div>
+      {children}
+    </div>
+  );
 }
 
 export default function AdminBookingDetail() {
@@ -73,25 +102,91 @@ export default function AdminBookingDetail() {
 
   const [status, setStatus] = useState<string>("");
   const [adminNotes, setAdminNotes] = useState<string>("");
+  const [editMode, setEditMode] = useState(false);
+  const [editFields, setEditFields] = useState<EditFields>({
+    childName: "", studentNumber: "", gradeYear: "", childAddress: "",
+    parentName: "", parentEmail: "", parentPhone: "",
+    tariffZone: "", bookingType: "", outboundRoute: "", returnRoute: "",
+  });
 
   useEffect(() => {
     if (booking) {
       setStatus(booking.status);
       setAdminNotes(booking.adminNotes || "");
+      setEditFields({
+        childName: booking.childName,
+        studentNumber: booking.studentNumber || "",
+        gradeYear: booking.gradeYear,
+        childAddress: booking.childAddress,
+        parentName: booking.parentName,
+        parentEmail: booking.parentEmail,
+        parentPhone: booking.parentPhone || "",
+        tariffZone: booking.tariffZone,
+        bookingType: booking.bookingType,
+        outboundRoute: booking.outboundRoute,
+        returnRoute: booking.returnRoute,
+      });
     }
   }, [booking]);
 
-  const handleSave = () => {
+  function handleCancelEdit() {
+    if (booking) {
+      setEditFields({
+        childName: booking.childName,
+        studentNumber: booking.studentNumber || "",
+        gradeYear: booking.gradeYear,
+        childAddress: booking.childAddress,
+        parentName: booking.parentName,
+        parentEmail: booking.parentEmail,
+        parentPhone: booking.parentPhone || "",
+        tariffZone: booking.tariffZone,
+        bookingType: booking.bookingType,
+        outboundRoute: booking.outboundRoute,
+        returnRoute: booking.returnRoute,
+      });
+    }
+    setEditMode(false);
+  }
+
+  function handleSaveStatus() {
     updateMutation.mutate({ id, data: { status: status as any, adminNotes } }, {
       onSuccess: (data) => {
-        toast({ title: "Gespeichert", description: "Die Buchung wurde aktualisiert." });
+        toast({ title: "Gespeichert", description: "Status und Notizen wurden aktualisiert." });
         queryClient.setQueryData(getGetAdminBookingQueryKey(id), data);
       },
       onError: () => {
         toast({ title: "Fehler", description: "Fehler beim Speichern.", variant: "destructive" });
       }
     });
-  };
+  }
+
+  function handleSaveBookingData() {
+    updateMutation.mutate({
+      id,
+      data: {
+        childName: editFields.childName,
+        studentNumber: editFields.studentNumber || null,
+        gradeYear: editFields.gradeYear,
+        childAddress: editFields.childAddress,
+        parentName: editFields.parentName,
+        parentEmail: editFields.parentEmail,
+        parentPhone: editFields.parentPhone || null,
+        tariffZone: editFields.tariffZone as any,
+        bookingType: editFields.bookingType as any,
+        outboundRoute: editFields.outboundRoute as any,
+        returnRoute: editFields.returnRoute as any,
+      }
+    }, {
+      onSuccess: (data) => {
+        toast({ title: "Gespeichert", description: "Buchungsdaten wurden aktualisiert." });
+        queryClient.setQueryData(getGetAdminBookingQueryKey(id), data);
+        setEditMode(false);
+      },
+      onError: () => {
+        toast({ title: "Fehler", description: "Fehler beim Speichern.", variant: "destructive" });
+      }
+    });
+  }
 
   const handleDelete = () => {
     deleteMutation.mutate({ id }, {
@@ -104,6 +199,9 @@ export default function AdminBookingDetail() {
       }
     });
   };
+
+  const setField = (k: keyof EditFields) => (v: string) =>
+    setEditFields(prev => ({ ...prev, [k]: v }));
 
   if (isLoading) {
     return (
@@ -130,7 +228,7 @@ export default function AdminBookingDetail() {
           <Badge variant="outline" className={statusColorMap[booking.status]}>
             {statusMap[booking.status]}
           </Badge>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700">
@@ -161,59 +259,137 @@ export default function AdminBookingDetail() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-2 space-y-6">
+
+            {/* Buchungsdaten */}
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg">Buchungsdaten</CardTitle>
+                {!editMode ? (
+                  <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
+                    <Pencil className="w-4 h-4 mr-2" />
+                    Bearbeiten
+                  </Button>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={handleCancelEdit}>
+                      <X className="w-4 h-4 mr-2" />
+                      Abbrechen
+                    </Button>
+                    <Button size="sm" onClick={handleSaveBookingData} disabled={updateMutation.isPending}>
+                      <Save className="w-4 h-4 mr-2" />
+                      Speichern
+                    </Button>
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-2 gap-y-4 gap-x-8">
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">Datum</div>
+                  <FieldRow label="Datum">
                     <div>{format(new Date(booking.createdAt), "dd.MM.yyyy HH:mm")}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">Buchungstyp</div>
-                    <div>{bookingTypeMap[booking.bookingType]}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">Tarifzone</div>
-                    <div>{tariffZoneMap[booking.tariffZone]}</div>
-                  </div>
+                  </FieldRow>
+                  <FieldRow label="Buchungstyp">
+                    {editMode ? (
+                      <Select value={editFields.bookingType} onValueChange={setField("bookingType")}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="full_year">Gesamtes Schuljahr 2026/27</SelectItem>
+                          <SelectItem value="first_half">1. Schulhalbjahr 2026/27</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div>{bookingTypeMap[booking.bookingType]}</div>
+                    )}
+                  </FieldRow>
+                  <FieldRow label="Tarifzone">
+                    {editMode ? (
+                      <Select value={editFields.tariffZone} onValueChange={setField("tariffZone")}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="zone1">Tarifzone 1</SelectItem>
+                          <SelectItem value="zone2">Tarifzone 2</SelectItem>
+                          <SelectItem value="zone3">Tarifzone 3</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div>{tariffZoneMap[booking.tariffZone]}</div>
+                    )}
+                  </FieldRow>
                 </div>
 
                 <div className="pt-4 border-t">
                   <h3 className="font-semibold mb-4 text-primary">Kind</h3>
                   <div className="grid grid-cols-2 gap-y-4 gap-x-8">
-                    <div>
-                      <div className="text-sm font-medium text-muted-foreground">Name</div>
-                      <div>{booking.childName}</div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-muted-foreground">Klasse</div>
-                      <div>{booking.gradeYear}</div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-muted-foreground">Schülernummer</div>
-                      <div>{booking.studentNumber || "-"}</div>
-                    </div>
-                    <div className="col-span-2">
-                      <div className="text-sm font-medium text-muted-foreground">Adresse</div>
-                      <div>{booking.childAddress}</div>
-                    </div>
+                    <FieldRow label="Name">
+                      {editMode ? (
+                        <Input value={editFields.childName} onChange={e => setField("childName")(e.target.value)} />
+                      ) : (
+                        <div>{booking.childName}</div>
+                      )}
+                    </FieldRow>
+                    <FieldRow label="Klasse">
+                      {editMode ? (
+                        <Select value={editFields.gradeYear} onValueChange={setField("gradeYear")}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {gradeYearOptions.map(g => (
+                              <SelectItem key={g} value={g}>{g}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div>{booking.gradeYear}</div>
+                      )}
+                    </FieldRow>
+                    <FieldRow label="Schülernummer">
+                      {editMode ? (
+                        <Input value={editFields.studentNumber} onChange={e => setField("studentNumber")(e.target.value)} placeholder="–" />
+                      ) : (
+                        <div>{booking.studentNumber || "–"}</div>
+                      )}
+                    </FieldRow>
+                    <FieldRow label="Adresse">
+                      {editMode ? (
+                        <Input value={editFields.childAddress} onChange={e => setField("childAddress")(e.target.value)} />
+                      ) : (
+                        <div>{booking.childAddress}</div>
+                      )}
+                    </FieldRow>
                   </div>
                 </div>
 
                 <div className="pt-4 border-t">
                   <h3 className="font-semibold mb-4 text-primary">Strecken</h3>
                   <div className="grid grid-cols-2 gap-y-4 gap-x-8">
-                    <div>
-                      <div className="text-sm font-medium text-muted-foreground">Hinfahrt (Morgens)</div>
-                      <div>{routeOptionMap[booking.outboundRoute]}</div>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-muted-foreground">Rückfahrt (Nachmittags)</div>
-                      <div>{routeOptionMap[booking.returnRoute]}</div>
-                    </div>
+                    <FieldRow label="Hinfahrt (Morgens)">
+                      {editMode ? (
+                        <Select value={editFields.outboundRoute} onValueChange={setField("outboundRoute")}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="zone1">Tarifzone 1</SelectItem>
+                            <SelectItem value="zone2">Tarifzone 2</SelectItem>
+                            <SelectItem value="zone3">Tarifzone 3</SelectItem>
+                            <SelectItem value="none">Keine</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div>{routeOptionMap[booking.outboundRoute]}</div>
+                      )}
+                    </FieldRow>
+                    <FieldRow label="Rückfahrt (Nachmittags)">
+                      {editMode ? (
+                        <Select value={editFields.returnRoute} onValueChange={setField("returnRoute")}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="zone1">Tarifzone 1</SelectItem>
+                            <SelectItem value="zone2">Tarifzone 2</SelectItem>
+                            <SelectItem value="zone3">Tarifzone 3</SelectItem>
+                            <SelectItem value="none">Keine</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <div>{routeOptionMap[booking.returnRoute]}</div>
+                      )}
+                    </FieldRow>
                   </div>
                 </div>
 
@@ -234,7 +410,7 @@ export default function AdminBookingDetail() {
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <div><span className="text-muted-foreground">Klasse:</span> {sibling.gradeYear}</div>
-                            <div><span className="text-muted-foreground">Schülernummer:</span> {sibling.studentNumber || "-"}</div>
+                            <div><span className="text-muted-foreground">Schülernummer:</span> {sibling.studentNumber || "–"}</div>
                             <div><span className="text-muted-foreground">Hinfahrt:</span> {routeOptionMap[sibling.outboundRoute]}</div>
                             <div><span className="text-muted-foreground">Rückfahrt:</span> {routeOptionMap[sibling.returnRoute]}</div>
                           </div>
@@ -246,28 +422,37 @@ export default function AdminBookingDetail() {
               </CardContent>
             </Card>
 
+            {/* Elterndaten */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Elterndaten</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-y-4 gap-x-8">
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">Name</div>
-                    <div>{booking.parentName}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">Unterschrift</div>
+                  <FieldRow label="Name">
+                    {editMode ? (
+                      <Input value={editFields.parentName} onChange={e => setField("parentName")(e.target.value)} />
+                    ) : (
+                      <div>{booking.parentName}</div>
+                    )}
+                  </FieldRow>
+                  <FieldRow label="Unterschrift">
                     <div className="font-serif italic">{booking.signatureName}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">E-Mail</div>
-                    <div>{booking.parentEmail}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">Telefon</div>
-                    <div>{booking.parentPhone || "-"}</div>
-                  </div>
+                  </FieldRow>
+                  <FieldRow label="E-Mail">
+                    {editMode ? (
+                      <Input type="email" value={editFields.parentEmail} onChange={e => setField("parentEmail")(e.target.value)} />
+                    ) : (
+                      <div>{booking.parentEmail}</div>
+                    )}
+                  </FieldRow>
+                  <FieldRow label="Telefon">
+                    {editMode ? (
+                      <Input value={editFields.parentPhone} onChange={e => setField("parentPhone")(e.target.value)} placeholder="–" />
+                    ) : (
+                      <div>{booking.parentPhone || "–"}</div>
+                    )}
+                  </FieldRow>
                 </div>
               </CardContent>
             </Card>
@@ -326,21 +511,21 @@ export default function AdminBookingDetail() {
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Interne Notizen</label>
-                  <Textarea 
-                    value={adminNotes} 
-                    onChange={e => setAdminNotes(e.target.value)} 
+                  <Textarea
+                    value={adminNotes}
+                    onChange={e => setAdminNotes(e.target.value)}
                     placeholder="Notizen zur Bearbeitung..."
                     className="min-h-[150px]"
                   />
                 </div>
 
-                <Button 
-                  className="w-full" 
-                  onClick={handleSave} 
+                <Button
+                  className="w-full"
+                  onClick={handleSaveStatus}
                   disabled={updateMutation.isPending}
                 >
                   <Save className="w-4 h-4 mr-2" />
-                  Änderungen speichern
+                  Status speichern
                 </Button>
               </CardContent>
             </Card>

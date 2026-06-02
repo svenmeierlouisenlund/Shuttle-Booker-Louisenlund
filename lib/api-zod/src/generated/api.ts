@@ -175,7 +175,18 @@ export const UpdateAdminBookingParams = zod.object({
 
 export const UpdateAdminBookingBody = zod.object({
   "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open']).optional(),
-  "adminNotes": zod.string().nullish()
+  "adminNotes": zod.string().nullish(),
+  "childName": zod.string().optional(),
+  "studentNumber": zod.string().nullish(),
+  "gradeYear": zod.string().optional(),
+  "childAddress": zod.string().optional(),
+  "parentName": zod.string().optional(),
+  "parentEmail": zod.string().email().optional(),
+  "parentPhone": zod.string().nullish(),
+  "tariffZone": zod.enum(['zone1', 'zone2', 'zone3']).optional(),
+  "bookingType": zod.enum(['full_year', 'first_half']).optional(),
+  "outboundRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']).optional(),
+  "returnRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']).optional()
 })
 
 export const UpdateAdminBookingResponse = zod.object({

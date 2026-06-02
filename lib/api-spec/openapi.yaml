@@ -623,6 +623,33 @@ components:
           $ref: "#/components/schemas/BookingStatus"
         adminNotes:
           type: ["string", "null"]
+        childName:
+          type: string
+        studentNumber:
+          type: ["string", "null"]
+        gradeYear:
+          type: string
+        childAddress:
+          type: string
+        parentName:
+          type: string
+        parentEmail:
+          type: string
+          format: email
+        parentPhone:
+          type: ["string", "null"]
+        tariffZone:
+          type: string
+          enum: [zone1, zone2, zone3]
+        bookingType:
+          type: string
+          enum: [full_year, first_half]
+        outboundRoute:
+          type: string
+          enum: [zone1, zone2, zone3, none]
+        returnRoute:
+          type: string
+          enum: [zone1, zone2, zone3, none]
 
     AdminStats:
       type: object
