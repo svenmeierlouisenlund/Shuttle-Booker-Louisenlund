@@ -4,7 +4,7 @@ import { bookingsTable, siblingsTable } from "@workspace/db";
 import { CreateBookingBody } from "@workspace/api-zod";
 import { eq } from "drizzle-orm";
 import { sendBookingNotification, sendParentConfirmation } from "../services/email.js";
-import { calcBookingPrice, calcSiblingPrice } from "../pricing.js";
+import { calcBookingPrice, calcSiblingPrice, gradeRank } from "../pricing.js";
 import { recalcFamilyPrices } from "../services/family.js";
 
 const router = Router();
@@ -49,12 +49,18 @@ router.post("/bookings", async (req, res) => {
 
   const { siblings, gdprConsent, ...bookingFields } = data;
 
-  const priceCents = calcBookingPrice(
-    data.tariffZone,
-    data.bookingType,
-    data.outboundRoute,
-    data.returnRoute,
+  // Determine Vollzahler: the child with the highest grade rank pays full price.
+  // Tie-breaker: main child wins (rank >=, not strictly >).
+  const validSiblings = (siblings ?? []).filter(
+    s => s.outboundRoute !== "none" || s.returnRoute !== "none",
   );
+  const allGrades = [data.gradeYear, ...validSiblings.map(s => s.gradeYear)];
+  const maxRank = Math.max(...allGrades.map(gradeRank));
+  const mainIsFullPayer = gradeRank(data.gradeYear) >= maxRank;
+
+  const priceCents = mainIsFullPayer
+    ? calcBookingPrice(data.tariffZone, data.bookingType, data.outboundRoute, data.returnRoute)
+    : calcSiblingPrice(data.tariffZone, data.bookingType, data.outboundRoute, data.returnRoute);
 
   const [booking] = await db
     .insert(bookingsTable)
@@ -68,16 +74,18 @@ router.post("/bookings", async (req, res) => {
     .returning();
 
   if (siblings && siblings.length > 0) {
+    // Among siblings, the first one whose grade rank equals maxRank (and main is not full payer)
+    // becomes the Vollzahler.
+    let fullPayerSiblingFound = mainIsFullPayer;
     for (const sibling of siblings) {
       if (sibling.outboundRoute === "none" && sibling.returnRoute === "none") {
         continue;
       }
-      const siblingPriceCents = calcSiblingPrice(
-        data.tariffZone,
-        data.bookingType,
-        sibling.outboundRoute,
-        sibling.returnRoute,
-      );
+      const isFullPayer = !fullPayerSiblingFound && gradeRank(sibling.gradeYear) === maxRank;
+      if (isFullPayer) fullPayerSiblingFound = true;
+      const siblingPriceCents = isFullPayer
+        ? calcBookingPrice(data.tariffZone, data.bookingType, sibling.outboundRoute, sibling.returnRoute)
+        : calcSiblingPrice(data.tariffZone, data.bookingType, sibling.outboundRoute, sibling.returnRoute);
       await db.insert(siblingsTable).values({
         bookingId: booking.id,
         ...sibling,

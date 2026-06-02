@@ -15,6 +15,30 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ChevronRight, ChevronLeft, Plus, Trash2 } from "lucide-react";
 import logo from "@assets/Logo_-_Stiftung_Louisenlund_Print_1780387424925.png";
 
+// ── Pricing helpers (mirrors server-side pricing.ts) ─────────────────────────
+const GRADE_RANKS_FE: Record<string, number> = {
+  "Jahrgang 1": 1, "Jahrgang 2": 2, "Jahrgang 3": 3, "Jahrgang 4": 4,
+  "Jahrgang 5": 5, "Jahrgang 6": 6, "Jahrgang 7": 7, "Jahrgang 8": 8,
+  "MYP3": 8, "Jahrgang 9": 9, "MYP4": 9, "Jahrgang 10": 10,
+  "MYP5": 10, "E-Jahrgang": 11, "DP1": 11, "Q1-Jahrgang": 12,
+  "DP2": 12, "Q2-Jahrgang": 13,
+};
+function gradeRankFE(grade: string): number { return GRADE_RANKS_FE[grade] ?? 0; }
+
+const PRICE_TABLE_FE: Record<string, Record<string, Record<string, number>>> = {
+  full_year:  { both: { zone1: 150000, zone2: 280000, zone3: 410000 }, one_way: { zone1: 75000, zone2: 140000, zone3: 205000 } },
+  first_half: { both: { zone1:  85000, zone2: 155000, zone3: 230000 }, one_way: { zone1: 42500, zone2:  77500, zone3: 115000 } },
+};
+function calcChildPriceFE(zone: string, bType: string, out: string, ret: string, fullPayer: boolean): number {
+  const rt = out !== "none" && ret !== "none" ? "both" : "one_way";
+  const base = PRICE_TABLE_FE[bType]?.[rt]?.[zone] ?? 0;
+  return fullPayer ? base : Math.round(base * 0.8);
+}
+function fmtPrice(cents: number): string {
+  return (cents / 100).toLocaleString("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 const siblingSchema = z.object({
   childName: z.string().min(2, "Bitte geben Sie den Namen ein"),
   studentNumber: z.string().optional().nullable(),
@@ -471,7 +495,7 @@ export default function BookingForm() {
         return (
           <div className="space-y-6">
             <div className="bg-secondary/30 p-4 rounded-md text-sm mb-6 border border-secondary">
-              Für Geschwisterkinder wird ein <span className="font-semibold text-primary">Geschwisterrabatt von 20%</span> gewährt.
+              Das Kind mit der <span className="font-semibold text-primary">höchsten Klassenstufe</span> gilt als Vollzahler. Alle weiteren Kinder erhalten einen <span className="font-semibold text-primary">Geschwisterrabatt von 20 %</span>.
             </div>
 
             {siblingFields.map((field, index) => (
@@ -626,6 +650,74 @@ export default function BookingForm() {
                   </div>
                 </div>
               )}
+
+              {/* Price breakdown */}
+              {(() => {
+                const validSiblings = data.siblings.filter(
+                  s => s.outboundRoute !== "none" || s.returnRoute !== "none",
+                );
+                const allGrades = [data.gradeYear, ...validSiblings.map(s => s.gradeYear)];
+                const maxRank = Math.max(...allGrades.map(gradeRankFE));
+                const mainIsFullPayer = gradeRankFE(data.gradeYear) >= maxRank;
+                const hasMultipleChildren = data.siblings.length > 0;
+
+                // Determine full-payer flag for each sibling
+                let fullPayerSiblingFound = mainIsFullPayer;
+                const siblingFullPayer = data.siblings.map(s => {
+                  if (s.outboundRoute === "none" && s.returnRoute === "none") return false;
+                  const isFP = !fullPayerSiblingFound && gradeRankFE(s.gradeYear) === maxRank;
+                  if (isFP) fullPayerSiblingFound = true;
+                  return isFP;
+                });
+
+                const mainPrice = calcChildPriceFE(data.tariffZone, data.bookingType, data.outboundRoute, data.returnRoute, mainIsFullPayer);
+                const siblingPrices = data.siblings.map((s, i) =>
+                  (s.outboundRoute === "none" && s.returnRoute === "none") ? 0
+                    : calcChildPriceFE(data.tariffZone, data.bookingType, s.outboundRoute, s.returnRoute, siblingFullPayer[i]),
+                );
+                const total = mainPrice + siblingPrices.reduce((a, b) => a + b, 0);
+
+                return (
+                  <div>
+                    <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Preisübersicht</h4>
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="flex items-center gap-1.5">
+                          {data.childName} ({data.gradeYear})
+                          {hasMultipleChildren && mainIsFullPayer && (
+                            <span className="text-[11px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-semibold">Vollzahler</span>
+                          )}
+                          {hasMultipleChildren && !mainIsFullPayer && (
+                            <span className="text-[11px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">Geschwister –20 %</span>
+                          )}
+                        </span>
+                        <span className="font-medium tabular-nums">{fmtPrice(mainPrice)}</span>
+                      </div>
+                      {data.siblings.map((s, i) => {
+                        if (s.outboundRoute === "none" && s.returnRoute === "none") return null;
+                        return (
+                          <div key={i} className="flex justify-between items-center text-sm">
+                            <span className="flex items-center gap-1.5">
+                              {s.childName} ({s.gradeYear})
+                              {siblingFullPayer[i] ? (
+                                <span className="text-[11px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-semibold">Vollzahler</span>
+                              ) : (
+                                <span className="text-[11px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold">Geschwister –20 %</span>
+                              )}
+                            </span>
+                            <span className="font-medium tabular-nums">{fmtPrice(siblingPrices[i])}</span>
+                          </div>
+                        );
+                      })}
+                      <div className="flex justify-between items-center text-sm font-semibold border-t border-gray-200 pt-2 mt-1">
+                        <span>Jahresbeitrag gesamt</span>
+                        <span className="tabular-nums">{fmtPrice(total)}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Unverbindliche Schätzung – der genaue Betrag wird nach Prüfung bestätigt.</p>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="space-y-4">

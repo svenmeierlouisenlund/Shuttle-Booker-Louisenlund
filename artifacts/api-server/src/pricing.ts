@@ -2,6 +2,33 @@ type TariffZone = "zone1" | "zone2" | "zone3";
 type BookingType = "full_year" | "first_half";
 type RouteOption = "zone1" | "zone2" | "zone3" | "none";
 
+// Grade order: higher rank = higher school year = potential Vollzahler
+const GRADE_RANKS: Record<string, number> = {
+  "Jahrgang 1":  1,
+  "Jahrgang 2":  2,
+  "Jahrgang 3":  3,
+  "Jahrgang 4":  4,
+  "Jahrgang 5":  5,
+  "Jahrgang 6":  6,
+  "Jahrgang 7":  7,
+  "Jahrgang 8":  8,
+  "MYP3":        8,
+  "Jahrgang 9":  9,
+  "MYP4":        9,
+  "Jahrgang 10": 10,
+  "MYP5":        10,
+  "E-Jahrgang":  11,
+  "DP1":         11,
+  "Q1-Jahrgang": 12,
+  "DP2":         12,
+  "Q2-Jahrgang": 13,
+};
+
+/** Returns a numeric rank for a grade string. Higher = older. Unknown grades → 0. */
+export function gradeRank(grade: string): number {
+  return GRADE_RANKS[grade] ?? 0;
+}
+
 // All prices in cents (€ × 100)
 const PRICE_TABLE: Record<BookingType, Record<"both" | "one_way", Record<TariffZone, number>>> = {
   full_year: {
