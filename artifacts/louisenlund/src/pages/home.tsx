@@ -53,7 +53,7 @@ export default function Home() {
                 </Button>
               </Link>
               <a
-                href="https://louisenlund.de/regionalshuttle"
+                href="https://www.louisenlund.de/regionalshuttle"
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -82,12 +82,12 @@ export default function Home() {
                   Wählen Sie Tarifzone 1, 2 oder 3 entsprechend Ihrem Wohnort.
                   Details finden Sie auf{" "}
                   <a
-                    href="https://louisenlund.de/regionalshuttle"
+                    href="https://www.louisenlund.de/regionalshuttle"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-[#004289] underline underline-offset-2"
                   >
-                    louisenlund.de/regionalshuttle
+                    www.louisenlund.de/regionalshuttle
                   </a>
                   .
                 </p>
