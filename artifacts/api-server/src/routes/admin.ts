@@ -278,8 +278,9 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
         bookingType = (BOOKING_TYPE_MAP[cleanStr((row as any)[12])] ?? "full_year") as "full_year" | "first_half";
         outboundRoute = (ROUTE_MAP[cleanStr((row as any)[13])] ?? tariffZone) as any;
         returnRoute = (ROUTE_MAP[cleanStr((row as any)[14])] ?? tariffZone) as any;
-        status = (STATUS_IMPORT_MAP[cleanStr((row as any)[15])] ?? "confirmed") as any;
-        adminNotes = cleanStr((row as any)[16]) || "Importiert";
+        // col 15 = Kosten (€) — skipped on import (recalculated)
+        status = (STATUS_IMPORT_MAP[cleanStr((row as any)[16])] ?? "confirmed") as any;
+        adminNotes = cleanStr((row as any)[17]) || "Importiert";
       } else {
         // Old format (10 cols):
         // 0:Name Kind 1:Schülernummer 2:Jahrgang 3:Straße 4:PLZ 5:Ort 6:Elternteil 7:E-Mail 8:Telefon 9:Tarifzone
@@ -444,6 +445,7 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
     "Buchungsart",
     "Hinfahrt",
     "Rückfahrt",
+    "Kosten (€)",
     "Status",
     "Notizen",
     "Eingegangen am",
@@ -468,6 +470,7 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
       typeLabels[b.bookingType] ?? b.bookingType,
       zoneLabels[b.outboundRoute] ?? b.outboundRoute,
       zoneLabels[b.returnRoute] ?? b.returnRoute,
+      b.priceCents != null ? b.priceCents / 100 : "",
       statusLabels[b.status] ?? b.status,
       b.adminNotes ?? "",
       b.createdAt.toLocaleDateString("de-DE"),
@@ -490,6 +493,7 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
         typeLabels[b.bookingType] ?? b.bookingType,
         zoneLabels[s.outboundRoute] ?? s.outboundRoute,
         zoneLabels[s.returnRoute] ?? s.returnRoute,
+        s.priceCents != null ? s.priceCents / 100 : "",
         statusLabels[b.status] ?? b.status,
         b.adminNotes ?? "",
         b.createdAt.toLocaleDateString("de-DE"),
@@ -506,7 +510,7 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
     ws["!cols"] = [
       { wch: 18 }, { wch: 12 }, { wch: 28 }, { wch: 35 }, { wch: 8 }, { wch: 18 },
       { wch: 14 }, { wch: 12 }, { wch: 28 }, { wch: 30 }, { wch: 16 },
-      { wch: 14 }, { wch: 32 }, { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 40 }, { wch: 16 },
+      { wch: 14 }, { wch: 32 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 18 }, { wch: 40 }, { wch: 16 },
     ];
 
     const headerRow = ws["1"] as Record<string, any> | undefined;
