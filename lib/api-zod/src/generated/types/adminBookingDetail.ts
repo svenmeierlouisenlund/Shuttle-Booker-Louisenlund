@@ -28,5 +28,7 @@ export interface AdminBookingDetail {
   adminNotes?: string | null;
   createdAt: string;
   updatedAt?: string;
+  /** @nullable */
+  priceCents?: number | null;
   siblings: Sibling[];
 }

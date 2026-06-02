@@ -481,6 +481,8 @@ components:
           type: string
         returnRoute:
           type: string
+        priceCents:
+          type: ["integer", "null"]
 
     AdminBooking:
       type: object
@@ -530,6 +532,8 @@ components:
           type: string
         siblingCount:
           type: integer
+        priceCents:
+          type: ["integer", "null"]
 
     AdminBookingDetail:
       type: object
@@ -586,6 +590,8 @@ components:
           type: string
         updatedAt:
           type: string
+        priceCents:
+          type: ["integer", "null"]
         siblings:
           type: array
           items:

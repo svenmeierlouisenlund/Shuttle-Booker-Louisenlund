@@ -4,6 +4,7 @@ import { bookingsTable, siblingsTable } from "@workspace/db";
 import { CreateBookingBody } from "@workspace/api-zod";
 import { eq } from "drizzle-orm";
 import { sendBookingNotification, sendParentConfirmation } from "../services/email.js";
+import { calcBookingPrice, calcSiblingPrice } from "../pricing.js";
 
 const router = Router();
 
@@ -47,12 +48,20 @@ router.post("/bookings", async (req, res) => {
 
   const { siblings, gdprConsent, ...bookingFields } = data;
 
+  const priceCents = calcBookingPrice(
+    data.tariffZone,
+    data.bookingType,
+    data.outboundRoute,
+    data.returnRoute,
+  );
+
   const [booking] = await db
     .insert(bookingsTable)
     .values({
       ...bookingFields,
       referenceNumber,
       gdprConsent: gdprConsent ?? false,
+      priceCents,
       status: "received",
     })
     .returning();
@@ -62,9 +71,16 @@ router.post("/bookings", async (req, res) => {
       if (sibling.outboundRoute === "none" && sibling.returnRoute === "none") {
         continue;
       }
+      const siblingPriceCents = calcSiblingPrice(
+        data.tariffZone,
+        data.bookingType,
+        sibling.outboundRoute,
+        sibling.returnRoute,
+      );
       await db.insert(siblingsTable).values({
         bookingId: booking.id,
         ...sibling,
+        priceCents: siblingPriceCents,
       });
     }
   }

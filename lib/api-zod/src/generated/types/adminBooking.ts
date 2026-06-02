@@ -22,4 +22,6 @@ export interface AdminBooking {
   status: string;
   createdAt: string;
   siblingCount: number;
+  /** @nullable */
+  priceCents?: number | null;
 }

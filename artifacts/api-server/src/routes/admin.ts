@@ -11,6 +11,7 @@ import {
 import { eq, and, count, desc } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import multer from "multer";
+import { calcBookingPrice } from "../pricing.js";
 
 type ListParams = ReturnType<typeof ListAdminBookingsQueryParams.parse>;
 type ExportParams = ReturnType<typeof ExportBookingsQueryParams.parse>;
@@ -140,6 +141,7 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
     id: b.id,
     referenceNumber: b.referenceNumber,
     childName: b.childName,
+    childAddress: b.childAddress ?? "",
     gradeYear: b.gradeYear,
     parentName: b.parentName,
     parentEmail: b.parentEmail,
@@ -151,6 +153,7 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
     status: b.status,
     createdAt: b.createdAt.toISOString(),
     siblingCount: sibCountMap[b.id] ?? 0,
+    priceCents: b.priceCents,
   }));
 
   res.json({
@@ -240,6 +243,13 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
         ref = genRef();
       }
 
+      const priceCents = calcBookingPrice(
+        tariffZone as any,
+        "full_year",
+        tariffZone as any,
+        tariffZone as any,
+      );
+
       await db.insert(bookingsTable).values({
         referenceNumber: ref,
         childName,
@@ -255,6 +265,7 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
         returnRoute: tariffZone as any,
         signatureName: childName,
         status: "confirmed",
+        priceCents,
         adminNotes: "Importiert aus Vorjahresdaten",
       });
       imported++;
@@ -501,6 +512,7 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
     status: b.status,
     createdAt: b.createdAt.toISOString(),
     siblingCount: sibCountMap[b.id] ?? 0,
+    priceCents: b.priceCents,
   }));
 
   res.json({ bookings, total: Number(total), page, limit });
@@ -568,6 +580,7 @@ router.get("/admin/bookings/:id", requireAuth, async (req, res) => {
     adminNotes: booking.adminNotes,
     createdAt: booking.createdAt.toISOString(),
     updatedAt: booking.updatedAt.toISOString(),
+    priceCents: booking.priceCents,
     siblings: siblings.map((s) => ({
       id: s.id,
       childName: s.childName,
@@ -575,6 +588,7 @@ router.get("/admin/bookings/:id", requireAuth, async (req, res) => {
       gradeYear: s.gradeYear,
       outboundRoute: s.outboundRoute,
       returnRoute: s.returnRoute,
+      priceCents: s.priceCents,
     })),
   });
 });

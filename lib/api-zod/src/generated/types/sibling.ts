@@ -14,4 +14,6 @@ export interface Sibling {
   gradeYear: string;
   outboundRoute: string;
   returnRoute: string;
+  /** @nullable */
+  priceCents?: number | null;
 }
