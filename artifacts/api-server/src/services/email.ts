@@ -83,7 +83,8 @@ Eingegangen am: ${booking.createdAt.toLocaleDateString("de-DE")} um ${booking.cr
 ANGABEN ZUM KIND
 ----------------
 Name:            ${booking.childName}
-Adresse:         ${booking.childAddress}
+Straße:          ${booking.childAddress}
+PLZ / Ort:       ${booking.childPostalCode ?? ""} ${booking.childCity ?? ""}
 Klasse:          ${booking.gradeYear}
 Schülernummer:   ${booking.studentNumber ?? "–"}
 
@@ -142,7 +143,8 @@ Zur Verwaltung: ${process.env.ADMIN_URL ?? "https://louisenlund.de/admin"}
     <h2>Angaben zum Kind</h2>
     <table>
       <tr><td>Name</td><td>${booking.childName}</td></tr>
-      <tr><td>Adresse</td><td>${booking.childAddress}</td></tr>
+      <tr><td>Straße</td><td>${booking.childAddress}</td></tr>
+      <tr><td>PLZ / Ort</td><td>${booking.childPostalCode ?? ""} ${booking.childCity ?? ""}</td></tr>
       <tr><td>Klasse</td><td>${booking.gradeYear}</td></tr>
       <tr><td>Schülernummer</td><td>${booking.studentNumber ?? "–"}</td></tr>
     </table>

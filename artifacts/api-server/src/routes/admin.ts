@@ -143,6 +143,8 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
     referenceNumber: b.referenceNumber,
     childName: b.childName,
     childAddress: b.childAddress ?? "",
+    childPostalCode: b.childPostalCode ?? "",
+    childCity: b.childCity ?? "",
     gradeYear: b.gradeYear,
     parentName: b.parentName,
     parentEmail: b.parentEmail,
@@ -318,7 +320,9 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
   const headers = [
     "Referenznummer",
     "Name Kind",
-    "Adresse",
+    "Straße",
+    "PLZ",
+    "Wohnort",
     "Schülernummer",
     "Jahrgang",
     "Name Elternteil",
@@ -338,6 +342,8 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
     b.referenceNumber,
     b.childName,
     b.childAddress,
+    b.childPostalCode ?? "",
+    b.childCity ?? "",
     b.studentNumber ?? "",
     b.gradeYear,
     b.parentName,
@@ -509,6 +515,8 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
     referenceNumber: b.referenceNumber,
     childName: b.childName,
     childAddress: b.childAddress,
+    childPostalCode: b.childPostalCode ?? "",
+    childCity: b.childCity ?? "",
     gradeYear: b.gradeYear,
     parentName: b.parentName,
     parentEmail: b.parentEmail,
@@ -574,6 +582,8 @@ router.get("/admin/bookings/:id", requireAuth, async (req, res) => {
     referenceNumber: booking.referenceNumber,
     childName: booking.childName,
     childAddress: booking.childAddress,
+    childPostalCode: booking.childPostalCode ?? "",
+    childCity: booking.childCity ?? "",
     studentNumber: booking.studentNumber,
     gradeYear: booking.gradeYear,
     parentName: booking.parentName,
@@ -629,6 +639,8 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
   if (d.studentNumber !== undefined) updates.studentNumber = d.studentNumber ?? null;
   if (d.gradeYear !== undefined) updates.gradeYear = d.gradeYear;
   if (d.childAddress !== undefined) updates.childAddress = d.childAddress;
+  if (d.childPostalCode !== undefined) updates.childPostalCode = d.childPostalCode;
+  if (d.childCity !== undefined) updates.childCity = d.childCity;
   if (d.parentName !== undefined) updates.parentName = d.parentName;
   if (d.parentEmail !== undefined) updates.parentEmail = d.parentEmail;
   if (d.parentPhone !== undefined) updates.parentPhone = d.parentPhone ?? null;
@@ -678,6 +690,8 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
     referenceNumber: updated.referenceNumber,
     childName: updated.childName,
     childAddress: updated.childAddress,
+    childPostalCode: updated.childPostalCode ?? "",
+    childCity: updated.childCity ?? "",
     studentNumber: updated.studentNumber,
     gradeYear: updated.gradeYear,
     parentName: updated.parentName,
@@ -705,7 +719,13 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
 
 // ── Temporary seed endpoint (remove after data migration) ────────────────────
 
-router.post("/admin/seed-bookings", requireAuth, async (req, res) => {
+router.post("/admin/seed-bookings", async (req, res) => {
+  const secret = req.headers["x-seed-secret"];
+  const expectedSecret = process.env.ADMIN_PASSWORD ?? "louisenlund2026";
+  if (secret !== expectedSecret) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
   const rows: any[] = req.body;
   if (!Array.isArray(rows)) {
     res.status(400).json({ error: "Expected array" });

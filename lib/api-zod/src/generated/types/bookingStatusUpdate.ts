@@ -20,6 +20,8 @@ export interface BookingStatusUpdate {
   studentNumber?: string | null;
   gradeYear?: string;
   childAddress?: string;
+  childPostalCode?: string;
+  childCity?: string;
   parentName?: string;
   parentEmail?: string;
   /** @nullable */

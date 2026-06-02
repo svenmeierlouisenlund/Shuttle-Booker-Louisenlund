@@ -12,6 +12,8 @@ export interface AdminBookingDetail {
   referenceNumber: string;
   childName: string;
   childAddress: string;
+  childPostalCode: string;
+  childCity: string;
   /** @nullable */
   studentNumber?: string | null;
   gradeYear: string;
