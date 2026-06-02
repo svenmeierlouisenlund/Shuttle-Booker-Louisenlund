@@ -136,6 +136,18 @@ export const GetAdminBookingResponse = zod.object({
 
 
 /**
+ * @summary Delete a booking (admin)
+ */
+export const DeleteAdminBookingParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteAdminBookingResponse = zod.object({
+  "success": zod.boolean()
+})
+
+
+/**
  * @summary Update booking status or notes (admin)
  */
 export const UpdateAdminBookingParams = zod.object({

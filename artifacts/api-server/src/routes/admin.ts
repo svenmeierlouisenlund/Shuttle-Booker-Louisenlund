@@ -393,6 +393,26 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
   res.json({ bookings, total: Number(total), page, limit });
 });
 
+router.delete("/admin/bookings/:id", requireAuth, async (req, res) => {
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Ungültige ID" });
+    return;
+  }
+
+  const [deleted] = await db
+    .delete(bookingsTable)
+    .where(eq(bookingsTable.id, id))
+    .returning();
+
+  if (!deleted) {
+    res.status(404).json({ error: "Buchung nicht gefunden" });
+    return;
+  }
+
+  res.json({ success: true });
+});
+
 router.get("/admin/bookings/:id", requireAuth, async (req, res) => {
   const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) {
