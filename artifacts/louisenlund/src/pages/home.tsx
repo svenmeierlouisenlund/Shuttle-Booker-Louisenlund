@@ -80,16 +80,6 @@ export default function Home() {
                 <h3 className="font-semibold text-[#004289] mb-2">Drei Tarifzonen</h3>
                 <p className="text-sm text-[#666666] leading-relaxed">
                   Wählen Sie Tarifzone 1, 2 oder 3 entsprechend Ihrem Wohnort.
-                  Details finden Sie auf{" "}
-                  <a
-                    href="https://www.louisenlund.de/regionalshuttle"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-[#004289] underline underline-offset-2"
-                  >
-                    www.louisenlund.de/regionalshuttle
-                  </a>
-                  .
                 </p>
               </div>
 
