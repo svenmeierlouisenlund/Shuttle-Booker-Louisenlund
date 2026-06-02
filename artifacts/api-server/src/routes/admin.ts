@@ -59,6 +59,19 @@ const statusLabels: Record<string, string> = {
   query_open: "Rückfrage offen",
 };
 
+router.post("/admin/verify-password", requireAuth, (req, res) => {
+  const parsed = AdminLoginBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Ungültige Eingabe" });
+    return;
+  }
+  if (parsed.data.password !== ADMIN_PASSWORD) {
+    res.status(401).json({ error: "Falsches Passwort" });
+    return;
+  }
+  res.json({ verified: true });
+});
+
 router.post("/admin/login", (req, res) => {
   const parsed = AdminLoginBody.safeParse(req.body);
   if (!parsed.success) {
