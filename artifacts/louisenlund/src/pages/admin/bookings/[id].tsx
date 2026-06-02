@@ -443,7 +443,12 @@ export default function AdminBookingDetail() {
                     {editMode ? (
                       <Input type="email" value={editFields.parentEmail} onChange={e => setField("parentEmail")(e.target.value)} />
                     ) : (
-                      <div>{booking.parentEmail}</div>
+                      <a
+                        href={`mailto:${booking.parentEmail}?subject=Ihre%20Buchung%20${encodeURIComponent(booking.referenceNumber)}%20–%20Regionalshuttle%20Louisenlund`}
+                        className="text-primary hover:underline"
+                      >
+                        {booking.parentEmail}
+                      </a>
                     )}
                   </FieldRow>
                   <FieldRow label="Telefon">
