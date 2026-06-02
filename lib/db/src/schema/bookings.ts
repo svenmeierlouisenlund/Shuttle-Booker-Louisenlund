@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   pgEnum,
+  real,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
@@ -55,6 +56,8 @@ export const bookingsTable = pgTable("bookings", {
   signatureName: text("signature_name").notNull(),
   gdprConsent: boolean("gdpr_consent").notNull().default(false),
   priceCents: integer("price_cents"),
+  distanceKm: real("distance_km"),
+  durationMinutes: integer("duration_minutes"),
   status: bookingStatusEnum("status").notNull().default("received"),
   adminNotes: text("admin_notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

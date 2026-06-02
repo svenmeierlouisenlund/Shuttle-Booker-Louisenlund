@@ -32,5 +32,15 @@ export interface AdminBookingDetail {
   updatedAt?: string;
   /** @nullable */
   priceCents?: number | null;
+  /**
+     * Driving distance from home to school in km
+     * @nullable
+     */
+  distanceKm?: number | null;
+  /**
+     * Estimated driving duration in minutes
+     * @nullable
+     */
+  durationMinutes?: number | null;
   siblings: Sibling[];
 }

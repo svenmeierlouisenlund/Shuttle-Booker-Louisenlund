@@ -76,6 +76,33 @@ paths:
         "401":
           description: Unauthorized
 
+  /admin/bookings/calculate-routes:
+    post:
+      operationId: calculateRoutes
+      tags: [admin]
+      summary: Calculate driving distance and duration for all bookings missing route data
+      responses:
+        "200":
+          description: Calculation result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [processed, failed, skipped]
+                properties:
+                  processed:
+                    type: integer
+                  failed:
+                    type: integer
+                  skipped:
+                    type: integer
+                  errors:
+                    type: array
+                    items:
+                      type: string
+        "401":
+          description: Unauthorized
+
   /admin/bookings:
     get:
       operationId: listAdminBookings
@@ -603,6 +630,12 @@ components:
           type: integer
         priceCents:
           type: ["integer", "null"]
+        distanceKm:
+          type: ["number", "null"]
+          description: Driving distance from home to school in km
+        durationMinutes:
+          type: ["integer", "null"]
+          description: Estimated driving duration in minutes
         siblings:
           type: array
           items:
@@ -671,6 +704,12 @@ components:
           type: string
         priceCents:
           type: ["integer", "null"]
+        distanceKm:
+          type: ["number", "null"]
+          description: Driving distance from home to school in km
+        durationMinutes:
+          type: ["integer", "null"]
+          description: Estimated driving duration in minutes
         siblings:
           type: array
           items:

@@ -29,6 +29,7 @@ import type {
   BookingImportRequest,
   BookingInput,
   BookingStatusUpdate,
+  CalculateRoutes200,
   DeleteBookingResponse,
   ErrorResponse,
   ExportBookingsParams,
@@ -275,6 +276,76 @@ export const useImportBookings = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getImportBookingsMutationOptions(options));
+    }
+
+export const getCalculateRoutesUrl = () => {
+
+
+
+
+  return `/api/admin/bookings/calculate-routes`
+}
+
+/**
+ * @summary Calculate driving distance and duration for all bookings missing route data
+ */
+export const calculateRoutes = async ( options?: RequestInit): Promise<CalculateRoutes200> => {
+
+  return customFetch<CalculateRoutes200>(getCalculateRoutesUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getCalculateRoutesMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof calculateRoutes>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof calculateRoutes>>, TError,void, TContext> => {
+
+const mutationKey = ['calculateRoutes'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof calculateRoutes>>, void> = () => {
+
+
+          return  calculateRoutes(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CalculateRoutesMutationResult = NonNullable<Awaited<ReturnType<typeof calculateRoutes>>>
+
+    export type CalculateRoutesMutationError = ErrorType<void>
+
+    /**
+ * @summary Calculate driving distance and duration for all bookings missing route data
+ */
+export const useCalculateRoutes = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof calculateRoutes>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof calculateRoutes>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getCalculateRoutesMutationOptions(options));
     }
 
 export const getListAdminBookingsUrl = (params?: ListAdminBookingsParams,) => {
