@@ -12,6 +12,7 @@ import { eq, and, count, desc } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import multer from "multer";
 import { calcBookingPrice } from "../pricing.js";
+import { recalcFamilyPrices } from "../services/family.js";
 
 type ListParams = ReturnType<typeof ListAdminBookingsQueryParams.parse>;
 type ExportParams = ReturnType<typeof ExportBookingsQueryParams.parse>;
@@ -206,6 +207,7 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
   let imported = 0;
   let skipped = 0;
   const errors: string[] = [];
+  const importedParentNames = new Set<string>();
 
   for (const row of rows) {
     const childName = cleanStr((row as any)[0]);
@@ -268,10 +270,16 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
         priceCents,
         adminNotes: "Importiert aus Vorjahresdaten",
       });
+      importedParentNames.add(parentName);
       imported++;
     } catch (err: any) {
       errors.push(`${childName}: ${err.message ?? "Fehler"}`);
     }
+  }
+
+  // Recalculate sibling discounts for all affected families
+  for (const parentName of importedParentNames) {
+    await recalcFamilyPrices(parentName);
   }
 
   res.json({ imported, skipped, total: imported + skipped, errors });
