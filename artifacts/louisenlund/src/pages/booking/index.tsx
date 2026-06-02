@@ -315,9 +315,21 @@ export default function BookingForm() {
         return (
           <div className="space-y-6">
             <p className="text-muted-foreground">
-              Bitte wählen Sie die zutreffende Tarifzone basierend auf Ihrem Wohnort. 
-              Eine Übersicht der Zonen finden Sie <a href="https://www.louisenlund.de/regionalshuttle" target="_blank" rel="noreferrer" className="text-primary underline">hier</a>.
+              Bitte wählen Sie die zutreffende Tarifzone basierend auf Ihrem Wohnort.
+              Die Karte unten zeigt die Zoneneinteilung.
             </p>
+            <div className="rounded-md overflow-hidden border border-gray-200">
+              <iframe
+                src="https://www.google.com/maps/d/embed?mid=1vPST9Agi2z_2eFKFFRueE9TUfPlYAT8"
+                width="100%"
+                height="360"
+                style={{ border: 0, display: "block" }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Karte der Tarifzonen"
+              />
+            </div>
             <FormField
               control={form.control}
               name="tariffZone"
