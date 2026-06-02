@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import logo from "@assets/Logo_-_Stiftung_Louisenlund_Print_1780387424925.png";
 
 export default function Impressum() {
   return (
@@ -7,7 +8,7 @@ export default function Impressum() {
       <header className="bg-[#004289] text-white">
         <div className="max-w-5xl mx-auto px-6 py-4 flex items-center gap-4">
           <Link href="/">
-            <img src="/logo.png" alt="Louisenlund" className="h-12 cursor-pointer" />
+            <img src={logo} alt="Louisenlund" className="h-12 cursor-pointer" />
           </Link>
           <span className="text-sm font-semibold tracking-widest uppercase">
             Buchungsportal Regionalshuttle
