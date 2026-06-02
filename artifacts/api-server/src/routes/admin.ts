@@ -16,6 +16,13 @@ type ExportParams = ReturnType<typeof ExportBookingsQueryParams.parse>;
 
 const router = Router();
 
+// Disable HTTP caching for all admin routes so browsers never serve stale data
+router.use((_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  next();
+});
+
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "louisenlund2026";
 const SESSION_TOKEN = "admin_session";
 
