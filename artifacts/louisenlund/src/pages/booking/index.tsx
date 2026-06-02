@@ -713,7 +713,6 @@ export default function BookingForm() {
                         <span>Jahresbeitrag gesamt</span>
                         <span className="tabular-nums">{fmtPrice(total)}</span>
                       </div>
-                      <p className="text-xs text-muted-foreground">Unverbindliche Schätzung – der genaue Betrag wird nach Prüfung bestätigt.</p>
                     </div>
                   </div>
                 );
