@@ -614,15 +614,54 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
     return;
   }
 
+  // Fetch current booking to detect parent name / price-affecting field changes
+  const [current] = await db.select().from(bookingsTable).where(eq(bookingsTable.id, id));
+  if (!current) {
+    res.status(404).json({ error: "Buchung nicht gefunden" });
+    return;
+  }
+
+  const d = parsed.data;
   const updates: Record<string, unknown> = { updatedAt: new Date() };
-  if (parsed.data.status !== undefined) updates.status = parsed.data.status;
-  if (parsed.data.adminNotes !== undefined) updates.adminNotes = parsed.data.adminNotes;
+  if (d.status !== undefined) updates.status = d.status;
+  if (d.adminNotes !== undefined) updates.adminNotes = d.adminNotes;
+  if (d.childName !== undefined) updates.childName = d.childName;
+  if (d.studentNumber !== undefined) updates.studentNumber = d.studentNumber ?? null;
+  if (d.gradeYear !== undefined) updates.gradeYear = d.gradeYear;
+  if (d.childAddress !== undefined) updates.childAddress = d.childAddress;
+  if (d.parentName !== undefined) updates.parentName = d.parentName;
+  if (d.parentEmail !== undefined) updates.parentEmail = d.parentEmail;
+  if (d.parentPhone !== undefined) updates.parentPhone = d.parentPhone ?? null;
+  if (d.tariffZone !== undefined) updates.tariffZone = d.tariffZone;
+  if (d.bookingType !== undefined) updates.bookingType = d.bookingType;
+  if (d.outboundRoute !== undefined) updates.outboundRoute = d.outboundRoute;
+  if (d.returnRoute !== undefined) updates.returnRoute = d.returnRoute;
+
+  // Recalculate own price if any price-affecting field changes
+  const priceFieldsChanged =
+    d.tariffZone !== undefined || d.bookingType !== undefined ||
+    d.outboundRoute !== undefined || d.returnRoute !== undefined;
+  if (priceFieldsChanged) {
+    const zone = (d.tariffZone ?? current.tariffZone) as string;
+    const bType = (d.bookingType ?? current.bookingType) as string;
+    const out = (d.outboundRoute ?? current.outboundRoute) as string;
+    const ret = (d.returnRoute ?? current.returnRoute) as string;
+    const { calcBookingPrice } = await import("../pricing.js");
+    updates.priceCents = calcBookingPrice(zone as any, bType as any, out as any, ret as any);
+  }
 
   const [updated] = await db
     .update(bookingsTable)
     .set(updates)
     .where(eq(bookingsTable.id, id))
     .returning();
+
+  // Recalculate family prices after update
+  const newParentName = (d.parentName ?? current.parentName) as string;
+  await recalcFamilyPrices(newParentName);
+  if (d.parentName !== undefined && d.parentName !== current.parentName) {
+    await recalcFamilyPrices(current.parentName);
+  }
 
   if (!updated) {
     res.status(404).json({ error: "Buchung nicht gefunden" });

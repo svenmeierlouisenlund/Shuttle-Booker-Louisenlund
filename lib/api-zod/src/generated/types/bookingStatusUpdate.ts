@@ -6,9 +6,26 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BookingStatus } from './bookingStatus';
+import type { BookingStatusUpdateBookingType } from './bookingStatusUpdateBookingType';
+import type { BookingStatusUpdateOutboundRoute } from './bookingStatusUpdateOutboundRoute';
+import type { BookingStatusUpdateReturnRoute } from './bookingStatusUpdateReturnRoute';
+import type { BookingStatusUpdateTariffZone } from './bookingStatusUpdateTariffZone';
 
 export interface BookingStatusUpdate {
   status?: BookingStatus;
   /** @nullable */
   adminNotes?: string | null;
+  childName?: string;
+  /** @nullable */
+  studentNumber?: string | null;
+  gradeYear?: string;
+  childAddress?: string;
+  parentName?: string;
+  parentEmail?: string;
+  /** @nullable */
+  parentPhone?: string | null;
+  tariffZone?: BookingStatusUpdateTariffZone;
+  bookingType?: BookingStatusUpdateBookingType;
+  outboundRoute?: BookingStatusUpdateOutboundRoute;
+  returnRoute?: BookingStatusUpdateReturnRoute;
 }

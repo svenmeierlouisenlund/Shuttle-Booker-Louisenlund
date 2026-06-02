@@ -155,10 +155,60 @@ export interface AdminBookingList {
   limit: number;
 }
 
+export type BookingStatusUpdateTariffZone = typeof BookingStatusUpdateTariffZone[keyof typeof BookingStatusUpdateTariffZone];
+
+
+export const BookingStatusUpdateTariffZone = {
+  zone1: 'zone1',
+  zone2: 'zone2',
+  zone3: 'zone3',
+} as const;
+
+export type BookingStatusUpdateBookingType = typeof BookingStatusUpdateBookingType[keyof typeof BookingStatusUpdateBookingType];
+
+
+export const BookingStatusUpdateBookingType = {
+  full_year: 'full_year',
+  first_half: 'first_half',
+} as const;
+
+export type BookingStatusUpdateOutboundRoute = typeof BookingStatusUpdateOutboundRoute[keyof typeof BookingStatusUpdateOutboundRoute];
+
+
+export const BookingStatusUpdateOutboundRoute = {
+  zone1: 'zone1',
+  zone2: 'zone2',
+  zone3: 'zone3',
+  none: 'none',
+} as const;
+
+export type BookingStatusUpdateReturnRoute = typeof BookingStatusUpdateReturnRoute[keyof typeof BookingStatusUpdateReturnRoute];
+
+
+export const BookingStatusUpdateReturnRoute = {
+  zone1: 'zone1',
+  zone2: 'zone2',
+  zone3: 'zone3',
+  none: 'none',
+} as const;
+
 export interface BookingStatusUpdate {
   status?: BookingStatus;
   /** @nullable */
   adminNotes?: string | null;
+  childName?: string;
+  /** @nullable */
+  studentNumber?: string | null;
+  gradeYear?: string;
+  childAddress?: string;
+  parentName?: string;
+  parentEmail?: string;
+  /** @nullable */
+  parentPhone?: string | null;
+  tariffZone?: BookingStatusUpdateTariffZone;
+  bookingType?: BookingStatusUpdateBookingType;
+  outboundRoute?: BookingStatusUpdateOutboundRoute;
+  returnRoute?: BookingStatusUpdateReturnRoute;
 }
 
 export type AdminStatsByStatus = {[key: string]: number};
