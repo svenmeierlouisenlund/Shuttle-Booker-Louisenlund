@@ -1,6 +1,6 @@
 import { AdminLayout } from "@/components/admin-layout";
-import { useParams, Link } from "wouter";
-import { useGetAdminBooking, useUpdateAdminBooking, getGetAdminBookingQueryKey } from "@workspace/api-client-react";
+import { useParams, Link, useLocation } from "wouter";
+import { useGetAdminBooking, useUpdateAdminBooking, useDeleteAdminBooking, getGetAdminBookingQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +11,18 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ChevronLeft, Save } from "lucide-react";
+import { ChevronLeft, Save, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const statusMap: Record<string, string> = {
   received: "Eingegangen",
@@ -48,8 +59,10 @@ const bookingTypeMap: Record<string, string> = {
 export default function AdminBookingDetail() {
   const params = useParams();
   const id = Number(params.id);
+  const [, navigate] = useLocation();
   const { data: booking, isLoading } = useGetAdminBooking(id, { query: { enabled: !!id, queryKey: getGetAdminBookingQueryKey(id) } });
   const updateMutation = useUpdateAdminBooking();
+  const deleteMutation = useDeleteAdminBooking();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -71,6 +84,18 @@ export default function AdminBookingDetail() {
       },
       onError: () => {
         toast({ title: "Fehler", description: "Fehler beim Speichern.", variant: "destructive" });
+      }
+    });
+  };
+
+  const handleDelete = () => {
+    deleteMutation.mutate({ id }, {
+      onSuccess: () => {
+        toast({ title: "Buchung gelöscht", description: "Die Buchung wurde endgültig gelöscht." });
+        navigate("/admin/bookings");
+      },
+      onError: () => {
+        toast({ title: "Fehler", description: "Fehler beim Löschen.", variant: "destructive" });
       }
     });
   };
@@ -100,6 +125,33 @@ export default function AdminBookingDetail() {
           <Badge variant="outline" className={statusColorMap[booking.status]}>
             {statusMap[booking.status]}
           </Badge>
+          <div className="ml-auto">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700">
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Buchung löschen
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Buchung endgültig löschen?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Die Buchung <strong>{booking.referenceNumber}</strong> ({booking.childName}) wird unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDelete}
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    Endgültig löschen
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

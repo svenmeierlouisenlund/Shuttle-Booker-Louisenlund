@@ -21,6 +21,7 @@ export * from './bookingInput';
 export * from './bookingStatus';
 export * from './bookingStatusUpdate';
 export * from './bookingType';
+export * from './deleteBookingResponse';
 export * from './errorResponse';
 export * from './exportBookingsParams';
 export * from './healthStatus';

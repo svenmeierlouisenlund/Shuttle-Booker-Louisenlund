@@ -28,6 +28,7 @@ import type {
   BookingConfirmation,
   BookingInput,
   BookingStatusUpdate,
+  DeleteBookingResponse,
   ErrorResponse,
   ExportBookingsParams,
   HealthStatus,
@@ -357,6 +358,76 @@ export function useGetAdminBooking<TData = Awaited<ReturnType<typeof getAdminBoo
 
 
 
+
+export const getDeleteAdminBookingUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/bookings/${id}`
+}
+
+/**
+ * @summary Delete a booking (admin)
+ */
+export const deleteAdminBooking = async (id: number, options?: RequestInit): Promise<DeleteBookingResponse> => {
+
+  return customFetch<DeleteBookingResponse>(getDeleteAdminBookingUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteAdminBookingMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdminBooking>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteAdminBooking>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteAdminBooking'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAdminBooking>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteAdminBooking(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteAdminBookingMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAdminBooking>>>
+
+    export type DeleteAdminBookingMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete a booking (admin)
+ */
+export const useDeleteAdminBooking = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAdminBooking>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteAdminBooking>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteAdminBookingMutationOptions(options));
+    }
 
 export const getUpdateAdminBookingUrl = (id: number,) => {
 

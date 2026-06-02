@@ -190,6 +190,10 @@ export interface NotificationEmailInput {
   label?: string | null;
 }
 
+export interface DeleteBookingResponse {
+  success: boolean;
+}
+
 export interface AdminCredentials {
   password: string;
 }
