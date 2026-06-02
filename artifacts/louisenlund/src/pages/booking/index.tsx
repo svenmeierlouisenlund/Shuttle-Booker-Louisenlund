@@ -150,7 +150,13 @@ export default function BookingForm() {
   const nextStep = async () => {
     const isValid = await validateStep();
     if (isValid) {
-      setCurrentStep(s => Math.min(s + 1, STEPS.length - 1));
+      const next = Math.min(currentStep + 1, STEPS.length - 1);
+      // Auto-fill signature with parent name when entering the summary step
+      if (next === 5) {
+        const parentName = form.getValues("parentName");
+        form.setValue("signatureName", parentName, { shouldValidate: false });
+      }
+      setCurrentStep(next);
       window.scrollTo(0, 0);
     }
   };
