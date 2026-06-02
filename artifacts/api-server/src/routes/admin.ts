@@ -1,13 +1,15 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
-import { bookingsTable, siblingsTable } from "@workspace/db";
+import { bookingsTable, siblingsTable, notificationEmailsTable } from "@workspace/db";
 import {
   ListAdminBookingsQueryParams,
   UpdateAdminBookingBody,
   AdminLoginBody,
   ExportBookingsQueryParams,
+  AddNotificationEmailBody,
 } from "@workspace/api-zod";
 import { eq, and, count, desc } from "drizzle-orm";
+import * as XLSX from "xlsx";
 
 type ListParams = ReturnType<typeof ListAdminBookingsQueryParams.parse>;
 type ExportParams = ReturnType<typeof ExportBookingsQueryParams.parse>;
@@ -25,6 +27,23 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   }
   next();
 }
+
+const zoneLabels: Record<string, string> = {
+  zone1: "Tarifzone 1",
+  zone2: "Tarifzone 2",
+  zone3: "Tarifzone 3",
+  none: "Keine",
+};
+const typeLabels: Record<string, string> = {
+  full_year: "Gesamtes Schuljahr 2026/27",
+  first_half: "1. Schulhalbjahr 2026/27",
+};
+const statusLabels: Record<string, string> = {
+  received: "Eingegangen",
+  reviewed: "Geprüft",
+  confirmed: "Bestätigt",
+  query_open: "Rückfrage offen",
+};
 
 router.post("/admin/login", (req, res) => {
   const parsed = AdminLoginBody.safeParse(req.body);
@@ -138,6 +157,7 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
 router.get("/admin/bookings/export", requireAuth, async (req, res) => {
   const parsed = ExportBookingsQueryParams.safeParse(req.query);
   const params: ExportParams = parsed.success ? parsed.data : {};
+  const format = req.query.format === "xlsx" ? "xlsx" : "csv";
 
   const conditions = [];
   if (params.tariffZone) conditions.push(eq(bookingsTable.tariffZone, params.tariffZone as any));
@@ -150,6 +170,13 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(bookingsTable.createdAt));
 
+  const siblingRows = await db.select().from(siblingsTable);
+  const siblingsByBooking: Record<number, typeof siblingRows> = {};
+  for (const s of siblingRows) {
+    if (!siblingsByBooking[s.bookingId]) siblingsByBooking[s.bookingId] = [];
+    siblingsByBooking[s.bookingId].push(s);
+  }
+
   const siblingCounts = await db
     .select({ bookingId: siblingsTable.bookingId, cnt: count() })
     .from(siblingsTable)
@@ -157,7 +184,7 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
   const sibCountMap: Record<number, number> = {};
   for (const r of siblingCounts) sibCountMap[r.bookingId] = Number(r.cnt);
 
-  const header = [
+  const headers = [
     "Referenznummer",
     "Name Kind",
     "Adresse",
@@ -174,26 +201,9 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
     "Status",
     "Notizen",
     "Eingegangen am",
-  ].join(";");
+  ];
 
-  const statusLabels: Record<string, string> = {
-    received: "Eingegangen",
-    reviewed: "Geprüft",
-    confirmed: "Bestätigt",
-    query_open: "Rückfrage offen",
-  };
-  const zoneLabels: Record<string, string> = {
-    zone1: "Tarifzone 1",
-    zone2: "Tarifzone 2",
-    zone3: "Tarifzone 3",
-    none: "Keine",
-  };
-  const typeLabels: Record<string, string> = {
-    full_year: "Gesamtes Schuljahr 2026/27",
-    first_half: "1. Schulhalbjahr 2026/27",
-  };
-
-  const csvRows = rows.map((b) => [
+  const dataRows = rows.map((b) => [
     b.referenceNumber,
     b.childName,
     b.childAddress,
@@ -208,18 +218,121 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
     zoneLabels[b.returnRoute] ?? b.returnRoute,
     String(sibCountMap[b.id] ?? 0),
     statusLabels[b.status] ?? b.status,
-    (b.adminNotes ?? "").replace(/;/g, ","),
+    b.adminNotes ?? "",
     b.createdAt.toLocaleDateString("de-DE"),
-  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";"));
+  ]);
 
-  const csv = [header, ...csvRows].join("\n");
+  const filename = `regionalshuttle-buchungen-${new Date().toISOString().split("T")[0]}`;
+
+  if (format === "xlsx") {
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+
+    ws["!cols"] = [
+      { wch: 18 }, { wch: 28 }, { wch: 35 }, { wch: 16 }, { wch: 16 },
+      { wch: 28 }, { wch: 32 }, { wch: 18 }, { wch: 14 }, { wch: 30 },
+      { wch: 14 }, { wch: 14 }, { wch: 18 }, { wch: 18 }, { wch: 40 }, { wch: 16 },
+    ];
+
+    const headerRow = ws["1"] as Record<string, any> | undefined;
+    if (!headerRow) {
+      for (let c = 0; c < headers.length; c++) {
+        const cell = XLSX.utils.encode_cell({ r: 0, c });
+        if (ws[cell]) {
+          ws[cell].s = {
+            font: { bold: true, color: { rgb: "FFFFFF" } },
+            fill: { patternType: "solid", fgColor: { rgb: "004289" } },
+          };
+        }
+      }
+    }
+
+    XLSX.utils.book_append_sheet(wb, ws, "Buchungen");
+    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}.xlsx"`);
+    res.send(buf);
+    return;
+  }
+
+  const csvRows = dataRows.map((row) =>
+    row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(";")
+  );
+  const csv = [headers.join(";"), ...csvRows].join("\n");
 
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
-  res.setHeader(
-    "Content-Disposition",
-    `attachment; filename="regionalshuttle-buchungen-${new Date().toISOString().split("T")[0]}.csv"`
-  );
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}.csv"`);
   res.send("\uFEFF" + csv);
+});
+
+router.get("/admin/notification-emails", requireAuth, async (req, res) => {
+  const emails = await db
+    .select()
+    .from(notificationEmailsTable)
+    .orderBy(notificationEmailsTable.createdAt);
+  res.json({
+    emails: emails.map((e) => ({
+      id: e.id,
+      email: e.email,
+      label: e.label,
+      createdAt: e.createdAt.toISOString(),
+    })),
+  });
+});
+
+router.post("/admin/notification-emails", requireAuth, async (req, res) => {
+  const parsed = AddNotificationEmailBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Ungültige E-Mail-Adresse" });
+    return;
+  }
+
+  const existing = await db
+    .select({ id: notificationEmailsTable.id })
+    .from(notificationEmailsTable)
+    .where(eq(notificationEmailsTable.email, parsed.data.email))
+    .limit(1);
+
+  if (existing.length > 0) {
+    res.status(409).json({ error: "Diese E-Mail-Adresse ist bereits eingetragen" });
+    return;
+  }
+
+  const [inserted] = await db
+    .insert(notificationEmailsTable)
+    .values({ email: parsed.data.email, label: parsed.data.label ?? null })
+    .returning();
+
+  res.status(201).json({
+    id: inserted.id,
+    email: inserted.email,
+    label: inserted.label,
+    createdAt: inserted.createdAt.toISOString(),
+  });
+});
+
+router.delete("/admin/notification-emails/:id", requireAuth, async (req, res) => {
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Ungültige ID" });
+    return;
+  }
+
+  const [deleted] = await db
+    .delete(notificationEmailsTable)
+    .where(eq(notificationEmailsTable.id, id))
+    .returning();
+
+  if (!deleted) {
+    res.status(404).json({ error: "E-Mail-Adresse nicht gefunden" });
+    return;
+  }
+
+  res.json({ success: true });
 });
 
 router.get("/admin/bookings", requireAuth, async (req, res) => {

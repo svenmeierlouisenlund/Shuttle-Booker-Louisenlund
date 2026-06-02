@@ -55,6 +55,9 @@ export default function AdminBookingsList() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <h1 className="text-2xl font-serif font-semibold text-primary">Alle Buchungen</h1>
           <div className="flex items-center gap-4">
+            <Button variant="outline" onClick={() => window.open("/api/admin/bookings/export?format=xlsx", "_blank")}>
+              Excel Export
+            </Button>
             <Button variant="outline" onClick={() => window.open("/api/admin/bookings/export", "_blank")}>
               CSV Export
             </Button>

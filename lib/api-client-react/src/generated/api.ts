@@ -31,7 +31,10 @@ import type {
   ErrorResponse,
   ExportBookingsParams,
   HealthStatus,
-  ListAdminBookingsParams
+  ListAdminBookingsParams,
+  NotificationEmail,
+  NotificationEmailInput,
+  NotificationEmailList
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -805,4 +808,222 @@ export function useGetAdminMe<TData = Awaited<ReturnType<typeof getAdminMe>>, TE
 
 
 
+
+export const getListNotificationEmailsUrl = () => {
+
+
+
+
+  return `/api/admin/notification-emails`
+}
+
+/**
+ * @summary List notification email recipients
+ */
+export const listNotificationEmails = async ( options?: RequestInit): Promise<NotificationEmailList> => {
+
+  return customFetch<NotificationEmailList>(getListNotificationEmailsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListNotificationEmailsQueryKey = () => {
+    return [
+    `/api/admin/notification-emails`
+    ] as const;
+    }
+
+
+export const getListNotificationEmailsQueryOptions = <TData = Awaited<ReturnType<typeof listNotificationEmails>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listNotificationEmails>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListNotificationEmailsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listNotificationEmails>>> = ({ signal }) => listNotificationEmails({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listNotificationEmails>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListNotificationEmailsQueryResult = NonNullable<Awaited<ReturnType<typeof listNotificationEmails>>>
+export type ListNotificationEmailsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List notification email recipients
+ */
+
+export function useListNotificationEmails<TData = Awaited<ReturnType<typeof listNotificationEmails>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listNotificationEmails>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListNotificationEmailsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getAddNotificationEmailUrl = () => {
+
+
+
+
+  return `/api/admin/notification-emails`
+}
+
+/**
+ * @summary Add a notification email recipient
+ */
+export const addNotificationEmail = async (notificationEmailInput: NotificationEmailInput, options?: RequestInit): Promise<NotificationEmail> => {
+
+  return customFetch<NotificationEmail>(getAddNotificationEmailUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      notificationEmailInput,)
+  }
+);}
+
+
+
+
+export const getAddNotificationEmailMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addNotificationEmail>>, TError,{data: BodyType<NotificationEmailInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addNotificationEmail>>, TError,{data: BodyType<NotificationEmailInput>}, TContext> => {
+
+const mutationKey = ['addNotificationEmail'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addNotificationEmail>>, {data: BodyType<NotificationEmailInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  addNotificationEmail(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddNotificationEmailMutationResult = NonNullable<Awaited<ReturnType<typeof addNotificationEmail>>>
+    export type AddNotificationEmailMutationBody = BodyType<NotificationEmailInput>
+    export type AddNotificationEmailMutationError = ErrorType<void>
+
+    /**
+ * @summary Add a notification email recipient
+ */
+export const useAddNotificationEmail = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addNotificationEmail>>, TError,{data: BodyType<NotificationEmailInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof addNotificationEmail>>,
+        TError,
+        {data: BodyType<NotificationEmailInput>},
+        TContext
+      > => {
+      return useMutation(getAddNotificationEmailMutationOptions(options));
+    }
+
+export const getDeleteNotificationEmailUrl = (id: number,) => {
+
+
+
+
+  return `/api/admin/notification-emails/${id}`
+}
+
+/**
+ * @summary Remove a notification email recipient
+ */
+export const deleteNotificationEmail = async (id: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getDeleteNotificationEmailUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteNotificationEmailMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteNotificationEmail>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteNotificationEmail>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteNotificationEmail'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteNotificationEmail>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteNotificationEmail(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteNotificationEmailMutationResult = NonNullable<Awaited<ReturnType<typeof deleteNotificationEmail>>>
+
+    export type DeleteNotificationEmailMutationError = ErrorType<void>
+
+    /**
+ * @summary Remove a notification email recipient
+ */
+export const useDeleteNotificationEmail = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteNotificationEmail>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteNotificationEmail>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteNotificationEmailMutationOptions(options));
+    }
 

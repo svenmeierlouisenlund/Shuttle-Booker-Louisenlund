@@ -61,6 +61,15 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                   Buchungen
                 </Button>
               </Link>
+              <Link href="/admin/settings">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-blue-100 hover:text-white hover:bg-white/10"
+                >
+                  Einstellungen
+                </Button>
+              </Link>
             </nav>
           </div>
           <div className="flex items-center gap-3">
