@@ -14,7 +14,7 @@ export default function Home() {
               <img src={logo} alt="Stiftung Louisenlund" className="h-9 w-auto" />
             </div>
             <div className="text-blue-200 text-xs tracking-widest uppercase hidden sm:block">
-              Internat · Ganztagsgymnasium · IB World School
+              Internat · Ganztagsgymnasium · IB World School · Grundschule
             </div>
           </div>
         </div>
