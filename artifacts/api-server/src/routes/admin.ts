@@ -265,161 +265,185 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
   const errors: string[] = [];
   const importedParentNames = new Set<string>();
 
-  // Track last inserted main booking ID (new format: explicit Typ column; old format: by parentEmail)
-  let lastMainBookingId: number | null = null;
-  // Old format only: track parentEmails already seen in this import run (first = Hauptkind, rest = Geschwister)
-  const seenParentEmails = new Map<string, number>(); // email → bookingId
+  // ── Helper: parse a row's fields (new format via colMap, old format positional) ──
+  function parseRow(row: unknown[]) {
+    let typ: string;
+    let refNum: string;
+    let childName: string;
+    let childAddress: string;
+    let childPostalCode: string;
+    let childCity: string;
+    let studentNumber: string | null;
+    let gradeYear: string;
+    let parentName: string;
+    let parentEmail: string;
+    let parentPhone: string;
+    let tariffZone: string;
+    let bookingType: "full_year" | "first_half";
+    let outboundRoute: string;
+    let returnRoute: string;
+    let status: string;
+    let adminNotes: string;
 
+    if (isNewFormat) {
+      typ = cleanStr(colVal(row, "typ")).toLowerCase();
+      refNum = cleanStr(colVal(row, "referenznummer"));
+      childName = cleanStr(colVal(row, "name kind"));
+      childAddress = cleanStr(colVal(row, "straße", "strasse"));
+      childPostalCode = cleanStr(colVal(row, "plz"));
+      childCity = cleanStr(colVal(row, "wohnort"));
+      studentNumber = cleanStr(colVal(row, "schülernummer", "schulernummer")) || null;
+      gradeYear = mapGrade(colVal(row, "jahrgang"));
+      parentName = cleanStr(colVal(row, "name elternteil")) || "Unbekannt";
+      parentEmail = cleanStr(colVal(row, "e-mail", "email"));
+      parentPhone = cleanStr(colVal(row, "telefon"));
+      tariffZone = ZONE_MAP[cleanStr(colVal(row, "tarifzone"))] ?? "zone1";
+      bookingType = (BOOKING_TYPE_MAP[cleanStr(colVal(row, "buchungsart"))] ?? "full_year") as "full_year" | "first_half";
+      outboundRoute = (ROUTE_MAP[cleanStr(colVal(row, "hinfahrt"))] ?? tariffZone) as string;
+      returnRoute = (ROUTE_MAP[cleanStr(colVal(row, "rückfahrt", "ruckfahrt"))] ?? tariffZone) as string;
+      status = (STATUS_IMPORT_MAP[cleanStr(colVal(row, "status"))] ?? "confirmed") as string;
+      adminNotes = cleanStr(colVal(row, "notizen")) || "Importiert";
+    } else {
+      refNum = "";
+      childName = cleanStr((row as any)[0]);
+      studentNumber = cleanStr((row as any)[1]) || null;
+      gradeYear = mapGrade((row as any)[2]);
+      const street = cleanStr((row as any)[3]);
+      childPostalCode = cleanStr((row as any)[4]);
+      childCity = cleanStr((row as any)[5]);
+      childAddress = street ? `${street}, ${childPostalCode} ${childCity}`.trim() : "";
+      parentName = cleanStr((row as any)[6]) || "Unbekannt";
+      parentEmail = cleanStr((row as any)[7]);
+      parentPhone = cleanStr((row as any)[8]);
+      tariffZone = ZONE_MAP[cleanStr((row as any)[9])] ?? "zone1";
+      bookingType = "full_year";
+      outboundRoute = tariffZone;
+      returnRoute = tariffZone;
+      status = "confirmed";
+      adminNotes = "Importiert aus Vorjahresdaten";
+      typ = "hauptkind"; // determined later by seenParentEmails
+    }
+    return { typ, refNum, childName, childAddress, childPostalCode, childCity, studentNumber, gradeYear, parentName, parentEmail, parentPhone, tariffZone, bookingType, outboundRoute, returnRoute, status, adminNotes };
+  }
+
+  // ── New format: two-pass (Hauptkind first, then Geschwister) ─────────────
+  // Old format: single-pass with parentEmail-based sibling detection
+  // Referenznummer → DB booking id (populated during pass 1)
+  const refToBookingId = new Map<string, number>();
+  // Old format only: email → booking id
+  const seenParentEmails = new Map<string, number>();
+
+  // ── Pass 1: all Hauptkind rows (+ old-format rows) ──────────────────────
   for (const row of rows) {
+    // In new format, skip Geschwister now — they are processed in pass 2
+    if (isNewFormat) {
+      const quickTyp = cleanStr(colVal(row, "typ")).toLowerCase();
+      if (quickTyp === "geschwister") continue;
+    }
+
     try {
-      // ── Parse row fields based on detected format ─────────────────────────
-      let typ: string;
-      let childName: string;
-      let childAddress: string;
-      let childPostalCode: string;
-      let childCity: string;
-      let studentNumber: string | null;
-      let gradeYear: string;
-      let parentName: string;
-      let parentEmail: string;
-      let parentPhone: string;
-      let tariffZone: string;
-      let bookingType: "full_year" | "first_half";
-      let outboundRoute: any;
-      let returnRoute: any;
-      let status: any;
-      let adminNotes: string;
+      const f = parseRow(row);
+      if (!f.childName) continue;
 
-      if (isNewFormat) {
-        // New export format — use dynamic column map so column order/presence doesn't matter
-        typ = cleanStr(colVal(row, "typ")).toLowerCase();
-        childName = cleanStr(colVal(row, "name kind"));
-        childAddress = cleanStr(colVal(row, "straße", "strasse", "strase"));
-        childPostalCode = cleanStr(colVal(row, "plz"));
-        childCity = cleanStr(colVal(row, "wohnort"));
-        studentNumber = cleanStr(colVal(row, "schulernummer", "schülernummer")) || null;
-        gradeYear = mapGrade(colVal(row, "jahrgang"));
-        parentName = cleanStr(colVal(row, "name elternteil")) || "Unbekannt";
-        parentEmail = cleanStr(colVal(row, "e-mail", "email"));
-        parentPhone = cleanStr(colVal(row, "telefon"));
-        tariffZone = ZONE_MAP[cleanStr(colVal(row, "tarifzone"))] ?? "zone1";
-        bookingType = (BOOKING_TYPE_MAP[cleanStr(colVal(row, "buchungsart"))] ?? "full_year") as "full_year" | "first_half";
-        outboundRoute = (ROUTE_MAP[cleanStr(colVal(row, "hinfahrt"))] ?? tariffZone) as any;
-        returnRoute = (ROUTE_MAP[cleanStr(colVal(row, "ruckfahrt", "rückfahrt"))] ?? tariffZone) as any;
-        // "kosten (€)" skipped — recalculated from config
-        status = (STATUS_IMPORT_MAP[cleanStr(colVal(row, "status"))] ?? "confirmed") as any;
-        adminNotes = cleanStr(colVal(row, "notizen")) || "Importiert";
-      } else {
-        // Old format (10 cols):
-        // 0:Name Kind 1:Schülernummer 2:Jahrgang 3:Straße 4:PLZ 5:Ort 6:Elternteil 7:E-Mail 8:Telefon 9:Tarifzone
-        childName = cleanStr((row as any)[0]);
-        studentNumber = cleanStr((row as any)[1]) || null;
-        gradeYear = mapGrade((row as any)[2]);
-        const street = cleanStr((row as any)[3]);
-        childPostalCode = cleanStr((row as any)[4]);
-        childCity = cleanStr((row as any)[5]);
-        childAddress = street ? `${street}, ${childPostalCode} ${childCity}`.trim() : "";
-        parentName = cleanStr((row as any)[6]) || "Unbekannt";
-        parentEmail = cleanStr((row as any)[7]);
-        parentPhone = cleanStr((row as any)[8]);
-        tariffZone = ZONE_MAP[cleanStr((row as any)[9])] ?? "zone1";
-        bookingType = "full_year";
-        outboundRoute = tariffZone as any;
-        returnRoute = tariffZone as any;
-        status = "confirmed" as any;
-        adminNotes = "Importiert aus Vorjahresdaten";
-        // Detect siblings by parentEmail: first occurrence = Hauptkind, subsequent = Geschwister
-        typ = seenParentEmails.has(parentEmail) ? "geschwister" : "hauptkind";
-      }
-
-      if (!childName) continue;
-
-      // ── Geschwister-Zeile ────────────────────────────────────────────────
-      if (typ === "geschwister") {
-        const mainId = isNewFormat ? lastMainBookingId : (seenParentEmails.get(parentEmail) ?? null);
-        if (mainId === null) {
-          errors.push(`${childName}: Geschwister ohne vorherige Hauptbuchung übersprungen`);
-          skipped++;
-          continue;
-        }
-        // Check for duplicate sibling
-        const existingSib = await db
-          .select({ id: siblingsTable.id })
-          .from(siblingsTable)
-          .where(and(
-            eq(siblingsTable.bookingId, mainId),
-            eq(siblingsTable.childName, childName),
-          ))
-          .limit(1);
+      // Old format: detect siblings via parentEmail
+      if (!isNewFormat && seenParentEmails.has(f.parentEmail)) {
+        // This is a sibling in old format — handle inline (no deferred pass needed)
+        const mainId = seenParentEmails.get(f.parentEmail)!;
+        const existingSib = await db.select({ id: siblingsTable.id }).from(siblingsTable)
+          .where(and(eq(siblingsTable.bookingId, mainId), eq(siblingsTable.childName, f.childName))).limit(1);
         if (existingSib.length > 0) { skipped++; continue; }
-
-        const sibPriceCents = calcBookingPriceFromConfig(importPricingConfig, tariffZone as any, bookingType, outboundRoute, returnRoute);
+        const sibPriceCents = calcBookingPriceFromConfig(importPricingConfig, f.tariffZone as any, f.bookingType, f.outboundRoute as any, f.returnRoute as any);
         await db.insert(siblingsTable).values({
-          bookingId: mainId,
-          childName,
-          studentNumber,
-          gradeYear,
-          outboundRoute,
-          returnRoute,
-          priceCents: Math.round(sibPriceCents * 0.8), // 20% Geschwisterrabatt
+          bookingId: mainId, childName: f.childName, studentNumber: f.studentNumber,
+          gradeYear: f.gradeYear, outboundRoute: f.outboundRoute as any, returnRoute: f.returnRoute as any,
+          priceCents: Math.round(sibPriceCents * 0.8),
         });
-        importedParentNames.add(parentName);
+        importedParentNames.add(f.parentName);
         imported++;
         continue;
       }
 
-      // ── Hauptkind-Zeile ─────────────────────────────────────────────────
-      const existing = await db
-        .select({ id: bookingsTable.id })
-        .from(bookingsTable)
-        .where(and(
-          eq(bookingsTable.childName, childName),
-          eq(bookingsTable.parentEmail, parentEmail)
-        ))
-        .limit(1);
+      // Hauptkind: check for duplicate
+      const existing = await db.select({ id: bookingsTable.id }).from(bookingsTable)
+        .where(and(eq(bookingsTable.childName, f.childName), eq(bookingsTable.parentEmail, f.parentEmail))).limit(1);
 
       if (existing.length > 0) {
-        lastMainBookingId = existing[0].id;
-        if (!isNewFormat) seenParentEmails.set(parentEmail, existing[0].id);
+        if (isNewFormat) refToBookingId.set(f.refNum, existing[0].id);
+        else seenParentEmails.set(f.parentEmail, existing[0].id);
         skipped++;
         continue;
       }
 
-      let ref = genRef();
-      while ((await db.select({ id: bookingsTable.id }).from(bookingsTable).where(eq(bookingsTable.referenceNumber, ref)).limit(1)).length > 0) {
-        ref = genRef();
+      let newRef = isNewFormat ? f.refNum : genRef();
+      // Ensure ref uniqueness when generating a new one
+      if (!isNewFormat || (await db.select({ id: bookingsTable.id }).from(bookingsTable).where(eq(bookingsTable.referenceNumber, newRef)).limit(1)).length > 0) {
+        newRef = genRef();
+        while ((await db.select({ id: bookingsTable.id }).from(bookingsTable).where(eq(bookingsTable.referenceNumber, newRef)).limit(1)).length > 0) {
+          newRef = genRef();
+        }
       }
 
-      const priceCents = calcBookingPriceFromConfig(importPricingConfig, tariffZone as any, bookingType, outboundRoute, returnRoute);
-
+      const priceCents = calcBookingPriceFromConfig(importPricingConfig, f.tariffZone as any, f.bookingType, f.outboundRoute as any, f.returnRoute as any);
       const [inserted] = await db.insert(bookingsTable).values({
-        referenceNumber: ref,
-        childName,
-        childAddress,
-        childPostalCode,
-        childCity,
-        studentNumber,
-        gradeYear,
-        parentName,
-        parentEmail,
-        parentPhone,
-        tariffZone: tariffZone as any,
-        bookingType,
-        outboundRoute,
-        returnRoute,
-        signatureName: parentName,
-        status,
-        priceCents,
-        adminNotes,
+        referenceNumber: newRef, childName: f.childName, childAddress: f.childAddress,
+        childPostalCode: f.childPostalCode, childCity: f.childCity, studentNumber: f.studentNumber,
+        gradeYear: f.gradeYear, parentName: f.parentName, parentEmail: f.parentEmail,
+        parentPhone: f.parentPhone, tariffZone: f.tariffZone as any, bookingType: f.bookingType,
+        outboundRoute: f.outboundRoute as any, returnRoute: f.returnRoute as any,
+        signatureName: f.parentName, status: f.status as any, priceCents, adminNotes: f.adminNotes,
       }).returning({ id: bookingsTable.id });
 
-      lastMainBookingId = inserted.id;
-      if (!isNewFormat) seenParentEmails.set(parentEmail, inserted.id);
-      importedParentNames.add(parentName);
+      if (isNewFormat) refToBookingId.set(f.refNum, inserted.id);
+      else seenParentEmails.set(f.parentEmail, inserted.id);
+      importedParentNames.add(f.parentName);
       imported++;
     } catch (err: any) {
       const childName = cleanStr((row as any)[isNewFormat ? 2 : 0]);
       errors.push(`${childName || "Zeile"}: ${err.message ?? "Fehler"}`);
+    }
+  }
+
+  // ── Pass 2 (new format only): all Geschwister rows ───────────────────────
+  if (isNewFormat) {
+    for (const row of rows) {
+      const quickTyp = cleanStr(colVal(row, "typ")).toLowerCase();
+      if (quickTyp !== "geschwister") continue;
+
+      try {
+        const f = parseRow(row);
+        if (!f.childName) continue;
+
+        // Look up parent booking by reference number
+        let mainId = refToBookingId.get(f.refNum) ?? null;
+        if (mainId === null && f.refNum) {
+          // Fallback: look up in DB (booking may have existed before this import run)
+          const found = await db.select({ id: bookingsTable.id }).from(bookingsTable)
+            .where(eq(bookingsTable.referenceNumber, f.refNum)).limit(1);
+          if (found.length > 0) mainId = found[0].id;
+        }
+
+        if (mainId === null) {
+          errors.push(`${f.childName}: Geschwister ohne zugehörige Hauptbuchung (Ref: ${f.refNum || "unbekannt"})`);
+          skipped++;
+          continue;
+        }
+
+        const existingSib = await db.select({ id: siblingsTable.id }).from(siblingsTable)
+          .where(and(eq(siblingsTable.bookingId, mainId), eq(siblingsTable.childName, f.childName))).limit(1);
+        if (existingSib.length > 0) { skipped++; continue; }
+
+        const sibPriceCents = calcBookingPriceFromConfig(importPricingConfig, f.tariffZone as any, f.bookingType, f.outboundRoute as any, f.returnRoute as any);
+        await db.insert(siblingsTable).values({
+          bookingId: mainId, childName: f.childName, studentNumber: f.studentNumber,
+          gradeYear: f.gradeYear, outboundRoute: f.outboundRoute as any, returnRoute: f.returnRoute as any,
+          priceCents: Math.round(sibPriceCents * 0.8),
+        });
+        importedParentNames.add(f.parentName);
+        imported++;
+      } catch (err: any) {
+        const childName = cleanStr((row as any)[2]);
+        errors.push(`${childName || "Zeile"}: ${err.message ?? "Fehler"}`);
+      }
     }
   }
 
