@@ -2,10 +2,12 @@ import { AdminLayout } from "@/components/admin-layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Save, Info } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Loader2, Save, Info, Lock } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
 
 interface PricingByZone { zone1: number; zone2: number; zone3: number; }
 interface PricingPeriod { both: PricingByZone; oneWay: PricingByZone; }
@@ -72,6 +74,19 @@ async function savePricing(form: FormValues): Promise<PricingData> {
   return res.json();
 }
 
+async function verifyPassword(password: string): Promise<void> {
+  const res = await fetch("/api/admin/verify-password", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error ?? "Passwortprüfung fehlgeschlagen");
+  }
+}
+
 const ZONES = ["zone1", "zone2", "zone3"] as const;
 const ZONE_LABELS: Record<string, string> = { zone1: "Zone 1", zone2: "Zone 2", zone3: "Zone 3" };
 
@@ -80,11 +95,27 @@ export default function AdminPricing() {
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormValues | null>(null);
 
+  // Password dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+
   const { data, isLoading, error } = useQuery({ queryKey: ["admin-pricing"], queryFn: fetchPricing });
 
   useEffect(() => {
     if (data && !form) setForm(buildForm(data));
   }, [data, form]);
+
+  // Focus password input when dialog opens
+  useEffect(() => {
+    if (dialogOpen) {
+      setPassword("");
+      setPasswordError("");
+      setTimeout(() => passwordInputRef.current?.focus(), 50);
+    }
+  }, [dialogOpen]);
 
   const mutation = useMutation({
     mutationFn: savePricing,
@@ -103,6 +134,33 @@ export default function AdminPricing() {
       ...prev,
       [period]: { ...prev[period], [rt]: { ...prev[period][rt], [zone]: val } },
     }) : prev);
+  };
+
+  const handleSaveClick = () => {
+    setDialogOpen(true);
+  };
+
+  const handleConfirm = async () => {
+    if (!password) {
+      setPasswordError("Bitte geben Sie das Passwort ein.");
+      return;
+    }
+    setVerifying(true);
+    setPasswordError("");
+    try {
+      await verifyPassword(password);
+      setDialogOpen(false);
+      setPassword("");
+      if (form) mutation.mutate(form);
+    } catch {
+      setPasswordError("Falsches Passwort. Bitte erneut versuchen.");
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleConfirm();
   };
 
   if (isLoading) {
@@ -149,7 +207,7 @@ export default function AdminPricing() {
             </p>
           </div>
           <Button
-            onClick={() => mutation.mutate(form)}
+            onClick={handleSaveClick}
             disabled={mutation.isPending}
             className="bg-[#004289] hover:bg-[#003070] shrink-0"
           >
@@ -263,6 +321,57 @@ export default function AdminPricing() {
           <p className="text-xs text-gray-400 text-right">Zuletzt geändert: {updatedAt}</p>
         )}
       </div>
+
+      {/* Password confirmation dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!verifying) setDialogOpen(open); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="w-4 h-4 text-[#004289]" />
+              Passwort bestätigen
+            </DialogTitle>
+            <DialogDescription>
+              Bitte geben Sie Ihr Admin-Passwort ein, um die Tarifänderungen zu speichern.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 py-2">
+            <Label htmlFor="confirm-password">Passwort</Label>
+            <Input
+              id="confirm-password"
+              ref={passwordInputRef}
+              type="password"
+              placeholder="Passwort eingeben"
+              value={password}
+              onChange={e => { setPassword(e.target.value); setPasswordError(""); }}
+              onKeyDown={handleKeyDown}
+              disabled={verifying}
+              className={passwordError ? "border-red-500 focus-visible:ring-red-500" : ""}
+            />
+            {passwordError && (
+              <p className="text-sm text-red-600">{passwordError}</p>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDialogOpen(false)}
+              disabled={verifying}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              onClick={handleConfirm}
+              disabled={verifying}
+              className="bg-[#004289] hover:bg-[#003070]"
+            >
+              {verifying ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Lock className="w-4 h-4 mr-2" />}
+              Bestätigen &amp; Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AdminLayout>
   );
 }
