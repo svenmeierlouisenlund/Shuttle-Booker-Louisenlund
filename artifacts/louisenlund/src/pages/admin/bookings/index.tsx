@@ -393,8 +393,9 @@ export default function AdminBookingsList() {
             </div>
 
             <div className="text-xs text-muted-foreground bg-muted/50 rounded p-3 space-y-1">
-              <p className="font-medium">Erwartetes Spaltenformat:</p>
-              <p>Name des Schülers · Schülernummer · Jahrgang · Straße · PLZ · Ort · Name des Elternteils · E-Mail · Mobilfunk · Tarifzone</p>
+              <p className="font-medium">Erwartetes Spaltenformat (Export-Format):</p>
+              <p>Referenznummer · Typ · Name Kind · Straße · PLZ · Wohnort · Schülernummer · Jahrgang · Name Elternteil · E-Mail · Telefon · Tarifzone · Buchungsart · Hinfahrt · Rückfahrt · Status · Notizen · Eingegangen am</p>
+              <p className="mt-1 text-muted-foreground">Tipp: Verwenden Sie den Excel-Export als Vorlage. Geschwisterkinder (Typ = „Geschwister") werden direkt unter dem Hauptkind eingetragen.</p>
             </div>
 
             {importError && (
