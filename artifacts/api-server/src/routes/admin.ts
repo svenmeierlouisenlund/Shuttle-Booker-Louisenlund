@@ -219,47 +219,96 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
   }
 
   const ws = wb.Sheets[wb.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1 }).slice(1) as unknown[][];
+  const allRows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1 }) as unknown[][];
+
+  // ── Format detection ────────────────────────────────────────────────────────
+  // New format (18 cols): Ref | Typ | Name Kind | Straße | PLZ | Wohnort | ...
+  // Old format (10 cols): Name Kind | Schülernummer | Jahrgang | Straße | PLZ | Ort | Elternteil | E-Mail | Telefon | Tarifzone
+  const headerRow = allRows[0] as unknown[];
+  const colCount = headerRow ? headerRow.length : 0;
+  const isNewFormat = colCount >= 15 || cleanStr(headerRow?.[1]).toLowerCase() === "typ";
+  const rows = allRows.slice(1) as unknown[][];
 
   let imported = 0;
   let skipped = 0;
   const errors: string[] = [];
   const importedParentNames = new Set<string>();
 
-  // Track last inserted main booking ID for sibling rows
+  // Track last inserted main booking ID (new format: explicit Typ column; old format: by parentEmail)
   let lastMainBookingId: number | null = null;
-  let lastMainRef: string | null = null;
+  // Old format only: track parentEmails already seen in this import run (first = Hauptkind, rest = Geschwister)
+  const seenParentEmails = new Map<string, number>(); // email → bookingId
 
   for (const row of rows) {
-    // New export format (18 cols):
-    // 0:Ref 1:Typ 2:Name Kind 3:Straße 4:PLZ 5:Wohnort 6:Schülernummer 7:Jahrgang
-    // 8:Name Elternteil 9:E-Mail 10:Telefon 11:Tarifzone 12:Buchungsart
-    // 13:Hinfahrt 14:Rückfahrt 15:Status 16:Notizen 17:Eingegangen am
-
-    const typ = cleanStr((row as any)[1]).toLowerCase();
-    const childName = cleanStr((row as any)[2]);
-    if (!childName) continue;
-
     try {
-      const childAddress = cleanStr((row as any)[3]);
-      const childPostalCode = cleanStr((row as any)[4]);
-      const childCity = cleanStr((row as any)[5]);
-      const studentNumber = cleanStr((row as any)[6]) || null;
-      const gradeYear = mapGrade((row as any)[7]);
-      const parentName = cleanStr((row as any)[8]) || "Unbekannt";
-      const parentEmail = cleanStr((row as any)[9]);
-      const parentPhone = cleanStr((row as any)[10]);
-      const tariffZone = ZONE_MAP[cleanStr((row as any)[11])] ?? "zone1";
-      const bookingType = (BOOKING_TYPE_MAP[cleanStr((row as any)[12])] ?? "full_year") as "full_year" | "first_half";
-      const outboundRoute = (ROUTE_MAP[cleanStr((row as any)[13])] ?? tariffZone) as any;
-      const returnRoute = (ROUTE_MAP[cleanStr((row as any)[14])] ?? tariffZone) as any;
-      const statusRaw = cleanStr((row as any)[15]);
-      const status = (STATUS_IMPORT_MAP[statusRaw] ?? "confirmed") as any;
-      const adminNotes = cleanStr((row as any)[16]) || "Importiert";
+      // ── Parse row fields based on detected format ─────────────────────────
+      let typ: string;
+      let childName: string;
+      let childAddress: string;
+      let childPostalCode: string;
+      let childCity: string;
+      let studentNumber: string | null;
+      let gradeYear: string;
+      let parentName: string;
+      let parentEmail: string;
+      let parentPhone: string;
+      let tariffZone: string;
+      let bookingType: "full_year" | "first_half";
+      let outboundRoute: any;
+      let returnRoute: any;
+      let status: any;
+      let adminNotes: string;
+
+      if (isNewFormat) {
+        // New export format (18 cols):
+        // 0:Ref 1:Typ 2:Name Kind 3:Straße 4:PLZ 5:Wohnort 6:Schülernummer 7:Jahrgang
+        // 8:Name Elternteil 9:E-Mail 10:Telefon 11:Tarifzone 12:Buchungsart
+        // 13:Hinfahrt 14:Rückfahrt 15:Status 16:Notizen 17:Eingegangen am
+        typ = cleanStr((row as any)[1]).toLowerCase();
+        childName = cleanStr((row as any)[2]);
+        childAddress = cleanStr((row as any)[3]);
+        childPostalCode = cleanStr((row as any)[4]);
+        childCity = cleanStr((row as any)[5]);
+        studentNumber = cleanStr((row as any)[6]) || null;
+        gradeYear = mapGrade((row as any)[7]);
+        parentName = cleanStr((row as any)[8]) || "Unbekannt";
+        parentEmail = cleanStr((row as any)[9]);
+        parentPhone = cleanStr((row as any)[10]);
+        tariffZone = ZONE_MAP[cleanStr((row as any)[11])] ?? "zone1";
+        bookingType = (BOOKING_TYPE_MAP[cleanStr((row as any)[12])] ?? "full_year") as "full_year" | "first_half";
+        outboundRoute = (ROUTE_MAP[cleanStr((row as any)[13])] ?? tariffZone) as any;
+        returnRoute = (ROUTE_MAP[cleanStr((row as any)[14])] ?? tariffZone) as any;
+        status = (STATUS_IMPORT_MAP[cleanStr((row as any)[15])] ?? "confirmed") as any;
+        adminNotes = cleanStr((row as any)[16]) || "Importiert";
+      } else {
+        // Old format (10 cols):
+        // 0:Name Kind 1:Schülernummer 2:Jahrgang 3:Straße 4:PLZ 5:Ort 6:Elternteil 7:E-Mail 8:Telefon 9:Tarifzone
+        childName = cleanStr((row as any)[0]);
+        studentNumber = cleanStr((row as any)[1]) || null;
+        gradeYear = mapGrade((row as any)[2]);
+        const street = cleanStr((row as any)[3]);
+        childPostalCode = cleanStr((row as any)[4]);
+        childCity = cleanStr((row as any)[5]);
+        childAddress = street ? `${street}, ${childPostalCode} ${childCity}`.trim() : "";
+        parentName = cleanStr((row as any)[6]) || "Unbekannt";
+        parentEmail = cleanStr((row as any)[7]);
+        parentPhone = cleanStr((row as any)[8]);
+        tariffZone = ZONE_MAP[cleanStr((row as any)[9])] ?? "zone1";
+        bookingType = "full_year";
+        outboundRoute = tariffZone as any;
+        returnRoute = tariffZone as any;
+        status = "confirmed" as any;
+        adminNotes = "Importiert aus Vorjahresdaten";
+        // Detect siblings by parentEmail: first occurrence = Hauptkind, subsequent = Geschwister
+        typ = seenParentEmails.has(parentEmail) ? "geschwister" : "hauptkind";
+      }
+
+      if (!childName) continue;
 
       // ── Geschwister-Zeile ────────────────────────────────────────────────
       if (typ === "geschwister") {
-        if (lastMainBookingId === null) {
+        const mainId = isNewFormat ? lastMainBookingId : (seenParentEmails.get(parentEmail) ?? null);
+        if (mainId === null) {
           errors.push(`${childName}: Geschwister ohne vorherige Hauptbuchung übersprungen`);
           skipped++;
           continue;
@@ -269,7 +318,7 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
           .select({ id: siblingsTable.id })
           .from(siblingsTable)
           .where(and(
-            eq(siblingsTable.bookingId, lastMainBookingId),
+            eq(siblingsTable.bookingId, mainId),
             eq(siblingsTable.childName, childName),
           ))
           .limit(1);
@@ -277,7 +326,7 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
 
         const sibPriceCents = calcBookingPrice(tariffZone as any, bookingType, outboundRoute, returnRoute);
         await db.insert(siblingsTable).values({
-          bookingId: lastMainBookingId,
+          bookingId: mainId,
           childName,
           studentNumber,
           gradeYear,
@@ -285,6 +334,7 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
           returnRoute,
           priceCents: Math.round(sibPriceCents * 0.8), // 20% Geschwisterrabatt
         });
+        importedParentNames.add(parentName);
         imported++;
         continue;
       }
@@ -301,7 +351,7 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
 
       if (existing.length > 0) {
         lastMainBookingId = existing[0].id;
-        lastMainRef = null;
+        if (!isNewFormat) seenParentEmails.set(parentEmail, existing[0].id);
         skipped++;
         continue;
       }
@@ -335,11 +385,12 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
       }).returning({ id: bookingsTable.id });
 
       lastMainBookingId = inserted.id;
-      lastMainRef = ref;
+      if (!isNewFormat) seenParentEmails.set(parentEmail, inserted.id);
       importedParentNames.add(parentName);
       imported++;
     } catch (err: any) {
-      errors.push(`${childName}: ${err.message ?? "Fehler"}`);
+      const childName = cleanStr((row as any)[isNewFormat ? 2 : 0]);
+      errors.push(`${childName || "Zeile"}: ${err.message ?? "Fehler"}`);
     }
   }
 

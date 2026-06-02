@@ -393,9 +393,10 @@ export default function AdminBookingsList() {
             </div>
 
             <div className="text-xs text-muted-foreground bg-muted/50 rounded p-3 space-y-1">
-              <p className="font-medium">Erwartetes Spaltenformat (Export-Format):</p>
-              <p>Referenznummer · Typ · Name Kind · Straße · PLZ · Wohnort · Schülernummer · Jahrgang · Name Elternteil · E-Mail · Telefon · Tarifzone · Buchungsart · Hinfahrt · Rückfahrt · Status · Notizen · Eingegangen am</p>
-              <p className="mt-1 text-muted-foreground">Tipp: Verwenden Sie den Excel-Export als Vorlage. Geschwisterkinder (Typ = „Geschwister") werden direkt unter dem Hauptkind eingetragen.</p>
+              <p className="font-medium">Unterstützte Formate:</p>
+              <p><span className="font-medium">Neues Format (18 Spalten):</span> Referenznummer · Typ · Name Kind · Straße · PLZ · Wohnort · Schülernummer · Jahrgang · Name Elternteil · E-Mail · Telefon · Tarifzone · Buchungsart · Hinfahrt · Rückfahrt · Status · Notizen · Eingegangen am</p>
+              <p className="mt-1"><span className="font-medium">Altes Format (10 Spalten):</span> Name Kind · Schülernummer · Jahrgang · Straße · PLZ · Ort · Name Elternteil · E-Mail · Telefon · Tarifzone — Geschwister werden automatisch anhand gleicher E-Mail-Adresse erkannt.</p>
+              <p className="mt-1 text-muted-foreground">Tipp: Verwenden Sie den Excel-Export als Vorlage für das neue Format.</p>
             </div>
 
             {importError && (
