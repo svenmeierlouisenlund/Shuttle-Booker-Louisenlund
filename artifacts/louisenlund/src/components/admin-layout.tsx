@@ -42,7 +42,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                 Administration Regionalshuttle
               </span>
             </div>
-            <nav className="hidden sm:flex items-center gap-1">
+            <nav className="flex items-center gap-1">
               <Link href="/admin">
                 <Button
                   variant="ghost"
