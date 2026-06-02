@@ -111,7 +111,8 @@ export const ListAdminBookingsResponse = zod.object({
 })),
   "total": zod.number(),
   "page": zod.number(),
-  "limit": zod.number()
+  "limit": zod.number(),
+  "totalPriceCents": zod.number().describe('Sum of price_cents for all matching bookings (all pages)')
 })
 
 

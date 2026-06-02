@@ -604,6 +604,7 @@ components:
         - total
         - page
         - limit
+        - totalPriceCents
       properties:
         bookings:
           type: array
@@ -615,6 +616,9 @@ components:
           type: integer
         limit:
           type: integer
+        totalPriceCents:
+          type: integer
+          description: Sum of price_cents for all matching bookings (all pages)
 
     BookingStatusUpdate:
       type: object

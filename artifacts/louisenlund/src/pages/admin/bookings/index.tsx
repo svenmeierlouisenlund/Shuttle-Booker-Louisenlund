@@ -258,6 +258,19 @@ export default function AdminBookingsList() {
                     </TableRow>
                   ))}
                 </TableBody>
+                {data && data.totalPriceCents > 0 && (
+                  <tfoot>
+                    <tr className="border-t-2 border-border bg-muted/40">
+                      <td colSpan={8} className="px-4 py-3 text-sm font-semibold text-right">
+                        Gesamtsumme ({data.total} Buchung{data.total !== 1 ? "en" : ""})
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold tabular-nums text-primary">
+                        {(data.totalPriceCents / 100).toLocaleString("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                )}
               </Table>
             )}
           </CardContent>
