@@ -117,3 +117,22 @@ export const smtpConfigTable = pgTable("smtp_config", {
 });
 
 export type SmtpConfig = typeof smtpConfigTable.$inferSelect;
+
+export const pricingConfigTable = pgTable("pricing_config", {
+  id:                   integer("id").primaryKey().default(1),
+  fullYearBothZone1:    integer("full_year_both_zone1").notNull().default(150000),
+  fullYearBothZone2:    integer("full_year_both_zone2").notNull().default(280000),
+  fullYearBothZone3:    integer("full_year_both_zone3").notNull().default(410000),
+  fullYearOneWayZone1:  integer("full_year_one_way_zone1").notNull().default(75000),
+  fullYearOneWayZone2:  integer("full_year_one_way_zone2").notNull().default(140000),
+  fullYearOneWayZone3:  integer("full_year_one_way_zone3").notNull().default(205000),
+  firstHalfBothZone1:   integer("first_half_both_zone1").notNull().default(85000),
+  firstHalfBothZone2:   integer("first_half_both_zone2").notNull().default(155000),
+  firstHalfBothZone3:   integer("first_half_both_zone3").notNull().default(230000),
+  firstHalfOneWayZone1: integer("first_half_one_way_zone1").notNull().default(42500),
+  firstHalfOneWayZone2: integer("first_half_one_way_zone2").notNull().default(77500),
+  firstHalfOneWayZone3: integer("first_half_one_way_zone3").notNull().default(115000),
+  updatedAt:            timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type PricingConfig = typeof pricingConfigTable.$inferSelect;
