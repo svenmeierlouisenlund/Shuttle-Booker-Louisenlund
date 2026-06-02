@@ -55,6 +55,7 @@ export default function AdminBookingsList() {
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<string>("all");
   const [tariffZone, setTariffZone] = useState<string>("all");
+  const [gradeYear, setGradeYear] = useState<string>("all");
 
   const [importOpen, setImportOpen] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -69,7 +70,8 @@ export default function AdminBookingsList() {
     page,
     limit: 50,
     ...(status !== "all" ? { status } : {}),
-    ...(tariffZone !== "all" ? { tariffZone } : {})
+    ...(tariffZone !== "all" ? { tariffZone } : {}),
+    ...(gradeYear !== "all" ? { gradeYear } : {}),
   };
 
   const { data, isLoading } = useListAdminBookings(queryParams);
@@ -173,6 +175,28 @@ export default function AdminBookingsList() {
                   <SelectItem value="zone1">Tarifzone 1</SelectItem>
                   <SelectItem value="zone2">Tarifzone 2</SelectItem>
                   <SelectItem value="zone3">Tarifzone 3</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <span className="text-sm font-medium">Klasse:</span>
+              <Select value={gradeYear} onValueChange={(v) => { setGradeYear(v); setPage(1); }}>
+                <SelectTrigger className="w-[160px] bg-background">
+                  <SelectValue placeholder="Alle Klassen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle Klassen</SelectItem>
+                  <SelectItem value="Jahrgang 1">Jahrgang 1</SelectItem>
+                  <SelectItem value="Jahrgang 2">Jahrgang 2</SelectItem>
+                  <SelectItem value="Jahrgang 3">Jahrgang 3</SelectItem>
+                  <SelectItem value="Jahrgang 4">Jahrgang 4</SelectItem>
+                  <SelectItem value="Jahrgang 5">Jahrgang 5</SelectItem>
+                  <SelectItem value="Jahrgang 6">Jahrgang 6</SelectItem>
+                  <SelectItem value="Jahrgang 7">Jahrgang 7</SelectItem>
+                  <SelectItem value="Jahrgang 8">Jahrgang 8</SelectItem>
+                  <SelectItem value="Jahrgang 9">Jahrgang 9</SelectItem>
+                  <SelectItem value="MYP5">MYP5</SelectItem>
+                  <SelectItem value="DP1">DP1</SelectItem>
+                  <SelectItem value="DP2">DP2</SelectItem>
                 </SelectContent>
               </Select>
             </div>
