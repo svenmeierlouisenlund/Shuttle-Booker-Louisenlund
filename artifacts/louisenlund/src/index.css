@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,200;0,300;0,400;0,600;0,700;1,400;1,600&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -60,72 +61,86 @@
   --font-serif: var(--app-font-serif);
   --font-mono: var(--app-font-mono);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* LIGHT MODE */
+/* LIGHT MODE — Stiftung Louisenlund Corporate Design */
+/* Primary Blue: #004289 = HSL(211, 100%, 27%)         */
+/* Primary Red:  #ce1329 = HSL(353, 83%, 44%)          */
+/* Gray 1:       #3F4E55 = HSL(199, 15%, 29%)          */
+/* Gray 2:       #333333 = HSL(0, 0%, 20%)             */
+/* Gray 3:       #666666 = HSL(0, 0%, 40%)             */
+/* Gray 4:       #f0f0f0 = HSL(0, 0%, 94%)             */
 :root {
-  --button-outline: rgba(0,0,0, .10);
-  --badge-outline: rgba(0,0,0, .05);
+  --button-outline: rgba(0, 0, 0, 0.12);
+  --badge-outline: rgba(0, 0, 0, 0.06);
 
   --opaque-button-border-intensity: -8;
 
-  --elevate-1: rgba(0,0,0, .03);
-  --elevate-2: rgba(0,0,0, .08);
+  --elevate-1: rgba(0, 0, 0, 0.03);
+  --elevate-2: rgba(0, 0, 0, 0.07);
 
-  /* Deep Forest Green & Slate palette */
-  --background: 60 20% 98%; /* Warm, slightly creamy off-white */
-  --foreground: 160 30% 15%; /* Dark forest text */
-  --border: 160 10% 85%;
-  --input: 160 10% 85%;
-  --ring: 160 40% 25%;
+  /* Louisenlund White Base */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 20%;     /* #333333 */
+  --border: 0 0% 85%;
+  --input: 0 0% 85%;
+  --ring: 211 100% 27%;       /* Blue focus ring */
 
   --card: 0 0% 100%;
-  --card-foreground: 160 30% 15%;
-  --card-border: 160 10% 90%;
+  --card-foreground: 0 0% 20%;
+  --card-border: 0 0% 88%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 160 30% 15%;
-  --popover-border: 160 10% 90%;
+  --popover-foreground: 0 0% 20%;
+  --popover-border: 0 0% 88%;
 
-  --primary: 160 40% 25%; /* Deep forest green */
+  /* Louisenlund Blue #004289 */
+  --primary: 211 100% 27%;
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 160 15% 90%; /* Soft sage/slate neutral */
-  --secondary-foreground: 160 40% 20%;
+  /* Light blue-gray neutral */
+  --secondary: 211 20% 93%;
+  --secondary-foreground: 211 100% 27%;
 
-  --muted: 160 10% 92%;
-  --muted-foreground: 160 15% 45%;
+  /* Gray 4 #f0f0f0 */
+  --muted: 0 0% 94%;
+  --muted-foreground: 0 0% 40%;   /* #666666 */
 
-  --accent: 160 15% 90%;
-  --accent-foreground: 160 40% 20%;
+  /* Subtle blue tint for hover states */
+  --accent: 211 20% 93%;
+  --accent-foreground: 211 100% 27%;
 
-  --destructive: 0 70% 45%;
+  /* Louisenlund Red #ce1329 for errors/destructive */
+  --destructive: 353 83% 44%;
   --destructive-foreground: 0 0% 100%;
 
-  --chart-1: 160 40% 25%;
-  --chart-2: 160 15% 45%;
-  --chart-3: 160 20% 70%;
-  --chart-4: 160 10% 85%;
-  --chart-5: 160 5% 92%;
+  /* Charts: Blue → Red → Grays */
+  --chart-1: 211 100% 27%;   /* Louisenlund Blue */
+  --chart-2: 353 83% 44%;    /* Louisenlund Red */
+  --chart-3: 199 15% 29%;    /* Gray 1 */
+  --chart-4: 0 0% 40%;       /* Gray 3 */
+  --chart-5: 0 0% 94%;       /* Gray 4 */
 
-  --sidebar: 60 20% 98%;
-  --sidebar-foreground: 160 30% 15%;
-  --sidebar-border: 160 10% 85%;
-  --sidebar-primary: 160 40% 25%;
+  --sidebar: 211 30% 16%;           /* Deep blue sidebar */
+  --sidebar-foreground: 0 0% 94%;
+  --sidebar-border: 211 30% 22%;
+  --sidebar-primary: 353 83% 44%;   /* Red highlight in sidebar */
   --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 160 15% 90%;
-  --sidebar-accent-foreground: 160 40% 20%;
-  --sidebar-ring: 160 40% 25%;
+  --sidebar-accent: 211 30% 22%;
+  --sidebar-accent-foreground: 0 0% 94%;
+  --sidebar-ring: 211 100% 60%;
 
-  --app-font-sans: 'Inter', system-ui, sans-serif;
-  --app-font-serif: Georgia, serif;
-  --app-font-mono: Menlo, monospace;
-  
-  --radius: 0.25rem;
+  /* Source Sans 3 — closest public substitute for The Sans by LucasFonts */
+  --app-font-sans: 'Source Sans 3', system-ui, sans-serif;
+  --app-font-serif: 'Source Sans 3', system-ui, sans-serif;
+  --app-font-mono: ui-monospace, monospace;
+
+  /* Square-ish corners per brand identity */
+  --radius: 0.125rem;
 
   /* Automatically computed borders */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
@@ -144,51 +159,6 @@
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
-.dark {
-  --button-outline: rgba(255,255,255, .10);
-  --badge-outline: rgba(255,255,255, .05);
-
-  --opaque-button-border-intensity: 9;
-
-  --elevate-1: rgba(255,255,255, .04);
-  --elevate-2: rgba(255,255,255, .09);
-
-  --background: 160 30% 8%; /* Very dark forest */
-  --foreground: 60 20% 95%;
-  --border: 160 20% 20%;
-  --input: 160 20% 20%;
-  --ring: 160 30% 60%;
-
-  --card: 160 30% 10%;
-  --card-foreground: 60 20% 95%;
-  --card-border: 160 20% 20%;
-
-  --popover: 160 30% 10%;
-  --popover-foreground: 60 20% 95%;
-  --popover-border: 160 20% 20%;
-
-  --primary: 160 30% 40%;
-  --primary-foreground: 0 0% 100%;
-
-  --secondary: 160 20% 20%;
-  --secondary-foreground: 60 20% 95%;
-
-  --muted: 160 20% 15%;
-  --muted-foreground: 160 10% 65%;
-
-  --accent: 160 20% 20%;
-  --accent-foreground: 60 20% 95%;
-
-  --destructive: 0 60% 40%;
-  --destructive-foreground: 0 0% 100%;
-
-  --chart-1: 160 30% 40%;
-  --chart-2: 160 20% 60%;
-  --chart-3: 160 10% 40%;
-  --chart-4: 160 15% 25%;
-  --chart-5: 160 20% 15%;
-}
-
 @layer base {
   * {
     @apply border-border;
@@ -196,4 +166,19 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Source Sans 3', system-ui, sans-serif;
+    font-weight: 600;
+  }
+}
+
+/* Louisenlund CD accent line utility */
+.ll-accent-bar {
+  height: 4px;
+  background-color: #ce1329;
+}
+
+.ll-header {
+  background-color: #004289;
+  color: #ffffff;
 }

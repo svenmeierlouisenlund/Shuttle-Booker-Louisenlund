@@ -628,62 +628,124 @@ export default function BookingForm() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-muted/10 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto space-y-8">
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-serif font-bold text-primary">Buchung Regionalshuttle</h1>
-          <p className="text-muted-foreground">Schuljahr 2026/27</p>
-        </div>
-
-        {/* Progress */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-medium text-primary">Schritt {currentStep + 1} von {STEPS.length}</span>
-            <span className="text-sm text-muted-foreground">{STEPS[currentStep].name}</span>
-          </div>
-          <div className="w-full bg-muted rounded-full h-2">
-            <div 
-              className="bg-primary h-2 rounded-full transition-all duration-300 ease-in-out" 
-              style={{ width: `${((currentStep + 1) / STEPS.length) * 100}%` }}
-            />
+    <div className="min-h-[100dvh] flex flex-col bg-white">
+      {/* Louisenlund branded header */}
+      <header className="ll-header">
+        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div>
+            <a href="/" className="text-white font-semibold text-base tracking-wide hover:text-blue-100">
+              Stiftung Louisenlund
+            </a>
+            <div className="text-blue-200 text-xs tracking-widest uppercase mt-0.5">
+              Buchungsportal Regionalshuttle
+            </div>
           </div>
         </div>
+        <div className="ll-accent-bar" />
+      </header>
 
-        <Card className="shadow-lg border-primary/10">
-          <CardHeader className="bg-muted/30 border-b pb-6">
-            <CardTitle className="text-xl text-primary font-serif">{STEPS[currentStep].name}</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)}>
-                {renderStepContent()}
-              </form>
-            </Form>
-          </CardContent>
-          <CardFooter className="flex justify-between border-t pt-6 bg-muted/10">
-            <Button 
-              variant="outline" 
-              onClick={prevStep} 
-              disabled={currentStep === 0 || createBooking.isPending}
-            >
-              <ChevronLeft className="w-4 h-4 mr-2" /> Zurück
-            </Button>
-            
-            {currentStep < STEPS.length - 1 ? (
-              <Button onClick={nextStep} type="button">
-                Weiter <ChevronRight className="w-4 h-4 ml-2" />
-              </Button>
-            ) : (
-              <Button 
-                onClick={form.handleSubmit(onSubmit)} 
-                disabled={createBooking.isPending}
+      <div className="flex-1 bg-[#f0f0f0] py-10 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <div>
+            <h1 className="text-2xl font-semibold text-[#004289]">Buchung Regionalshuttle</h1>
+            <p className="text-sm text-[#666666] mt-1">Schuljahr 2026/27</p>
+          </div>
+
+          {/* Progress bar */}
+          <div>
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="text-xs font-semibold tracking-wide uppercase text-[#004289]">
+                Schritt {currentStep + 1} von {STEPS.length}
+              </span>
+              <span className="text-xs text-[#666666]">{STEPS[currentStep].name}</span>
+            </div>
+            <div className="w-full bg-gray-300 h-1">
+              <div
+                className="h-1 transition-all duration-300 ease-in-out"
+                style={{
+                  width: `${((currentStep + 1) / STEPS.length) * 100}%`,
+                  backgroundColor: "#004289",
+                }}
+              />
+            </div>
+            {/* Step dots */}
+            <div className="flex justify-between mt-2">
+              {STEPS.map((step, i) => (
+                <div
+                  key={step.id}
+                  className="flex flex-col items-center gap-0.5"
+                  style={{ width: `${100 / STEPS.length}%` }}
+                >
+                  <div
+                    className="w-2 h-2 rounded-full"
+                    style={{
+                      backgroundColor: i <= currentStep ? "#004289" : "#cccccc",
+                    }}
+                  />
+                  <span
+                    className="text-[10px] hidden sm:block text-center leading-tight"
+                    style={{ color: i === currentStep ? "#004289" : "#999999" }}
+                  >
+                    {step.name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Card className="shadow-sm border-gray-200 bg-white">
+            <CardHeader className="border-b border-gray-100 pb-4" style={{ borderTop: "3px solid #004289" }}>
+              <CardTitle className="text-lg font-semibold text-[#004289]">
+                {STEPS[currentStep].name}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)}>
+                  {renderStepContent()}
+                </form>
+              </Form>
+            </CardContent>
+            <CardFooter className="flex justify-between border-t border-gray-100 pt-5 bg-[#f9f9f9]">
+              <Button
+                variant="outline"
+                onClick={prevStep}
+                disabled={currentStep === 0 || createBooking.isPending}
+                className="border-gray-300 text-[#333333] hover:bg-gray-100"
               >
-                {createBooking.isPending ? "Wird gesendet..." : "Verbindlich buchen"}
+                <ChevronLeft className="w-4 h-4 mr-1" /> Zurück
               </Button>
-            )}
-          </CardFooter>
-        </Card>
+
+              {currentStep < STEPS.length - 1 ? (
+                <Button
+                  onClick={nextStep}
+                  type="button"
+                  className="bg-[#004289] hover:bg-[#003070] text-white"
+                >
+                  Weiter <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              ) : (
+                <Button
+                  onClick={form.handleSubmit(onSubmit)}
+                  disabled={createBooking.isPending}
+                  className="bg-[#ce1329] hover:bg-[#b0101f] text-white font-semibold"
+                >
+                  {createBooking.isPending ? "Wird gesendet..." : "Verbindlich buchen"}
+                </Button>
+              )}
+            </CardFooter>
+          </Card>
+        </div>
       </div>
+
+      <footer className="border-t border-gray-200 bg-white">
+        <div className="max-w-5xl mx-auto px-6 py-4">
+          <p className="text-xs text-[#666666]">
+            © {new Date().getFullYear()} Stiftung Louisenlund · D-24357 Güby ·
+            Regionalshuttle in Kooperation mit MediCall Fahrdienst GmbH
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

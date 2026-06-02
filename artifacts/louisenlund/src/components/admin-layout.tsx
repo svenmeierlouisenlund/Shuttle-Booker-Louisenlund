@@ -1,10 +1,8 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useGetAdminMe } from "@workspace/api-client-react";
+import { useGetAdminMe, useAdminLogout } from "@workspace/api-client-react";
 import { Redirect } from "wouter";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { useAdminLogout } from "@workspace/api-client-react";
 
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const { data: me, isLoading } = useGetAdminMe();
@@ -12,8 +10,8 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-[100dvh] flex items-center justify-center bg-white">
+        <Loader2 className="w-8 h-8 animate-spin text-[#004289]" />
       </div>
     );
   }
@@ -31,29 +29,66 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col bg-muted/10">
-      <header className="border-b bg-card">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <div className="min-h-[100dvh] flex flex-col bg-[#f0f0f0]">
+      {/* Blue admin header */}
+      <header className="ll-header">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-0 h-14 flex items-center justify-between">
           <div className="flex items-center gap-8">
-            <h1 className="text-lg font-serif font-semibold text-primary">Louisenlund Admin</h1>
-            <nav className="hidden sm:flex items-center gap-4">
+            <div>
+              <span className="text-white font-semibold text-sm tracking-wide">
+                Stiftung Louisenlund
+              </span>
+              <span className="text-blue-300 text-xs ml-3 hidden sm:inline">
+                Administration Regionalshuttle
+              </span>
+            </div>
+            <nav className="hidden sm:flex items-center gap-1">
               <Link href="/admin">
-                <Button variant="ghost" size="sm">Dashboard</Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-blue-100 hover:text-white hover:bg-white/10"
+                >
+                  Dashboard
+                </Button>
               </Link>
               <Link href="/admin/bookings">
-                <Button variant="ghost" size="sm">Buchungen</Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-blue-100 hover:text-white hover:bg-white/10"
+                >
+                  Buchungen
+                </Button>
               </Link>
             </nav>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground hidden sm:inline-block">Angemeldet</span>
-            <Button variant="outline" size="sm" onClick={handleLogout}>Abmelden</Button>
+          <div className="flex items-center gap-3">
+            <span className="text-blue-200 text-xs hidden sm:inline-block">Angemeldet</span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              className="border-white/30 text-white hover:bg-white hover:text-[#004289] text-xs"
+            >
+              Abmelden
+            </Button>
           </div>
         </div>
+        <div className="ll-accent-bar" />
       </header>
+
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}
       </main>
+
+      <footer className="border-t border-gray-200 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <p className="text-xs text-[#666666]">
+            © {new Date().getFullYear()} Stiftung Louisenlund · Buchungssystem Regionalshuttle 2026/27
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }
