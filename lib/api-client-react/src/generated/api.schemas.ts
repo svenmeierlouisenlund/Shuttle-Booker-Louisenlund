@@ -172,6 +172,24 @@ export interface AdminStats {
   recentBookings: AdminBooking[];
 }
 
+export interface NotificationEmail {
+  id: number;
+  email: string;
+  /** @nullable */
+  label?: string | null;
+  createdAt: string;
+}
+
+export interface NotificationEmailList {
+  emails: NotificationEmail[];
+}
+
+export interface NotificationEmailInput {
+  email: string;
+  /** @nullable */
+  label?: string | null;
+}
+
 export interface AdminCredentials {
   password: string;
 }

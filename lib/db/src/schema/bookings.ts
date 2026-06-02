@@ -71,6 +71,13 @@ export const siblingsTable = pgTable("siblings", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const notificationEmailsTable = pgTable("notification_emails", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  label: text("label"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertBookingSchema = createInsertSchema(bookingsTable).omit({
   id: true,
   referenceNumber: true,

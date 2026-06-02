@@ -234,6 +234,63 @@ paths:
         "401":
           description: Not authenticated
 
+  /admin/notification-emails:
+    get:
+      operationId: listNotificationEmails
+      tags: [admin]
+      summary: List notification email recipients
+      responses:
+        "200":
+          description: List of notification emails
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationEmailList"
+        "401":
+          description: Unauthorized
+    post:
+      operationId: addNotificationEmail
+      tags: [admin]
+      summary: Add a notification email recipient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NotificationEmailInput"
+      responses:
+        "201":
+          description: Email added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationEmail"
+        "400":
+          description: Invalid input
+        "409":
+          description: Email already exists
+        "401":
+          description: Unauthorized
+
+  /admin/notification-emails/{id}:
+    delete:
+      operationId: deleteNotificationEmail
+      tags: [admin]
+      summary: Remove a notification email recipient
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+
 components:
   schemas:
     HealthStatus:
@@ -548,6 +605,43 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminBooking"
+
+    NotificationEmail:
+      type: object
+      required:
+        - id
+        - email
+        - createdAt
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        label:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    NotificationEmailList:
+      type: object
+      required:
+        - emails
+      properties:
+        emails:
+          type: array
+          items:
+            $ref: "#/components/schemas/NotificationEmail"
+
+    NotificationEmailInput:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          format: email
+        label:
+          type: ["string", "null"]
 
     AdminCredentials:
       type: object

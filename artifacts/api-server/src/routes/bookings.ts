@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { bookingsTable, siblingsTable } from "@workspace/db";
 import { CreateBookingBody } from "@workspace/api-zod";
 import { eq } from "drizzle-orm";
+import { sendBookingNotification } from "../services/email.js";
 
 const router = Router();
 
@@ -69,6 +70,11 @@ router.post("/bookings", async (req, res) => {
   }
 
   req.log.info({ bookingId: booking.id, referenceNumber }, "Booking created");
+
+  const insertedSiblings = siblings
+    ? await db.select().from(siblingsTable).where(eq(siblingsTable.bookingId, booking.id))
+    : [];
+  sendBookingNotification(booking, insertedSiblings).catch(() => {});
 
   res.status(201).json({
     id: booking.id,

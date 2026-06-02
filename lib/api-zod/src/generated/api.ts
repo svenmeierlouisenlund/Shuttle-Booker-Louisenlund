@@ -238,3 +238,33 @@ export const GetAdminMeResponse = zod.object({
 })
 
 
+/**
+ * @summary List notification email recipients
+ */
+export const ListNotificationEmailsResponse = zod.object({
+  "emails": zod.array(zod.object({
+  "id": zod.number(),
+  "email": zod.string(),
+  "label": zod.string().nullish(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Add a notification email recipient
+ */
+export const AddNotificationEmailBody = zod.object({
+  "email": zod.string().email(),
+  "label": zod.string().nullish()
+})
+
+
+/**
+ * @summary Remove a notification email recipient
+ */
+export const DeleteNotificationEmailParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
