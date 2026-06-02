@@ -17,6 +17,29 @@ function generateReferenceNumber(): string {
 }
 
 router.post("/bookings", async (req, res) => {
+  // Cloudflare Turnstile verification
+  const cfToken = (req.body as Record<string, unknown>)?.cfTurnstileToken;
+  const tsSecret = process.env.TURNSTILE_SECRET_KEY;
+  if (tsSecret) {
+    if (!cfToken) {
+      res.status(400).json({ error: "Sicherheitsüberprüfung erforderlich. Bitte aktualisieren Sie die Seite." });
+      return;
+    }
+    const fd = new FormData();
+    fd.append("secret", tsSecret);
+    fd.append("response", String(cfToken));
+    try {
+      const r = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body: fd });
+      const outcome = await r.json() as { success: boolean };
+      if (!outcome.success) {
+        res.status(400).json({ error: "Sicherheitsüberprüfung fehlgeschlagen. Bitte versuchen Sie es erneut." });
+        return;
+      }
+    } catch (e) {
+      req.log.warn({ err: e }, "Turnstile verification network error — allowing request");
+    }
+  }
+
   const parsed = CreateBookingBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Ungültige Eingabe: " + parsed.error.message });

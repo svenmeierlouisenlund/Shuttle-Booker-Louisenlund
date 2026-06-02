@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useCreateBooking } from "@workspace/api-client-react";
+import { useMutation } from "@tanstack/react-query";
+import { Turnstile } from "@marsidev/react-turnstile";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
@@ -86,9 +87,32 @@ const STEPS = [
 
 export default function BookingForm() {
   const [currentStep, setCurrentStep] = useState(0);
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const createBooking = useCreateBooking();
+
+  const submitBooking = useMutation({
+    mutationFn: async (values: FormValues) => {
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...values, cfTurnstileToken: turnstileToken }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(err.error ?? "Buchung fehlgeschlagen");
+      }
+      return res.json();
+    },
+    onSuccess: () => setLocation("/booking/success"),
+    onError: (err: Error) => {
+      toast({
+        title: "Ein Fehler ist aufgetreten",
+        description: err.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -195,18 +219,15 @@ export default function BookingForm() {
   };
 
   const onSubmit = (data: FormValues) => {
-    createBooking.mutate({ data }, {
-      onSuccess: () => {
-        setLocation("/booking/success");
-      },
-      onError: () => {
-        toast({
-          title: "Ein Fehler ist aufgetreten",
-          description: "Bitte versuchen Sie es später noch einmal.",
-          variant: "destructive"
-        });
-      }
-    });
+    if (!turnstileToken) {
+      toast({
+        title: "Sicherheitsüberprüfung",
+        description: "Bitte schließen Sie die Sicherheitsüberprüfung ab.",
+        variant: "destructive",
+      });
+      return;
+    }
+    submitBooking.mutate(data);
   };
 
   const renderStepContent = () => {
@@ -766,6 +787,20 @@ export default function BookingForm() {
                 )}
               />
             </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700">Sicherheitsüberprüfung *</p>
+              <Turnstile
+                siteKey={import.meta.env.VITE_TURNSTILE_SITE_KEY ?? "1x00000000000000000000AA"}
+                onSuccess={(token) => setTurnstileToken(token)}
+                onError={() => setTurnstileToken("")}
+                onExpire={() => setTurnstileToken("")}
+                options={{ language: "de" }}
+              />
+              {!turnstileToken && (
+                <p className="text-xs text-gray-500">Bitte bestätigen Sie, dass Sie kein Bot sind.</p>
+              )}
+            </div>
           </div>
         );
       default:
@@ -858,7 +893,7 @@ export default function BookingForm() {
               <Button
                 variant="outline"
                 onClick={prevStep}
-                disabled={currentStep === 0 || createBooking.isPending}
+                disabled={currentStep === 0 || submitBooking.isPending}
                 className="border-gray-300 text-[#333333] hover:bg-gray-100"
               >
                 <ChevronLeft className="w-4 h-4 mr-1" /> Zurück
@@ -875,10 +910,10 @@ export default function BookingForm() {
               ) : (
                 <Button
                   onClick={form.handleSubmit(onSubmit)}
-                  disabled={createBooking.isPending}
+                  disabled={submitBooking.isPending || !turnstileToken}
                   className="bg-[#ce1329] hover:bg-[#b0101f] text-white font-semibold"
                 >
-                  {createBooking.isPending ? "Wird gesendet..." : "Verbindlich buchen"}
+                  {submitBooking.isPending ? "Wird gesendet..." : "Verbindlich buchen"}
                 </Button>
               )}
             </CardFooter>
