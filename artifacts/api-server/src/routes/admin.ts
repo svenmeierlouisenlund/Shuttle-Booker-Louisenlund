@@ -503,6 +503,14 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
     .from(bookingsTable)
     .where(whereClause);
 
+  // Also sum sibling prices for all matching bookings (not just current page)
+  const siblingTotalResult = await db
+    .select({ siblingPriceCents: sum(siblingsTable.priceCents) })
+    .from(siblingsTable)
+    .innerJoin(bookingsTable, eq(siblingsTable.bookingId, bookingsTable.id))
+    .where(whereClause);
+  const siblingTotalCents = Number(siblingTotalResult[0]?.siblingPriceCents ?? 0);
+
   const rows = await db
     .select()
     .from(bookingsTable)
@@ -552,7 +560,7 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
     })),
   }));
 
-  res.json({ bookings, total: Number(total), page, limit, totalPriceCents: Number(totalPriceCents ?? 0) });
+  res.json({ bookings, total: Number(total), page, limit, totalPriceCents: Number(totalPriceCents ?? 0) + siblingTotalCents });
 });
 
 router.delete("/admin/bookings/:id", requireAuth, async (req, res) => {
