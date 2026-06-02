@@ -59,6 +59,21 @@ export const CreateBookingBody = zod.object({
 
 
 /**
+ * @summary Import bookings from Excel file
+ */
+export const ImportBookingsBody = zod.object({
+  "file": zod.instanceof(File)
+})
+
+export const ImportBookingsResponse = zod.object({
+  "imported": zod.number(),
+  "skipped": zod.number(),
+  "total": zod.number(),
+  "errors": zod.array(zod.string())
+})
+
+
+/**
  * @summary List all bookings (admin)
  */
 export const listAdminBookingsQueryPageDefault = 1;

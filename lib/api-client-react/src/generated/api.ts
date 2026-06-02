@@ -26,12 +26,14 @@ import type {
   AdminSession,
   AdminStats,
   BookingConfirmation,
+  BookingImportRequest,
   BookingInput,
   BookingStatusUpdate,
   DeleteBookingResponse,
   ErrorResponse,
   ExportBookingsParams,
   HealthStatus,
+  ImportResult,
   ListAdminBookingsParams,
   NotificationEmail,
   NotificationEmailInput,
@@ -196,6 +198,79 @@ export const useCreateBooking = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getCreateBookingMutationOptions(options));
+    }
+
+export const getImportBookingsUrl = () => {
+
+
+
+
+  return `/api/admin/import`
+}
+
+/**
+ * @summary Import bookings from Excel file
+ */
+export const importBookings = async (bookingImportRequest: BookingImportRequest, options?: RequestInit): Promise<ImportResult> => {
+    const formData = new FormData();
+formData.append(`file`, bookingImportRequest.file);
+
+  return customFetch<ImportResult>(getImportBookingsUrl(),
+  {
+    ...options,
+    method: 'POST'
+    ,
+    body:
+      formData,
+  }
+);}
+
+
+
+
+export const getImportBookingsMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importBookings>>, TError,{data: BodyType<BookingImportRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof importBookings>>, TError,{data: BodyType<BookingImportRequest>}, TContext> => {
+
+const mutationKey = ['importBookings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof importBookings>>, {data: BodyType<BookingImportRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  importBookings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ImportBookingsMutationResult = NonNullable<Awaited<ReturnType<typeof importBookings>>>
+    export type ImportBookingsMutationBody = BodyType<BookingImportRequest>
+    export type ImportBookingsMutationError = ErrorType<void>
+
+    /**
+ * @summary Import bookings from Excel file
+ */
+export const useImportBookings = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof importBookings>>, TError,{data: BodyType<BookingImportRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof importBookings>>,
+        TError,
+        {data: BodyType<BookingImportRequest>},
+        TContext
+      > => {
+      return useMutation(getImportBookingsMutationOptions(options));
     }
 
 export const getListAdminBookingsUrl = (params?: ListAdminBookingsParams,) => {
