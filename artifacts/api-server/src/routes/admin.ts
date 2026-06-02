@@ -8,7 +8,7 @@ import {
   ExportBookingsQueryParams,
   AddNotificationEmailBody,
 } from "@workspace/api-zod";
-import { eq, and, count, desc } from "drizzle-orm";
+import { eq, and, count, sum, desc } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import multer from "multer";
 import { calcBookingPrice } from "../pricing.js";
@@ -484,8 +484,8 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const [{ total }] = await db
-    .select({ total: count() })
+  const [{ total, totalPriceCents }] = await db
+    .select({ total: count(), totalPriceCents: sum(bookingsTable.priceCents) })
     .from(bookingsTable)
     .where(whereClause);
 
@@ -523,7 +523,7 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
     priceCents: b.priceCents,
   }));
 
-  res.json({ bookings, total: Number(total), page, limit });
+  res.json({ bookings, total: Number(total), page, limit, totalPriceCents: Number(totalPriceCents ?? 0) });
 });
 
 router.delete("/admin/bookings/:id", requireAuth, async (req, res) => {

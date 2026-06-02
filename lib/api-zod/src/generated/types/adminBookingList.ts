@@ -12,4 +12,6 @@ export interface AdminBookingList {
   total: number;
   page: number;
   limit: number;
+  /** Sum of price_cents for all matching bookings (all pages) */
+  totalPriceCents: number;
 }
