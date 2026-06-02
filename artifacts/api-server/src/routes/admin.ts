@@ -172,6 +172,21 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
 
 const ZONE_MAP: Record<string, string> = {
   "Tarifzone 1": "zone1", "Tarifzone 2": "zone2", "Tarifzone 3": "zone3",
+  "zone1": "zone1", "zone2": "zone2", "zone3": "zone3",
+};
+const ROUTE_MAP: Record<string, string> = {
+  ...ZONE_MAP,
+  "Keine": "none", "none": "none",
+};
+const BOOKING_TYPE_MAP: Record<string, string> = {
+  "Gesamtes Schuljahr 2026/27": "full_year", "full_year": "full_year",
+  "1. Schulhalbjahr 2026/27": "first_half", "first_half": "first_half",
+};
+const STATUS_IMPORT_MAP: Record<string, string> = {
+  "Eingegangen": "received", "received": "received",
+  "Geprüft": "reviewed", "reviewed": "reviewed",
+  "Bestätigt": "confirmed", "confirmed": "confirmed",
+  "Rückfrage offen": "query_open", "query_open": "query_open",
 };
 const GRADE_MAP: Record<string, string> = {
   "MYP 5": "MYP5", "MYP 4": "MYP4", "MYP 3": "MYP3",
@@ -211,23 +226,70 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
   const errors: string[] = [];
   const importedParentNames = new Set<string>();
 
+  // Track last inserted main booking ID for sibling rows
+  let lastMainBookingId: number | null = null;
+  let lastMainRef: string | null = null;
+
   for (const row of rows) {
-    const childName = cleanStr((row as any)[0]);
+    // New export format (18 cols):
+    // 0:Ref 1:Typ 2:Name Kind 3:Straße 4:PLZ 5:Wohnort 6:Schülernummer 7:Jahrgang
+    // 8:Name Elternteil 9:E-Mail 10:Telefon 11:Tarifzone 12:Buchungsart
+    // 13:Hinfahrt 14:Rückfahrt 15:Status 16:Notizen 17:Eingegangen am
+
+    const typ = cleanStr((row as any)[1]).toLowerCase();
+    const childName = cleanStr((row as any)[2]);
     if (!childName) continue;
 
     try {
-      const studentNumber = cleanStr((row as any)[1]) || null;
-      const gradeYear = mapGrade((row as any)[2]);
-      const street = cleanStr((row as any)[3]);
-      const plz = cleanStr((row as any)[4]);
-      const city = cleanStr((row as any)[5]);
-      const childAddress = `${street}, ${plz} ${city}`;
-      const parentName = cleanStr((row as any)[6]) || "Unbekannt";
-      const parentEmail = cleanStr((row as any)[7]);
-      const parentPhone = cleanStr((row as any)[8]);
-      const tariffZone = ZONE_MAP[cleanStr((row as any)[9])] ?? "zone1";
+      const childAddress = cleanStr((row as any)[3]);
+      const childPostalCode = cleanStr((row as any)[4]);
+      const childCity = cleanStr((row as any)[5]);
+      const studentNumber = cleanStr((row as any)[6]) || null;
+      const gradeYear = mapGrade((row as any)[7]);
+      const parentName = cleanStr((row as any)[8]) || "Unbekannt";
+      const parentEmail = cleanStr((row as any)[9]);
+      const parentPhone = cleanStr((row as any)[10]);
+      const tariffZone = ZONE_MAP[cleanStr((row as any)[11])] ?? "zone1";
+      const bookingType = (BOOKING_TYPE_MAP[cleanStr((row as any)[12])] ?? "full_year") as "full_year" | "first_half";
+      const outboundRoute = (ROUTE_MAP[cleanStr((row as any)[13])] ?? tariffZone) as any;
+      const returnRoute = (ROUTE_MAP[cleanStr((row as any)[14])] ?? tariffZone) as any;
+      const statusRaw = cleanStr((row as any)[15]);
+      const status = (STATUS_IMPORT_MAP[statusRaw] ?? "confirmed") as any;
+      const adminNotes = cleanStr((row as any)[16]) || "Importiert";
 
-      // Skip if already exists
+      // ── Geschwister-Zeile ────────────────────────────────────────────────
+      if (typ === "geschwister") {
+        if (lastMainBookingId === null) {
+          errors.push(`${childName}: Geschwister ohne vorherige Hauptbuchung übersprungen`);
+          skipped++;
+          continue;
+        }
+        // Check for duplicate sibling
+        const existingSib = await db
+          .select({ id: siblingsTable.id })
+          .from(siblingsTable)
+          .where(and(
+            eq(siblingsTable.bookingId, lastMainBookingId),
+            eq(siblingsTable.childName, childName),
+          ))
+          .limit(1);
+        if (existingSib.length > 0) { skipped++; continue; }
+
+        const sibPriceCents = calcBookingPrice(tariffZone as any, bookingType, outboundRoute, returnRoute);
+        await db.insert(siblingsTable).values({
+          bookingId: lastMainBookingId,
+          childName,
+          studentNumber,
+          gradeYear,
+          outboundRoute,
+          returnRoute,
+          priceCents: Math.round(sibPriceCents * 0.8), // 20% Geschwisterrabatt
+        });
+        imported++;
+        continue;
+      }
+
+      // ── Hauptkind-Zeile ─────────────────────────────────────────────────
       const existing = await db
         .select({ id: bookingsTable.id })
         .from(bookingsTable)
@@ -238,6 +300,8 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
         .limit(1);
 
       if (existing.length > 0) {
+        lastMainBookingId = existing[0].id;
+        lastMainRef = null;
         skipped++;
         continue;
       }
@@ -247,31 +311,31 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
         ref = genRef();
       }
 
-      const priceCents = calcBookingPrice(
-        tariffZone as any,
-        "full_year",
-        tariffZone as any,
-        tariffZone as any,
-      );
+      const priceCents = calcBookingPrice(tariffZone as any, bookingType, outboundRoute, returnRoute);
 
-      await db.insert(bookingsTable).values({
+      const [inserted] = await db.insert(bookingsTable).values({
         referenceNumber: ref,
         childName,
         childAddress,
+        childPostalCode,
+        childCity,
         studentNumber,
         gradeYear,
         parentName,
         parentEmail,
         parentPhone,
         tariffZone: tariffZone as any,
-        bookingType: "full_year",
-        outboundRoute: tariffZone as any,
-        returnRoute: tariffZone as any,
-        signatureName: childName,
-        status: "confirmed",
+        bookingType,
+        outboundRoute,
+        returnRoute,
+        signatureName: parentName,
+        status,
         priceCents,
-        adminNotes: "Importiert aus Vorjahresdaten",
-      });
+        adminNotes,
+      }).returning({ id: bookingsTable.id });
+
+      lastMainBookingId = inserted.id;
+      lastMainRef = ref;
       importedParentNames.add(parentName);
       imported++;
     } catch (err: any) {
