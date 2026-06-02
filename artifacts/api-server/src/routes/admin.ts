@@ -1,6 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
-import { bookingsTable, siblingsTable, notificationEmailsTable } from "@workspace/db";
+import { bookingsTable, siblingsTable, notificationEmailsTable, smtpConfigTable } from "@workspace/db";
 import {
   ListAdminBookingsQueryParams,
   UpdateAdminBookingBody,
@@ -701,6 +701,81 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
       returnRoute: s.returnRoute,
     })),
   });
+});
+
+// ── SMTP Config ─────────────────────────────────────────────────────────────
+
+async function getOrCreateSmtpRow() {
+  const [row] = await db.select().from(smtpConfigTable).where(eq(smtpConfigTable.id, 1));
+  if (row) return row;
+  const [created] = await db.insert(smtpConfigTable).values({ id: 1 }).returning();
+  return created;
+}
+
+router.get("/admin/smtp-config", requireAuth, async (_req, res) => {
+  const row = await getOrCreateSmtpRow();
+  res.json({
+    host: row.host,
+    port: row.port,
+    user: row.user,
+    fromAddress: row.fromAddress,
+    secure: row.secure,
+    configured: !!(row.host && row.user && row.pass),
+  });
+});
+
+router.put("/admin/smtp-config", requireAuth, async (req, res) => {
+  const { host, port, user, pass, fromAddress, secure } = req.body;
+  const current = await getOrCreateSmtpRow();
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (host !== undefined) updates.host = String(host);
+  if (port !== undefined) updates.port = Number(port);
+  if (user !== undefined) updates.user = String(user);
+  if (pass !== undefined && String(pass).length > 0) updates.pass = String(pass);
+  if (fromAddress !== undefined) updates.fromAddress = String(fromAddress);
+  if (secure !== undefined) updates.secure = Boolean(secure);
+
+  const [updated] = await db.update(smtpConfigTable).set(updates).where(eq(smtpConfigTable.id, 1)).returning();
+  const row = updated ?? current;
+  res.json({
+    host: row.host,
+    port: row.port,
+    user: row.user,
+    fromAddress: row.fromAddress,
+    secure: row.secure,
+    configured: !!(row.host && row.user && row.pass),
+  });
+});
+
+router.post("/admin/smtp-config/test", requireAuth, async (req, res) => {
+  const { to } = req.body;
+  if (!to) {
+    res.status(400).json({ success: false, error: "Empfängeradresse fehlt" });
+    return;
+  }
+  try {
+    const row = await getOrCreateSmtpRow();
+    if (!row.host || !row.user || !row.pass) {
+      res.json({ success: false, error: "SMTP ist nicht vollständig konfiguriert (Host, Benutzer und Passwort erforderlich)." });
+      return;
+    }
+    const nodemailer = await import("nodemailer");
+    const transporter = nodemailer.default.createTransport({
+      host: row.host,
+      port: row.port,
+      secure: row.secure,
+      auth: { user: row.user, pass: row.pass },
+    });
+    await transporter.sendMail({
+      from: row.fromAddress,
+      to: String(to),
+      subject: "Test-E-Mail – Regionalshuttle Louisenlund",
+      text: "Dies ist eine Test-E-Mail vom Buchungssystem Regionalshuttle Louisenlund. Die SMTP-Konfiguration ist korrekt.",
+    });
+    res.json({ success: true, error: null });
+  } catch (err: any) {
+    res.json({ success: false, error: err.message ?? "Unbekannter Fehler" });
+  }
 });
 
 export default router;

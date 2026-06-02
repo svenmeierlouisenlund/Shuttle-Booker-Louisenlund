@@ -1,7 +1,8 @@
 import nodemailer from "nodemailer";
 import { db } from "@workspace/db";
-import { notificationEmailsTable } from "@workspace/db";
+import { notificationEmailsTable, smtpConfigTable } from "@workspace/db";
 import type { Booking } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 const zoneLabels: Record<string, string> = {
   zone1: "Tarifzone 1",
@@ -20,40 +21,45 @@ const statusLabels: Record<string, string> = {
   query_open: "Rückfrage offen",
 };
 
-function createTransporter() {
+async function getSmtpSettings() {
+  // DB config takes precedence over env vars
+  try {
+    const [row] = await db.select().from(smtpConfigTable).where(eq(smtpConfigTable.id, 1));
+    if (row && row.host && row.user && row.pass) {
+      return { host: row.host, port: row.port, user: row.user, pass: row.pass, secure: row.secure, from: row.fromAddress };
+    }
+  } catch {}
+  // Fallback to env vars
   const host = process.env.SMTP_HOST;
   const port = parseInt(process.env.SMTP_PORT ?? "587", 10);
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
   const secure = process.env.SMTP_SECURE === "true";
+  const from = process.env.SMTP_FROM ?? "noreply@louisenlund.de";
+  if (!host || !user || !pass) return null;
+  return { host, port, user, pass, secure, from };
+}
 
-  if (!host || !user || !pass) {
-    return null;
-  }
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: { user, pass },
-  });
+async function createTransporterAsync() {
+  const cfg = await getSmtpSettings();
+  if (!cfg) return null;
+  return { transporter: nodemailer.createTransport({ host: cfg.host, port: cfg.port, secure: cfg.secure, auth: { user: cfg.user, pass: cfg.pass } }), from: cfg.from };
 }
 
 export async function sendBookingNotification(
   booking: Booking,
   siblings: { childName: string; gradeYear: string; outboundRoute: string; returnRoute: string }[]
 ): Promise<void> {
-  const transporter = createTransporter();
-  if (!transporter) {
+  const smtp = await createTransporterAsync();
+  if (!smtp) {
     return;
   }
+  const { transporter, from } = smtp;
 
   const recipients = await db.select().from(notificationEmailsTable);
   if (recipients.length === 0) {
     return;
   }
-
-  const from = process.env.SMTP_FROM ?? `noreply@louisenlund.de`;
   const to = recipients.map((r) => r.email).join(", ");
 
   const siblingSection =
@@ -191,12 +197,11 @@ export async function sendParentConfirmation(
   booking: Booking,
   siblings: { childName: string; gradeYear: string; outboundRoute: string; returnRoute: string }[]
 ): Promise<void> {
-  const transporter = createTransporter();
-  if (!transporter) {
+  const smtp = await createTransporterAsync();
+  if (!smtp) {
     return;
   }
-
-  const from = process.env.SMTP_FROM ?? `noreply@louisenlund.de`;
+  const { transporter, from } = smtp;
   const to = booking.parentEmail;
 
   const siblingSection =

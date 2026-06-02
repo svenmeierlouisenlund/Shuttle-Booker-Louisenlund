@@ -315,3 +315,51 @@ export const DeleteNotificationEmailParams = zod.object({
 })
 
 
+/**
+ * @summary Get SMTP configuration (password masked)
+ */
+export const GetSmtpConfigResponse = zod.object({
+  "host": zod.string(),
+  "port": zod.number(),
+  "user": zod.string(),
+  "fromAddress": zod.string(),
+  "secure": zod.boolean(),
+  "configured": zod.boolean().describe('True if host and user are set')
+})
+
+
+/**
+ * @summary Update SMTP configuration
+ */
+export const UpdateSmtpConfigBody = zod.object({
+  "host": zod.string().optional(),
+  "port": zod.number().optional(),
+  "user": zod.string().optional(),
+  "pass": zod.string().optional().describe('Leave empty to keep existing password'),
+  "fromAddress": zod.string().optional(),
+  "secure": zod.boolean().optional()
+})
+
+export const UpdateSmtpConfigResponse = zod.object({
+  "host": zod.string(),
+  "port": zod.number(),
+  "user": zod.string(),
+  "fromAddress": zod.string(),
+  "secure": zod.boolean(),
+  "configured": zod.boolean().describe('True if host and user are set')
+})
+
+
+/**
+ * @summary Send a test email using current SMTP config
+ */
+export const TestSmtpConfigBody = zod.object({
+  "to": zod.string().email()
+})
+
+export const TestSmtpConfigResponse = zod.object({
+  "success": zod.boolean(),
+  "error": zod.string().nullish()
+})
+
+

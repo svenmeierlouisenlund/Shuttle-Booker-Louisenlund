@@ -99,3 +99,16 @@ export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type Booking = typeof bookingsTable.$inferSelect;
 export type InsertSibling = z.infer<typeof insertSiblingSchema>;
 export type Sibling = typeof siblingsTable.$inferSelect;
+
+export const smtpConfigTable = pgTable("smtp_config", {
+  id: integer("id").primaryKey().default(1),
+  host: text("host").notNull().default(""),
+  port: integer("port").notNull().default(587),
+  user: text("user").notNull().default(""),
+  pass: text("pass").notNull().default(""),
+  fromAddress: text("from_address").notNull().default("noreply@louisenlund.de"),
+  secure: boolean("secure").notNull().default(false),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type SmtpConfig = typeof smtpConfigTable.$inferSelect;

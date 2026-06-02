@@ -38,4 +38,8 @@ export * from './notificationEmailList';
 export * from './routeOption';
 export * from './sibling';
 export * from './siblingInput';
+export * from './smtpConfig';
+export * from './smtpConfigUpdate';
+export * from './smtpTestRequest';
+export * from './smtpTestResult';
 export * from './tariffZone';
