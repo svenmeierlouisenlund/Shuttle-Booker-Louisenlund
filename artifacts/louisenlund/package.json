@@ -75,6 +75,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "@marsidev/react-turnstile": "^1.5.2",
     "@types/leaflet": "^1.9.21",
     "leaflet": "^1.9.4",
     "react-leaflet": "^5.0.0"
