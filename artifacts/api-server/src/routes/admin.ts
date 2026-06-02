@@ -9,7 +9,7 @@ import {
   AddNotificationEmailBody,
 } from "@workspace/api-zod";
 import { eq, and, count, sum, desc, sql, inArray, or } from "drizzle-orm";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import multer from "multer";
 import { calcBookingPriceFromConfig } from "../pricing.js";
 import { getPricingConfig, invalidatePricingConfig } from "../services/pricing-cache.js";
@@ -214,16 +214,21 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
 
   const importPricingConfig = await getPricingConfig();
 
-  let wb: XLSX.WorkBook;
+  let allRows: unknown[][];
   try {
-    wb = XLSX.read(req.file.buffer, { type: "buffer" });
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(req.file.buffer as unknown as Parameters<typeof wb.xlsx.load>[0]);
+    const ws = wb.worksheets[0];
+    if (!ws) throw new Error("No worksheet found");
+    allRows = [];
+    ws.eachRow({ includeEmpty: false }, (row) => {
+      const values = (row.values as unknown[]).slice(1);
+      allRows.push(values);
+    });
   } catch {
     res.status(400).json({ error: "Ungültige Excel-Datei" });
     return;
   }
-
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const allRows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1 }) as unknown[][];
 
   // ── Format detection ────────────────────────────────────────────────────────
   // New format: Ref | Typ | Name Kind | Straße | PLZ | Wohnort | [Schülernummer] | Jahrgang | ...
@@ -527,30 +532,23 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
   const filename = `regionalshuttle-buchungen-${new Date().toISOString().split("T")[0]}`;
 
   if (format === "xlsx") {
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet("Buchungen");
 
-    ws["!cols"] = [
-      { wch: 18 }, { wch: 12 }, { wch: 28 }, { wch: 35 }, { wch: 8 }, { wch: 18 },
-      { wch: 14 }, { wch: 12 }, { wch: 28 }, { wch: 30 }, { wch: 16 },
-      { wch: 14 }, { wch: 32 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 18 }, { wch: 40 }, { wch: 16 },
-    ];
+    const colWidths = [18, 12, 28, 35, 8, 18, 14, 12, 28, 30, 16, 14, 32, 14, 14, 12, 18, 40, 16];
+    ws.columns = colWidths.map((width) => ({ width }));
 
-    const headerRow = ws["1"] as Record<string, any> | undefined;
-    if (!headerRow) {
-      for (let c = 0; c < headers.length; c++) {
-        const cell = XLSX.utils.encode_cell({ r: 0, c });
-        if (ws[cell]) {
-          ws[cell].s = {
-            font: { bold: true, color: { rgb: "FFFFFF" } },
-            fill: { patternType: "solid", fgColor: { rgb: "004289" } },
-          };
-        }
-      }
+    const headerRow = ws.addRow(headers);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF004289" } };
+    });
+
+    for (const row of dataRows) {
+      ws.addRow(row);
     }
 
-    XLSX.utils.book_append_sheet(wb, ws, "Buchungen");
-    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+    const buf = await wb.xlsx.writeBuffer();
 
     res.setHeader(
       "Content-Type",
