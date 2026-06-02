@@ -5,6 +5,7 @@
  * Regionalshuttle Buchungssystem - Stiftung Louisenlund
  * OpenAPI spec version: 0.1.0
  */
+import type { Sibling } from './sibling';
 
 export interface AdminBooking {
   id: number;
@@ -26,4 +27,5 @@ export interface AdminBooking {
   siblingCount: number;
   /** @nullable */
   priceCents?: number | null;
+  siblings?: Sibling[];
 }

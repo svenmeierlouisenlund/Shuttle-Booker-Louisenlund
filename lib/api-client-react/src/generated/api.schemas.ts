@@ -126,6 +126,7 @@ export interface AdminBooking {
   siblingCount: number;
   /** @nullable */
   priceCents?: number | null;
+  siblings?: Sibling[];
 }
 
 export interface AdminBookingDetail {

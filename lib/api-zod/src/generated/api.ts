@@ -115,7 +115,16 @@ export const ListAdminBookingsResponse = zod.object({
   "status": zod.string(),
   "createdAt": zod.string(),
   "siblingCount": zod.number(),
+  "priceCents": zod.number().nullish(),
+  "siblings": zod.array(zod.object({
+  "id": zod.number(),
+  "childName": zod.string(),
+  "studentNumber": zod.string().nullish(),
+  "gradeYear": zod.string(),
+  "outboundRoute": zod.string(),
+  "returnRoute": zod.string(),
   "priceCents": zod.number().nullish()
+})).optional()
 })),
   "total": zod.number(),
   "page": zod.number(),
@@ -274,7 +283,16 @@ export const GetAdminStatsResponse = zod.object({
   "status": zod.string(),
   "createdAt": zod.string(),
   "siblingCount": zod.number(),
+  "priceCents": zod.number().nullish(),
+  "siblings": zod.array(zod.object({
+  "id": zod.number(),
+  "childName": zod.string(),
+  "studentNumber": zod.string().nullish(),
+  "gradeYear": zod.string(),
+  "outboundRoute": zod.string(),
+  "returnRoute": zod.string(),
   "priceCents": zod.number().nullish()
+})).optional()
 }))
 })
 

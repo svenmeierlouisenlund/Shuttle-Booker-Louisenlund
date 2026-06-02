@@ -603,6 +603,10 @@ components:
           type: integer
         priceCents:
           type: ["integer", "null"]
+        siblings:
+          type: array
+          items:
+            $ref: "#/components/schemas/Sibling"
 
     AdminBookingDetail:
       type: object
