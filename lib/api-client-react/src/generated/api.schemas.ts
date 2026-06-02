@@ -191,6 +191,17 @@ export interface NotificationEmailInput {
   label?: string | null;
 }
 
+export interface BookingImportRequest {
+  file: Blob;
+}
+
+export interface ImportResult {
+  imported: number;
+  skipped: number;
+  total: number;
+  errors: string[];
+}
+
 export interface DeleteBookingResponse {
   success: boolean;
 }

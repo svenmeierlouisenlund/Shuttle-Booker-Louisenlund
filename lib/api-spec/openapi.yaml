@@ -53,6 +53,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/import:
+    post:
+      operationId: importBookings
+      tags: [admin]
+      summary: Import bookings from Excel file
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/BookingImportRequest"
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportResult"
+        "400":
+          description: Invalid file
+        "401":
+          description: Unauthorized
+
   /admin/bookings:
     get:
       operationId: listAdminBookings
@@ -667,6 +690,29 @@ components:
           format: email
         label:
           type: ["string", "null"]
+
+    BookingImportRequest:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+
+    ImportResult:
+      type: object
+      required: [imported, skipped, errors, total]
+      properties:
+        imported:
+          type: integer
+        skipped:
+          type: integer
+        total:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
 
     DeleteBookingResponse:
       type: object

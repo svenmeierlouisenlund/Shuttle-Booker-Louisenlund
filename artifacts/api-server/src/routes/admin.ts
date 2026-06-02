@@ -10,11 +10,14 @@ import {
 } from "@workspace/api-zod";
 import { eq, and, count, desc } from "drizzle-orm";
 import * as XLSX from "xlsx";
+import multer from "multer";
 
 type ListParams = ReturnType<typeof ListAdminBookingsQueryParams.parse>;
 type ExportParams = ReturnType<typeof ExportBookingsQueryParams.parse>;
 
 const router = Router();
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Disable HTTP caching for all admin routes so browsers never serve stale data
 router.use((_req, res, next) => {
@@ -159,6 +162,108 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
     totalChildren,
     recentBookings,
   });
+});
+
+const ZONE_MAP: Record<string, string> = {
+  "Tarifzone 1": "zone1", "Tarifzone 2": "zone2", "Tarifzone 3": "zone3",
+};
+const GRADE_MAP: Record<string, string> = {
+  "MYP 5": "MYP5", "MYP 4": "MYP4", "MYP 3": "MYP3",
+  "IB Y1": "DP1", "IB Y2": "DP2",
+};
+function mapGrade(g: unknown): string {
+  if (typeof g === "number") return `Jahrgang ${g}`;
+  const s = String(g ?? "").trim();
+  return GRADE_MAP[s] ?? s;
+}
+function cleanStr(v: unknown): string {
+  return String(v ?? "").replace(/\t/g, "").trim();
+}
+function genRef(): string {
+  return `LL-2026-${Math.floor(10000 + Math.random() * 89999)}`;
+}
+
+router.post("/admin/import", requireAuth, upload.single("file"), async (req, res) => {
+  if (!req.file) {
+    res.status(400).json({ error: "Keine Datei hochgeladen" });
+    return;
+  }
+
+  let wb: XLSX.WorkBook;
+  try {
+    wb = XLSX.read(req.file.buffer, { type: "buffer" });
+  } catch {
+    res.status(400).json({ error: "Ungültige Excel-Datei" });
+    return;
+  }
+
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1 }).slice(1) as unknown[][];
+
+  let imported = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+
+  for (const row of rows) {
+    const childName = cleanStr((row as any)[0]);
+    if (!childName) continue;
+
+    try {
+      const studentNumber = cleanStr((row as any)[1]) || null;
+      const gradeYear = mapGrade((row as any)[2]);
+      const street = cleanStr((row as any)[3]);
+      const plz = cleanStr((row as any)[4]);
+      const city = cleanStr((row as any)[5]);
+      const childAddress = `${street}, ${plz} ${city}`;
+      const parentName = cleanStr((row as any)[6]) || "Unbekannt";
+      const parentEmail = cleanStr((row as any)[7]);
+      const parentPhone = cleanStr((row as any)[8]);
+      const tariffZone = ZONE_MAP[cleanStr((row as any)[9])] ?? "zone1";
+
+      // Skip if already exists
+      const existing = await db
+        .select({ id: bookingsTable.id })
+        .from(bookingsTable)
+        .where(and(
+          eq(bookingsTable.childName, childName),
+          eq(bookingsTable.parentEmail, parentEmail)
+        ))
+        .limit(1);
+
+      if (existing.length > 0) {
+        skipped++;
+        continue;
+      }
+
+      let ref = genRef();
+      while ((await db.select({ id: bookingsTable.id }).from(bookingsTable).where(eq(bookingsTable.referenceNumber, ref)).limit(1)).length > 0) {
+        ref = genRef();
+      }
+
+      await db.insert(bookingsTable).values({
+        referenceNumber: ref,
+        childName,
+        childAddress,
+        studentNumber,
+        gradeYear,
+        parentName,
+        parentEmail,
+        parentPhone,
+        tariffZone: tariffZone as any,
+        bookingType: "full_year",
+        outboundRoute: tariffZone as any,
+        returnRoute: tariffZone as any,
+        signatureName: childName,
+        status: "confirmed",
+        adminNotes: "Importiert aus Vorjahresdaten",
+      });
+      imported++;
+    } catch (err: any) {
+      errors.push(`${childName}: ${err.message ?? "Fehler"}`);
+    }
+  }
+
+  res.json({ imported, skipped, total: imported + skipped, errors });
 });
 
 router.get("/admin/bookings/export", requireAuth, async (req, res) => {
