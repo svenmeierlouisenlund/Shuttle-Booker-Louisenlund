@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ChevronLeft, Save, Trash2, Pencil, X, MapPin } from "lucide-react";
@@ -90,6 +90,22 @@ function computeFullPayers(mainGrade: string, siblingGrades: string[]): boolean[
   return flags;
 }
 
+interface PricingConfigFlat {
+  fullYearBothZone1: number; fullYearBothZone2: number; fullYearBothZone3: number;
+  fullYearOneWayZone1: number; fullYearOneWayZone2: number; fullYearOneWayZone3: number;
+  firstHalfBothZone1: number; firstHalfBothZone2: number; firstHalfBothZone3: number;
+  firstHalfOneWayZone1: number; firstHalfOneWayZone2: number; firstHalfOneWayZone3: number;
+}
+
+function calcLivePrice(cfg: PricingConfigFlat, zone: string, bType: string, out: string, ret: string): number {
+  const both = out !== "none" && ret !== "none";
+  const fy = bType === "full_year";
+  if (fy && both)  return zone === "zone1" ? cfg.fullYearBothZone1  : zone === "zone2" ? cfg.fullYearBothZone2  : cfg.fullYearBothZone3;
+  if (fy && !both) return zone === "zone1" ? cfg.fullYearOneWayZone1 : zone === "zone2" ? cfg.fullYearOneWayZone2 : cfg.fullYearOneWayZone3;
+  if (!fy && both) return zone === "zone1" ? cfg.firstHalfBothZone1  : zone === "zone2" ? cfg.firstHalfBothZone2  : cfg.firstHalfBothZone3;
+  return zone === "zone1" ? cfg.firstHalfOneWayZone1 : zone === "zone2" ? cfg.firstHalfOneWayZone2 : cfg.firstHalfOneWayZone3;
+}
+
 interface EditFields {
   childName: string;
   studentNumber: string;
@@ -134,6 +150,22 @@ export default function AdminBookingDetail() {
     parentName: "", parentEmail: "", parentPhone: "",
     tariffZone: "", bookingType: "", outboundRoute: "", returnRoute: "",
   });
+  const [pricingConfig, setPricingConfig] = useState<PricingConfigFlat | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/pricing", { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: any) => {
+        if (!d) return;
+        setPricingConfig({
+          fullYearBothZone1: d.fullYear.both.zone1,    fullYearBothZone2: d.fullYear.both.zone2,    fullYearBothZone3: d.fullYear.both.zone3,
+          fullYearOneWayZone1: d.fullYear.oneWay.zone1, fullYearOneWayZone2: d.fullYear.oneWay.zone2, fullYearOneWayZone3: d.fullYear.oneWay.zone3,
+          firstHalfBothZone1: d.firstHalf.both.zone1,  firstHalfBothZone2: d.firstHalf.both.zone2,  firstHalfBothZone3: d.firstHalf.both.zone3,
+          firstHalfOneWayZone1: d.firstHalf.oneWay.zone1, firstHalfOneWayZone2: d.firstHalf.oneWay.zone2, firstHalfOneWayZone3: d.firstHalf.oneWay.zone3,
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (booking) {
@@ -178,11 +210,31 @@ export default function AdminBookingDetail() {
     setEditMode(false);
   }
 
+  const liveEditPrices = useMemo(() => {
+    if (!editMode || !pricingConfig || !booking) return null;
+    const sibs = booking.siblings ?? [];
+    const allGrades = [editFields.gradeYear, ...sibs.map(s => s.gradeYear)];
+    const maxRank = Math.max(...allGrades.map(gradeRankAdmin));
+    let fpFound = false;
+    const mainRaw = calcLivePrice(pricingConfig, editFields.tariffZone, editFields.bookingType, editFields.outboundRoute, editFields.returnRoute);
+    const mainIsFP = !fpFound && gradeRankAdmin(editFields.gradeYear) === maxRank;
+    if (mainIsFP) fpFound = true;
+    const mainPrice = mainIsFP ? mainRaw : Math.round(mainRaw * 0.8);
+    const sibPrices = sibs.map(sib => {
+      if (sib.priceCents == null) return null;
+      const sibRaw = calcLivePrice(pricingConfig, editFields.tariffZone, editFields.bookingType, sib.outboundRoute, sib.returnRoute);
+      const sibIsFP = !fpFound && gradeRankAdmin(sib.gradeYear) === maxRank;
+      if (sibIsFP) fpFound = true;
+      return sibIsFP ? sibRaw : Math.round(sibRaw * 0.8);
+    });
+    return { mainPrice, sibPrices };
+  }, [editMode, pricingConfig, editFields, booking]);
+
   function handleSaveStatus() {
     updateMutation.mutate({ id, data: { status: status as any, adminNotes } }, {
-      onSuccess: (data) => {
+      onSuccess: () => {
         toast({ title: "Gespeichert", description: "Status und Notizen wurden aktualisiert." });
-        queryClient.setQueryData(getGetAdminBookingQueryKey(id), data);
+        queryClient.invalidateQueries({ queryKey: getGetAdminBookingQueryKey(id) });
       },
       onError: () => {
         toast({ title: "Fehler", description: "Fehler beim Speichern.", variant: "destructive" });
@@ -209,9 +261,9 @@ export default function AdminBookingDetail() {
         returnRoute: editFields.returnRoute as any,
       }
     }, {
-      onSuccess: (data) => {
+      onSuccess: () => {
         toast({ title: "Gespeichert", description: "Buchungsdaten wurden aktualisiert." });
-        queryClient.setQueryData(getGetAdminBookingQueryKey(id), data);
+        queryClient.invalidateQueries({ queryKey: getGetAdminBookingQueryKey(id) });
         setEditMode(false);
       },
       onError: () => {
@@ -515,31 +567,47 @@ export default function AdminBookingDetail() {
           </div>
 
           <div className="space-y-6">
-            {(booking.priceCents != null || (booking.siblings && booking.siblings.some(s => s.priceCents != null))) && (() => {
+            {(() => {
               const sibs = booking.siblings ?? [];
-              const total = (booking.priceCents ?? 0) + sibs.reduce((s, sib) => s + (sib.priceCents ?? 0), 0);
-              const fpFlags = computeFullPayers(booking.gradeYear, sibs.map(s => s.gradeYear));
+              const live = liveEditPrices;
+              const hasAnyPrice = booking.priceCents != null || sibs.some(s => s.priceCents != null);
+              if (!hasAnyPrice && live === null) return null;
+
+              const mainPrice = live !== null ? live.mainPrice : booking.priceCents;
+              const sibPricesDisplay: (number | null)[] = live !== null
+                ? sibs.map((_sib, i) => live.sibPrices[i] ?? null)
+                : sibs.map(sib => sib.priceCents ?? null);
+              const total = (mainPrice ?? 0) + sibPricesDisplay.reduce<number>((acc, p) => acc + (p ?? 0), 0);
+
+              const displayGrade = live !== null ? editFields.gradeYear : booking.gradeYear;
+              const fpFlags = computeFullPayers(displayGrade, sibs.map(s => s.gradeYear));
               const showRoles = sibs.length > 0;
+              const displayBookingType = live !== null ? editFields.bookingType : booking.bookingType;
+              const displayChildName = live !== null ? editFields.childName : booking.childName;
+
               return (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Preisübersicht</CardTitle>
+                <Card className={live !== null ? "border-amber-200 bg-amber-50/40" : ""}>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      Preisübersicht
+                      {live !== null && <span className="text-xs font-normal text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">Vorschau</span>}
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">
-                        {booking.childName}
+                        {displayChildName}
                         {showRoles && <span className="ml-1 text-xs">{fpFlags[0] ? "(Vollzahler)" : "(Geschwister –20 %)"}</span>}
                       </span>
-                      <span className="font-medium tabular-nums">{fmtPrice(booking.priceCents)}</span>
+                      <span className="font-medium tabular-nums">{fmtPrice(mainPrice)}</span>
                     </div>
-                    {sibs.map((sib, i) => sib.priceCents != null && (
+                    {sibs.map((sib, i) => sibPricesDisplay[i] != null && (
                       <div key={sib.id} className="flex justify-between text-sm">
                         <span className="text-muted-foreground">
                           {sib.childName}
                           {showRoles && <span className="ml-1 text-xs">{fpFlags[i + 1] ? "(Vollzahler)" : "(–20 %)"}</span>}
                         </span>
-                        <span className="font-medium tabular-nums">{fmtPrice(sib.priceCents)}</span>
+                        <span className="font-medium tabular-nums">{fmtPrice(sibPricesDisplay[i])}</span>
                       </div>
                     ))}
                     <div className="pt-2 border-t flex justify-between">
@@ -547,7 +615,7 @@ export default function AdminBookingDetail() {
                       <span className="font-bold text-primary tabular-nums text-base">{fmtPrice(total)}</span>
                     </div>
                     <p className="text-xs text-muted-foreground pt-1">
-                      inkl. MwSt. · {bookingTypeMap[booking.bookingType]}
+                      inkl. MwSt. · {bookingTypeMap[displayBookingType]}
                     </p>
                   </CardContent>
                 </Card>
