@@ -67,6 +67,29 @@ function fmtPrice(cents: number | null | undefined): string {
   return (cents / 100).toLocaleString("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
+const GRADE_RANKS_ADMIN: Record<string, number> = {
+  "Jahrgang 1": 1, "Jahrgang 2": 2, "Jahrgang 3": 3, "Jahrgang 4": 4,
+  "Jahrgang 5": 5, "Jahrgang 6": 6, "Jahrgang 7": 7, "Jahrgang 8": 8,
+  "MYP3": 8, "Jahrgang 9": 9, "MYP4": 9, "Jahrgang 10": 10,
+  "MYP5": 10, "E-Jahrgang": 11, "DP1": 11, "Q1-Jahrgang": 12,
+  "DP2": 12, "Q2-Jahrgang": 13,
+};
+function gradeRankAdmin(grade: string): number { return GRADE_RANKS_ADMIN[grade] ?? 0; }
+
+/** Returns full-payer flags: [mainIsFullPayer, ...siblingIsFullPayer] */
+function computeFullPayers(mainGrade: string, siblingGrades: string[]): boolean[] {
+  const all = [mainGrade, ...siblingGrades];
+  const maxRank = Math.max(...all.map(gradeRankAdmin));
+  const flags: boolean[] = [];
+  let fpFound = false;
+  for (const grade of all) {
+    const isFP = !fpFound && gradeRankAdmin(grade) === maxRank;
+    if (isFP) fpFound = true;
+    flags.push(isFP);
+  }
+  return flags;
+}
+
 interface EditFields {
   childName: string;
   studentNumber: string;
@@ -416,7 +439,9 @@ export default function AdminBookingDetail() {
                   </div>
                 </div>
 
-                {booking.siblings && booking.siblings.length > 0 && (
+                {booking.siblings && booking.siblings.length > 0 && (() => {
+                  const fpFlags = computeFullPayers(booking.gradeYear, booking.siblings.map(s => s.gradeYear));
+                  return (
                   <div className="pt-4 border-t">
                     <h3 className="font-semibold mb-4 text-primary">Geschwisterkinder</h3>
                     <div className="space-y-4">
@@ -427,7 +452,9 @@ export default function AdminBookingDetail() {
                             {sibling.priceCents != null && (
                               <span className="text-sm font-semibold text-primary tabular-nums">
                                 {fmtPrice(sibling.priceCents)}
-                                <span className="text-xs font-normal text-muted-foreground ml-1">(–20 %)</span>
+                                <span className="text-xs font-normal text-muted-foreground ml-1">
+                                  {fpFlags[idx + 1] ? "(Vollzahler)" : "(–20 %)"}
+                                </span>
                               </span>
                             )}
                           </div>
@@ -441,7 +468,8 @@ export default function AdminBookingDetail() {
                       ))}
                     </div>
                   </div>
-                )}
+                  );
+                })()}
               </CardContent>
             </Card>
 
@@ -488,7 +516,10 @@ export default function AdminBookingDetail() {
 
           <div className="space-y-6">
             {(booking.priceCents != null || (booking.siblings && booking.siblings.some(s => s.priceCents != null))) && (() => {
-              const total = (booking.priceCents ?? 0) + (booking.siblings ?? []).reduce((s, sib) => s + (sib.priceCents ?? 0), 0);
+              const sibs = booking.siblings ?? [];
+              const total = (booking.priceCents ?? 0) + sibs.reduce((s, sib) => s + (sib.priceCents ?? 0), 0);
+              const fpFlags = computeFullPayers(booking.gradeYear, sibs.map(s => s.gradeYear));
+              const showRoles = sibs.length > 0;
               return (
                 <Card>
                   <CardHeader>
@@ -496,12 +527,18 @@ export default function AdminBookingDetail() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">{booking.childName} (Vollzahler)</span>
+                      <span className="text-muted-foreground">
+                        {booking.childName}
+                        {showRoles && <span className="ml-1 text-xs">{fpFlags[0] ? "(Vollzahler)" : "(Geschwister –20 %)"}</span>}
+                      </span>
                       <span className="font-medium tabular-nums">{fmtPrice(booking.priceCents)}</span>
                     </div>
-                    {(booking.siblings ?? []).map((sib) => sib.priceCents != null && (
+                    {sibs.map((sib, i) => sib.priceCents != null && (
                       <div key={sib.id} className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">{sib.childName} <span className="text-xs">(–20 %)</span></span>
+                        <span className="text-muted-foreground">
+                          {sib.childName}
+                          {showRoles && <span className="ml-1 text-xs">{fpFlags[i + 1] ? "(Vollzahler)" : "(–20 %)"}</span>}
+                        </span>
                         <span className="font-medium tabular-nums">{fmtPrice(sib.priceCents)}</span>
                       </div>
                     ))}
