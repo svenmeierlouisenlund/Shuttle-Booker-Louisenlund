@@ -43,7 +43,17 @@ async function getSmtpSettings() {
 async function createTransporterAsync() {
   const cfg = await getSmtpSettings();
   if (!cfg) return null;
-  return { transporter: nodemailer.createTransport({ host: cfg.host, port: cfg.port, secure: cfg.secure, auth: { user: cfg.user, pass: cfg.pass } }), from: cfg.from };
+  return {
+    transporter: nodemailer.createTransport({
+      host: cfg.host,
+      port: cfg.port,
+      secure: cfg.secure,
+      requireTLS: !cfg.secure,
+      auth: { user: cfg.user, pass: cfg.pass },
+      tls: { rejectUnauthorized: false },
+    }),
+    from: cfg.from,
+  };
 }
 
 export async function sendBookingNotification(

@@ -1180,7 +1180,9 @@ router.post("/admin/smtp-config/test", requireAuth, async (req, res) => {
       host: row.host,
       port: row.port,
       secure: row.secure,
+      requireTLS: !row.secure,
       auth: { user: row.user, pass: row.pass },
+      tls: { rejectUnauthorized: false },
     });
     await transporter.sendMail({
       from: row.fromAddress,

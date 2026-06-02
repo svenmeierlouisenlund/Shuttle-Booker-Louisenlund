@@ -147,10 +147,27 @@ export default function AdminSettings() {
               </div>
             ) : (
               <div className="space-y-5">
+                <div className="flex items-center gap-2 pb-1">
+                  <span className="text-sm text-muted-foreground">Schnellkonfiguration:</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs px-3"
+                    onClick={() => {
+                      setSmtpHost("smtp.office365.com");
+                      setSmtpPort("587");
+                      setSmtpSecure(false);
+                    }}
+                  >
+                    Microsoft 365 / Outlook
+                  </Button>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="sm:col-span-2 space-y-1.5">
                     <Label htmlFor="smtp-host">SMTP-Host</Label>
-                    <Input id="smtp-host" placeholder="mail.beispiel.de" value={smtpHost} onChange={e => setSmtpHost(e.target.value)} />
+                    <Input id="smtp-host" placeholder="smtp.office365.com" value={smtpHost} onChange={e => setSmtpHost(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="smtp-port">Port</Label>
@@ -192,9 +209,14 @@ export default function AdminSettings() {
 
                 <div className="flex items-center gap-3 pt-1">
                   <Switch id="smtp-secure" checked={smtpSecure} onCheckedChange={setSmtpSecure} />
-                  <Label htmlFor="smtp-secure" className="cursor-pointer">
-                    SSL/TLS verwenden (Port 465)
-                  </Label>
+                  <div>
+                    <Label htmlFor="smtp-secure" className="cursor-pointer">
+                      SSL/TLS direkt verwenden (Port 465)
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Deaktiviert für Microsoft 365 / STARTTLS (Port 587)
+                    </p>
+                  </div>
                 </div>
 
                 <Button onClick={handleSmtpSave} disabled={updateSmtp.isPending} className="w-full sm:w-auto">
