@@ -377,6 +377,7 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
     id: b.id,
     referenceNumber: b.referenceNumber,
     childName: b.childName,
+    childAddress: b.childAddress,
     gradeYear: b.gradeYear,
     parentName: b.parentName,
     parentEmail: b.parentEmail,

@@ -12,6 +12,7 @@ import AdminDashboard from "./pages/admin/index";
 import AdminBookingsList from "./pages/admin/bookings/index";
 import AdminBookingDetail from "./pages/admin/bookings/[id]";
 import AdminSettings from "./pages/admin/settings";
+import AdminMap from "./pages/admin/map";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ function Router() {
       <Route path="/admin/bookings" component={AdminBookingsList} />
       <Route path="/admin/bookings/:id" component={AdminBookingDetail} />
       <Route path="/admin/settings" component={AdminSettings} />
+      <Route path="/admin/map" component={AdminMap} />
       <Route component={NotFound} />
     </Switch>
   );
