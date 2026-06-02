@@ -62,8 +62,12 @@ export interface SiblingInput {
 export interface BookingInput {
   /** @minLength 2 */
   childName: string;
-  /** @minLength 5 */
+  /** @minLength 2 */
   childAddress: string;
+  /** @minLength 4 */
+  childPostalCode: string;
+  /** @minLength 2 */
+  childCity: string;
   /** @nullable */
   studentNumber?: string | null;
   gradeYear: string;
@@ -107,6 +111,8 @@ export interface AdminBooking {
   referenceNumber: string;
   childName: string;
   childAddress: string;
+  childPostalCode: string;
+  childCity: string;
   gradeYear: string;
   parentName: string;
   parentEmail: string;
@@ -127,6 +133,8 @@ export interface AdminBookingDetail {
   referenceNumber: string;
   childName: string;
   childAddress: string;
+  childPostalCode: string;
+  childCity: string;
   /** @nullable */
   studentNumber?: string | null;
   gradeYear: string;
@@ -203,6 +211,8 @@ export interface BookingStatusUpdate {
   studentNumber?: string | null;
   gradeYear?: string;
   childAddress?: string;
+  childPostalCode?: string;
+  childCity?: string;
   parentName?: string;
   parentEmail?: string;
   /** @nullable */

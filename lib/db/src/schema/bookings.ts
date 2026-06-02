@@ -40,6 +40,8 @@ export const bookingsTable = pgTable("bookings", {
   referenceNumber: text("reference_number").notNull().unique(),
   childName: text("child_name").notNull(),
   childAddress: text("child_address").notNull(),
+  childPostalCode: text("child_postal_code").notNull().default(""),
+  childCity: text("child_city").notNull().default(""),
   studentNumber: text("student_number"),
   gradeYear: text("grade_year").notNull(),
   parentName: text("parent_name").notNull(),

@@ -72,6 +72,8 @@ interface EditFields {
   studentNumber: string;
   gradeYear: string;
   childAddress: string;
+  childPostalCode: string;
+  childCity: string;
   parentName: string;
   parentEmail: string;
   parentPhone: string;
@@ -105,6 +107,7 @@ export default function AdminBookingDetail() {
   const [editMode, setEditMode] = useState(false);
   const [editFields, setEditFields] = useState<EditFields>({
     childName: "", studentNumber: "", gradeYear: "", childAddress: "",
+    childPostalCode: "", childCity: "",
     parentName: "", parentEmail: "", parentPhone: "",
     tariffZone: "", bookingType: "", outboundRoute: "", returnRoute: "",
   });
@@ -118,6 +121,8 @@ export default function AdminBookingDetail() {
         studentNumber: booking.studentNumber || "",
         gradeYear: booking.gradeYear,
         childAddress: booking.childAddress,
+        childPostalCode: booking.childPostalCode || "",
+        childCity: booking.childCity || "",
         parentName: booking.parentName,
         parentEmail: booking.parentEmail,
         parentPhone: booking.parentPhone || "",
@@ -136,6 +141,8 @@ export default function AdminBookingDetail() {
         studentNumber: booking.studentNumber || "",
         gradeYear: booking.gradeYear,
         childAddress: booking.childAddress,
+        childPostalCode: booking.childPostalCode || "",
+        childCity: booking.childCity || "",
         parentName: booking.parentName,
         parentEmail: booking.parentEmail,
         parentPhone: booking.parentPhone || "",
@@ -168,6 +175,8 @@ export default function AdminBookingDetail() {
         studentNumber: editFields.studentNumber || null,
         gradeYear: editFields.gradeYear,
         childAddress: editFields.childAddress,
+        childPostalCode: editFields.childPostalCode,
+        childCity: editFields.childCity,
         parentName: editFields.parentName,
         parentEmail: editFields.parentEmail,
         parentPhone: editFields.parentPhone || null,
@@ -347,11 +356,25 @@ export default function AdminBookingDetail() {
                         <div>{booking.studentNumber || "–"}</div>
                       )}
                     </FieldRow>
-                    <FieldRow label="Adresse">
+                    <FieldRow label="Straße">
                       {editMode ? (
                         <Input value={editFields.childAddress} onChange={e => setField("childAddress")(e.target.value)} />
                       ) : (
                         <div>{booking.childAddress}</div>
+                      )}
+                    </FieldRow>
+                    <FieldRow label="PLZ">
+                      {editMode ? (
+                        <Input value={editFields.childPostalCode} onChange={e => setField("childPostalCode")(e.target.value)} />
+                      ) : (
+                        <div>{booking.childPostalCode || "–"}</div>
+                      )}
+                    </FieldRow>
+                    <FieldRow label="Wohnort">
+                      {editMode ? (
+                        <Input value={editFields.childCity} onChange={e => setField("childCity")(e.target.value)} />
+                      ) : (
+                        <div>{booking.childCity || "–"}</div>
                       )}
                     </FieldRow>
                   </div>

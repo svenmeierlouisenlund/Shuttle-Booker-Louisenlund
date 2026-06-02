@@ -13,8 +13,12 @@ import type { TariffZone } from './tariffZone';
 export interface BookingInput {
   /** @minLength 2 */
   childName: string;
-  /** @minLength 5 */
+  /** @minLength 2 */
   childAddress: string;
+  /** @minLength 4 */
+  childPostalCode: string;
+  /** @minLength 2 */
+  childCity: string;
   /** @nullable */
   studentNumber?: string | null;
   gradeYear: string;

@@ -28,7 +28,9 @@ const siblingSchema = z.object({
 
 const formSchema = z.object({
   childName: z.string().min(2, "Bitte geben Sie den Namen des Kindes ein"),
-  childAddress: z.string().min(5, "Bitte geben Sie die vollständige Adresse ein"),
+  childAddress: z.string().min(2, "Bitte geben Sie die Straße ein"),
+  childPostalCode: z.string().min(4, "Bitte geben Sie die PLZ ein"),
+  childCity: z.string().min(2, "Bitte geben Sie den Wohnort ein"),
   studentNumber: z.string().optional().nullable(),
   gradeYear: z.string().min(1, "Bitte wählen Sie die Klasse"),
   parentName: z.string().min(2, "Bitte geben Sie den Namen eines Erziehungsberechtigten ein"),
@@ -69,6 +71,8 @@ export default function BookingForm() {
     defaultValues: {
       childName: "",
       childAddress: "",
+      childPostalCode: "",
+      childCity: "",
       studentNumber: "",
       gradeYear: "",
       parentName: "",
@@ -102,7 +106,7 @@ export default function BookingForm() {
     let fieldsToValidate: any[] = [];
     switch (currentStep) {
       case 0:
-        fieldsToValidate = ['childName', 'childAddress', 'gradeYear', 'parentName', 'parentEmail', 'parentPhone'];
+        fieldsToValidate = ['childName', 'childAddress', 'childPostalCode', 'childCity', 'gradeYear', 'parentName', 'parentEmail', 'parentPhone'];
         break;
       case 1:
         fieldsToValidate = ['tariffZone'];
@@ -204,12 +208,36 @@ export default function BookingForm() {
                 name="childAddress"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Adresse (Wohnort des Kindes) *</FormLabel>
-                    <FormControl><Input placeholder="Straße, PLZ, Ort" {...field} /></FormControl>
+                    <FormLabel>Straße und Hausnummer *</FormLabel>
+                    <FormControl><Input placeholder="Musterstraße 12" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+                <FormField
+                  control={form.control}
+                  name="childPostalCode"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel>PLZ *</FormLabel>
+                      <FormControl><Input placeholder="24340" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="childCity"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-3">
+                      <FormLabel>Wohnort *</FormLabel>
+                      <FormControl><Input placeholder="Eckernförde" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -555,7 +583,8 @@ export default function BookingForm() {
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="font-medium">Name:</div><div>{data.childName}</div>
                   <div className="font-medium">Klasse:</div><div>{data.gradeYear}</div>
-                  <div className="font-medium">Adresse:</div><div>{data.childAddress}</div>
+                  <div className="font-medium">Straße:</div><div>{data.childAddress}</div>
+                  <div className="font-medium">PLZ / Ort:</div><div>{data.childPostalCode} {data.childCity}</div>
                 </div>
               </div>
               

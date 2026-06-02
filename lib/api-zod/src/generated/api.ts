@@ -21,7 +21,11 @@ export const HealthCheckResponse = zod.object({
  */
 export const createBookingBodyChildNameMin = 2;
 
-export const createBookingBodyChildAddressMin = 5;
+export const createBookingBodyChildAddressMin = 2;
+
+export const createBookingBodyChildPostalCodeMin = 4;
+
+export const createBookingBodyChildCityMin = 2;
 
 export const createBookingBodyParentNameMin = 2;
 
@@ -36,6 +40,8 @@ export const createBookingBodySignatureNameMin = 2;
 export const CreateBookingBody = zod.object({
   "childName": zod.string().min(createBookingBodyChildNameMin),
   "childAddress": zod.string().min(createBookingBodyChildAddressMin),
+  "childPostalCode": zod.string().min(createBookingBodyChildPostalCodeMin),
+  "childCity": zod.string().min(createBookingBodyChildCityMin),
   "studentNumber": zod.string().nullish(),
   "gradeYear": zod.string(),
   "parentName": zod.string().min(createBookingBodyParentNameMin),
@@ -96,6 +102,8 @@ export const ListAdminBookingsResponse = zod.object({
   "referenceNumber": zod.string(),
   "childName": zod.string(),
   "childAddress": zod.string(),
+  "childPostalCode": zod.string(),
+  "childCity": zod.string(),
   "gradeYear": zod.string(),
   "parentName": zod.string(),
   "parentEmail": zod.string(),
@@ -128,6 +136,8 @@ export const GetAdminBookingResponse = zod.object({
   "referenceNumber": zod.string(),
   "childName": zod.string(),
   "childAddress": zod.string(),
+  "childPostalCode": zod.string(),
+  "childCity": zod.string(),
   "studentNumber": zod.string().nullish(),
   "gradeYear": zod.string(),
   "parentName": zod.string(),
@@ -181,6 +191,8 @@ export const UpdateAdminBookingBody = zod.object({
   "studentNumber": zod.string().nullish(),
   "gradeYear": zod.string().optional(),
   "childAddress": zod.string().optional(),
+  "childPostalCode": zod.string().optional(),
+  "childCity": zod.string().optional(),
   "parentName": zod.string().optional(),
   "parentEmail": zod.string().email().optional(),
   "parentPhone": zod.string().nullish(),
@@ -195,6 +207,8 @@ export const UpdateAdminBookingResponse = zod.object({
   "referenceNumber": zod.string(),
   "childName": zod.string(),
   "childAddress": zod.string(),
+  "childPostalCode": zod.string(),
+  "childCity": zod.string(),
   "studentNumber": zod.string().nullish(),
   "gradeYear": zod.string(),
   "parentName": zod.string(),
@@ -247,6 +261,8 @@ export const GetAdminStatsResponse = zod.object({
   "referenceNumber": zod.string(),
   "childName": zod.string(),
   "childAddress": zod.string(),
+  "childPostalCode": zod.string(),
+  "childCity": zod.string(),
   "gradeYear": zod.string(),
   "parentName": zod.string(),
   "parentEmail": zod.string(),
