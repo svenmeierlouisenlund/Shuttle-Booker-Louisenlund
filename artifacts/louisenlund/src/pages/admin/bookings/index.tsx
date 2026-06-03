@@ -406,17 +406,19 @@ export default function AdminBookingsList() {
                         <TableCell className="truncate">{format(new Date(booking.createdAt), "dd.MM.yyyy")}</TableCell>
                         <TableCell className="font-medium truncate">
                           <div className="flex items-center gap-1 min-w-0">
-                            {hasSiblings && (
+                            {hasSiblings ? (
                               <button
+                                type="button"
                                 onClick={() => toggleSiblings(booking.id)}
-                                className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                                title={isCollapsed ? "Geschwister einblenden" : "Geschwister ausblenden"}
+                                className="shrink-0 flex items-center gap-0.5 rounded px-0.5 py-0.5 text-blue-600 hover:bg-blue-100 transition-colors cursor-pointer"
+                                title={isCollapsed ? `${visibleSiblings.length} Geschwister einblenden` : "Geschwister ausblenden"}
                               >
                                 {isCollapsed
-                                  ? <ChevronRight className="w-3.5 h-3.5" />
-                                  : <ChevronDown className="w-3.5 h-3.5" />}
+                                  ? <ChevronRight className="w-4 h-4" />
+                                  : <ChevronDown className="w-4 h-4" />}
+                                <span className="text-[10px] font-bold leading-none">+{visibleSiblings.length}</span>
                               </button>
-                            )}
+                            ) : null}
                             {anyWaitlisted && <ClipboardList className="shrink-0 w-3 h-3 text-orange-500" />}
                             <span className="truncate">{booking.childName}</span>
                           </div>
