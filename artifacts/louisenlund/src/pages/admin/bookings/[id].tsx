@@ -823,6 +823,7 @@ export default function AdminBookingDetail() {
                       <SelectItem value="reviewed">Geprüft</SelectItem>
                       <SelectItem value="confirmed">Bestätigt</SelectItem>
                       <SelectItem value="query_open">Rückfrage offen</SelectItem>
+                      <SelectItem value="waitlisted">Warteliste</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -212,7 +212,7 @@ export const UpdateAdminBookingParams = zod.object({
 })
 
 export const UpdateAdminBookingBody = zod.object({
-  "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open']).optional(),
+  "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']).optional(),
   "adminNotes": zod.string().nullish(),
   "childName": zod.string().optional(),
   "studentNumber": zod.string().nullish(),
