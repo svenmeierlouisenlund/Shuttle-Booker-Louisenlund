@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ChevronLeft, Save, Trash2, Pencil, X, MapPin, Navigation } from "lucide-react";
+import { ChevronLeft, Save, Trash2, Pencil, X, MapPin, Navigation, Bus } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -479,6 +479,16 @@ export default function AdminBookingDetail() {
                         <div>{booking.gradeYear}</div>
                       )}
                     </FieldRow>
+                    <FieldRow label="Zugeteilter Bus">
+                      {(booking as any).busName ? (
+                        <div className="flex items-center gap-1.5 text-sm font-medium text-primary">
+                          <Bus className="w-4 h-4 shrink-0" />
+                          {(booking as any).busName}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground italic">Noch kein Bus zugeteilt</div>
+                      )}
+                    </FieldRow>
                     <FieldRow label="Schülernummer">
                       {editMode ? (
                         <Input value={editFields.studentNumber} onChange={e => setField("studentNumber")(e.target.value)} placeholder="–" />
@@ -681,6 +691,17 @@ export default function AdminBookingDetail() {
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <div><span className="text-muted-foreground">Klasse:</span> {sibling.gradeYear}</div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-muted-foreground shrink-0">Bus:</span>
+                              {(sibling as any).busName ? (
+                                <span className="flex items-center gap-1 font-medium text-primary">
+                                  <Bus className="w-3.5 h-3.5 shrink-0" />
+                                  {(sibling as any).busName}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground italic">–</span>
+                              )}
+                            </div>
                             <div className="flex items-center gap-2">
                               <span className="text-muted-foreground shrink-0">Schülernummer:</span>
                               {editMode ? (

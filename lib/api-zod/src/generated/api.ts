@@ -140,7 +140,8 @@ export const ListAdminBookingsResponse = zod.object({
   "outboundRoute": zod.string(),
   "returnRoute": zod.string(),
   "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']),
-  "priceCents": zod.number().nullish()
+  "priceCents": zod.number().nullish(),
+  "busName": zod.string().nullish().describe('Name of the assigned bus (if any)')
 })).optional()
 })),
   "total": zod.number(),
@@ -185,6 +186,7 @@ export const GetAdminBookingResponse = zod.object({
   "pickupPostalCode": zod.string().nullish(),
   "pickupCity": zod.string().nullish(),
   "pickupTariffZone": zod.union([zod.literal('zone1'),zod.literal('zone2'),zod.literal('zone3'),zod.literal(null)]).nullish().describe('Tariff zone of the pickup location (if cheaper than home zone, used for pricing)'),
+  "busName": zod.string().nullish().describe('Name of the assigned bus for the main child (if any)'),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
   "referenceNumber": zod.string().nullish(),
@@ -194,7 +196,8 @@ export const GetAdminBookingResponse = zod.object({
   "outboundRoute": zod.string(),
   "returnRoute": zod.string(),
   "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']),
-  "priceCents": zod.number().nullish()
+  "priceCents": zod.number().nullish(),
+  "busName": zod.string().nullish().describe('Name of the assigned bus (if any)')
 }))
 })
 
@@ -275,6 +278,7 @@ export const UpdateAdminBookingResponse = zod.object({
   "pickupPostalCode": zod.string().nullish(),
   "pickupCity": zod.string().nullish(),
   "pickupTariffZone": zod.union([zod.literal('zone1'),zod.literal('zone2'),zod.literal('zone3'),zod.literal(null)]).nullish().describe('Tariff zone of the pickup location (if cheaper than home zone, used for pricing)'),
+  "busName": zod.string().nullish().describe('Name of the assigned bus for the main child (if any)'),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
   "referenceNumber": zod.string().nullish(),
@@ -284,7 +288,8 @@ export const UpdateAdminBookingResponse = zod.object({
   "outboundRoute": zod.string(),
   "returnRoute": zod.string(),
   "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']),
-  "priceCents": zod.number().nullish()
+  "priceCents": zod.number().nullish(),
+  "busName": zod.string().nullish().describe('Name of the assigned bus (if any)')
 }))
 })
 
@@ -344,7 +349,8 @@ export const GetAdminStatsResponse = zod.object({
   "outboundRoute": zod.string(),
   "returnRoute": zod.string(),
   "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']),
-  "priceCents": zod.number().nullish()
+  "priceCents": zod.number().nullish(),
+  "busName": zod.string().nullish().describe('Name of the assigned bus (if any)')
 })).optional()
 }))
 })

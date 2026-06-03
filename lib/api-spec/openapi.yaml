@@ -582,6 +582,9 @@ components:
           $ref: "#/components/schemas/BookingStatus"
         priceCents:
           type: ["integer", "null"]
+        busName:
+          type: ["string", "null"]
+          description: Name of the assigned bus (if any)
 
     AdminBooking:
       type: object
@@ -732,6 +735,9 @@ components:
           type: ["string", "null"]
           enum: [zone1, zone2, zone3, null]
           description: Tariff zone of the pickup location (if cheaper than home zone, used for pricing)
+        busName:
+          type: ["string", "null"]
+          description: Name of the assigned bus for the main child (if any)
         siblings:
           type: array
           items:
