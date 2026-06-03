@@ -691,7 +691,19 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
   const conditions = [];
   if (params.tariffZone) conditions.push(eq(bookingsTable.tariffZone, params.tariffZone as any));
   if (params.bookingType) conditions.push(eq(bookingsTable.bookingType, params.bookingType as any));
-  if (params.status) conditions.push(eq(bookingsTable.status, params.status as any));
+  if (params.status) {
+    if (params.status === "waitlisted") {
+      // Include bookings where main booking OR any sibling is on waitlist
+      conditions.push(
+        or(
+          eq(bookingsTable.status, "waitlisted" as any),
+          sql`EXISTS (SELECT 1 FROM siblings WHERE siblings.booking_id = ${bookingsTable.id} AND siblings.status = 'waitlisted')`,
+        )!,
+      );
+    } else {
+      conditions.push(eq(bookingsTable.status, params.status as any));
+    }
+  }
   if (params.gradeYear) {
     // Match bookings where main child OR any sibling is in the requested grade year
     conditions.push(
