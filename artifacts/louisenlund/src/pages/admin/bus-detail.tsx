@@ -495,6 +495,8 @@ export default function BusDetail() {
 
   const { bus, passengers } = data;
   const pct = Math.min(100, Math.round((passengers.length / bus.capacity) * 100));
+  const hofCount = passengers.filter(p => isHof(p.gradeYear)).length;
+  const schlossCount = passengers.length - hofCount;
 
   return (
     <AdminLayout>
@@ -535,6 +537,19 @@ export default function BusDetail() {
             className={`h-2 rounded-full transition-all ${passengers.length >= bus.capacity ? "bg-orange-500" : "bg-[#004289]"}`}
             style={{ width: `${pct}%` }}
           />
+        </div>
+
+        {/* Destination counts */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-sm text-gray-500">Zielorte:</span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-700">
+            <School className="w-3.5 h-3.5" />
+            Schloss Louisenlund — {schlossCount} Schüler
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-700">
+            <Home className="w-3.5 h-3.5" />
+            Hof Louisenlund — {hofCount} Schüler
+          </span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
