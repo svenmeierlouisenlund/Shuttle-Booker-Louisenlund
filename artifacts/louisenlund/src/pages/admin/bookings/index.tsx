@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
-import { Upload, CheckCircle2, AlertCircle, Loader2, Route, ClipboardList, BookOpen, Search, X } from "lucide-react";
+import { Upload, CheckCircle2, AlertCircle, Loader2, Route, ClipboardList, BookOpen, Search, X, ChevronRight, ChevronDown } from "lucide-react";
 
 const statusMap: Record<string, string> = {
   received: "Eingegangen",
@@ -68,6 +68,15 @@ export default function AdminBookingsList() {
   const [searchInput, setSearchInput] = useState<string>("");
   const [search, setSearch] = useState<string>("");
   const [pageSize, setPageSize] = useState<number>(30);
+  const [collapsedBookings, setCollapsedBookings] = useState<Set<number>>(new Set());
+
+  function toggleSiblings(id: number) {
+    setCollapsedBookings((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
 
   const [importOpen, setImportOpen] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -389,13 +398,28 @@ export default function AdminBookingsList() {
                         ? (booking.siblings ?? []).filter((s) => (s as any).status === "waitlisted")
                         : (booking.siblings ?? []);
                       if (!showMain && visibleSiblings.length === 0) return [];
+                      const hasSiblings = visibleSiblings.length > 0;
+                      const isCollapsed = collapsedBookings.has(booking.id);
                       return [
                       ...(showMain ? [<TableRow key={booking.id} className={anyWaitlisted ? "bg-orange-50/70 hover:bg-orange-50 border-l-4 border-l-orange-400" : undefined}>
                         <TableCell className="font-mono text-xs truncate">{booking.referenceNumber}</TableCell>
                         <TableCell className="truncate">{format(new Date(booking.createdAt), "dd.MM.yyyy")}</TableCell>
                         <TableCell className="font-medium truncate">
-                          {anyWaitlisted && <ClipboardList className="inline w-3 h-3 mr-1 text-orange-500 shrink-0" />}
-                          {booking.childName}
+                          <div className="flex items-center gap-1 min-w-0">
+                            {hasSiblings && (
+                              <button
+                                onClick={() => toggleSiblings(booking.id)}
+                                className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                                title={isCollapsed ? "Geschwister einblenden" : "Geschwister ausblenden"}
+                              >
+                                {isCollapsed
+                                  ? <ChevronRight className="w-3.5 h-3.5" />
+                                  : <ChevronDown className="w-3.5 h-3.5" />}
+                              </button>
+                            )}
+                            {anyWaitlisted && <ClipboardList className="shrink-0 w-3 h-3 text-orange-500" />}
+                            <span className="truncate">{booking.childName}</span>
+                          </div>
                         </TableCell>
                         <TableCell className="truncate">{booking.gradeYear}</TableCell>
                         <TableCell className="truncate">{booking.parentName}</TableCell>
@@ -417,7 +441,7 @@ export default function AdminBookingsList() {
                           </Link>
                         </TableCell>
                       </TableRow>] : []),
-                      ...visibleSiblings.map((sibling) => {
+                      ...(!isCollapsed ? visibleSiblings : []).map((sibling) => {
                         const sibWaitlisted = (sibling as any).status === "waitlisted";
                         const sibHighlight = sibWaitlisted || isWaitlisted;
                         return (
