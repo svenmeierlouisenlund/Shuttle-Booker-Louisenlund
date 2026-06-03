@@ -53,7 +53,7 @@ type ImportResult = {
   errors: string[];
 };
 
-const COL_WIDTHS = [130, 100, 160, 100, 160, 110, 160, 140, 90, 80];
+const COL_WIDTHS = [130, 100, 200, 100, 180, 110, 220, 160, 90, 80];
 
 type RouteCalcResult = { processed: number; failed: number; skipped: number; errors: string[] };
 
