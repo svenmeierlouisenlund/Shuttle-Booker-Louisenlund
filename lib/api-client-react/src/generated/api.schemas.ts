@@ -97,6 +97,8 @@ export interface BookingConfirmation {
 
 export interface Sibling {
   id: number;
+  /** @nullable */
+  referenceNumber?: string | null;
   childName: string;
   /** @nullable */
   studentNumber?: string | null;

@@ -121,8 +121,13 @@ router.post("/bookings", async (req, res) => {
       const siblingPriceCents = isFullPayer
         ? calcBookingPriceFromConfig(pricingConfig, data.tariffZone, data.bookingType, sibling.outboundRoute, sibling.returnRoute)
         : calcSiblingPriceFromConfig(pricingConfig, data.tariffZone, data.bookingType, sibling.outboundRoute, sibling.returnRoute);
+      let sibRef = generateReferenceNumber();
+      while ((await db.select({ id: siblingsTable.id }).from(siblingsTable).where(eq(siblingsTable.referenceNumber, sibRef)).limit(1)).length > 0) {
+        sibRef = generateReferenceNumber();
+      }
       await db.insert(siblingsTable).values({
         bookingId: booking.id,
+        referenceNumber: sibRef,
         ...sibling,
         priceCents: siblingPriceCents,
       });

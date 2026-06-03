@@ -376,8 +376,12 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
           .where(and(eq(siblingsTable.bookingId, mainId), eq(siblingsTable.childName, f.childName))).limit(1);
         if (existingSib.length > 0) { skipped++; continue; }
         const sibPriceCents = calcBookingPriceFromConfig(importPricingConfig, f.tariffZone as any, f.bookingType, f.outboundRoute as any, f.returnRoute as any);
+        let sibRef1 = genRef();
+        while ((await db.select({ id: siblingsTable.id }).from(siblingsTable).where(eq(siblingsTable.referenceNumber, sibRef1)).limit(1)).length > 0) {
+          sibRef1 = genRef();
+        }
         await db.insert(siblingsTable).values({
-          bookingId: mainId, childName: f.childName, studentNumber: f.studentNumber,
+          bookingId: mainId, referenceNumber: sibRef1, childName: f.childName, studentNumber: f.studentNumber,
           gradeYear: f.gradeYear, outboundRoute: f.outboundRoute as any, returnRoute: f.returnRoute as any,
           priceCents: Math.round(sibPriceCents * 0.8),
         });
@@ -454,8 +458,12 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
         if (existingSib.length > 0) { skipped++; continue; }
 
         const sibPriceCents = calcBookingPriceFromConfig(importPricingConfig, f.tariffZone as any, f.bookingType, f.outboundRoute as any, f.returnRoute as any);
+        let sibRef2 = genRef();
+        while ((await db.select({ id: siblingsTable.id }).from(siblingsTable).where(eq(siblingsTable.referenceNumber, sibRef2)).limit(1)).length > 0) {
+          sibRef2 = genRef();
+        }
         await db.insert(siblingsTable).values({
-          bookingId: mainId, childName: f.childName, studentNumber: f.studentNumber,
+          bookingId: mainId, referenceNumber: sibRef2, childName: f.childName, studentNumber: f.studentNumber,
           gradeYear: f.gradeYear, outboundRoute: f.outboundRoute as any, returnRoute: f.returnRoute as any,
           priceCents: Math.round(sibPriceCents * 0.8),
         });
@@ -773,6 +781,7 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
     durationMinutes: b.durationMinutes ?? null,
     siblings: (siblingsByBooking[b.id] ?? []).map((s) => ({
       id: s.id,
+      referenceNumber: s.referenceNumber,
       childName: s.childName,
       studentNumber: s.studentNumber,
       gradeYear: s.gradeYear,
@@ -908,6 +917,7 @@ router.get("/admin/bookings/:id", requireAuth, async (req, res) => {
     pickupCity: booking.pickupCity ?? null,
     siblings: siblings.map((s) => ({
       id: s.id,
+      referenceNumber: s.referenceNumber,
       childName: s.childName,
       studentNumber: s.studentNumber,
       gradeYear: s.gradeYear,
@@ -1100,6 +1110,7 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
     updatedAt: updated.updatedAt.toISOString(),
     siblings: siblings.map((s) => ({
       id: s.id,
+      referenceNumber: s.referenceNumber,
       childName: s.childName,
       studentNumber: s.studentNumber,
       gradeYear: s.gradeYear,
