@@ -214,6 +214,15 @@ function mapGrade(g: unknown): string {
   return GRADE_MAP[s] ?? s;
 }
 function cleanStr(v: unknown): string {
+  // ExcelJS returns objects for hyperlink cells: { text, hyperlink }
+  // and for rich-text cells: { richText: [{text},...] }
+  // and for formula cells: { formula, result }
+  if (v !== null && typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    if (typeof o.text === "string") v = o.text;
+    else if (Array.isArray(o.richText)) v = (o.richText as { text: string }[]).map(r => r.text).join("");
+    else if (o.result !== undefined) v = o.result;
+  }
   return String(v ?? "").replace(/\t/g, "").trim();
 }
 function genRef(): string {
