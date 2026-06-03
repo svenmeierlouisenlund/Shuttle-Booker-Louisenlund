@@ -10,10 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ChevronLeft, Save, Trash2, Pencil, X, MapPin, Navigation, Bus } from "lucide-react";
+import { ChevronLeft, Save, Trash2, Pencil, X, MapPin, Navigation, Bus, Camera, Upload } from "lucide-react";
+import { useUpload } from "@workspace/object-storage-web";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -128,6 +129,118 @@ interface EditFields {
   pickupPostalCode: string;
   pickupCity: string;
   pickupTariffZone: string;
+}
+
+function photoDisplayUrl(objectPath: string | null | undefined): string | null {
+  if (!objectPath) return null;
+  const stripped = objectPath.replace(/^\/objects\//, "");
+  return `/api/storage/objects/${stripped}`;
+}
+
+function PhotoUpload({
+  currentPath,
+  onSave,
+  disabled,
+}: {
+  currentPath: string | null | undefined;
+  onSave: (path: string | null) => Promise<void>;
+  disabled?: boolean;
+}) {
+  const { toast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadFile, isUploading } = useUpload({ basePath: "/api/storage" });
+
+  const photoUrl = photoDisplayUrl(currentPath);
+  const busy = isUploading || isSaving;
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      toast({ title: "Datei zu groß", description: "Maximal 8 MB erlaubt.", variant: "destructive" });
+      e.target.value = "";
+      return;
+    }
+    const result = await uploadFile(file);
+    e.target.value = "";
+    if (!result) {
+      toast({ title: "Upload fehlgeschlagen", description: "Bitte erneut versuchen.", variant: "destructive" });
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await onSave(result.objectPath);
+      toast({ title: "Foto gespeichert" });
+    } catch {
+      toast({ title: "Speichern fehlgeschlagen", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    setIsSaving(true);
+    try {
+      await onSave(null);
+      toast({ title: "Foto entfernt" });
+    } catch {
+      toast({ title: "Entfernen fehlgeschlagen", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      {photoUrl ? (
+        <div className="relative inline-block">
+          <img
+            src={photoUrl}
+            alt="Schülerfoto"
+            className="w-40 h-48 rounded-lg border object-cover shadow-sm"
+          />
+          {!disabled && (
+            <button
+              type="button"
+              onClick={handleRemove}
+              disabled={busy}
+              title="Foto entfernen"
+              className="absolute -top-2 -right-2 bg-white rounded-full border shadow p-0.5 hover:bg-red-50 text-red-600 disabled:opacity-40"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="w-40 h-48 rounded-lg border-2 border-dashed border-muted-foreground/25 flex flex-col items-center justify-center bg-muted/10 gap-2">
+          <Camera className="w-8 h-8 text-muted-foreground/30" />
+          <span className="text-xs text-muted-foreground/50">Kein Foto</span>
+        </div>
+      )}
+      {!disabled && (
+        <>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleFile}
+            disabled={busy}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="w-3.5 h-3.5 mr-1.5" />
+            {busy ? "Wird hochgeladen…" : photoUrl ? "Foto ändern" : "Foto hochladen"}
+          </Button>
+        </>
+      )}
+    </div>
+  );
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -342,6 +455,28 @@ export default function AdminBookingDetail() {
     });
   };
 
+  const saveBookingPhoto = async (photoPath: string | null) => {
+    const res = await fetch(`/api/admin/bookings/${id}/photo`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ photoPath }),
+    });
+    if (!res.ok) throw new Error("Fehler beim Speichern");
+    queryClient.invalidateQueries({ queryKey: getGetAdminBookingQueryKey(id) });
+  };
+
+  const saveSiblingPhoto = async (siblingId: number, photoPath: string | null) => {
+    const res = await fetch(`/api/admin/siblings/${siblingId}/photo`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ photoPath }),
+    });
+    if (!res.ok) throw new Error("Fehler beim Speichern");
+    queryClient.invalidateQueries({ queryKey: getGetAdminBookingQueryKey(id) });
+  };
+
   const setField = (k: keyof EditFields) => (v: string) =>
     setEditFields(prev => ({ ...prev, [k]: v }));
 
@@ -427,6 +562,14 @@ export default function AdminBookingDetail() {
                 )}
               </CardHeader>
               <CardContent className="space-y-6">
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground mb-2">Foto</div>
+                  <PhotoUpload
+                    currentPath={(booking as any).photoPath}
+                    onSave={saveBookingPhoto}
+                    disabled={isReadOnly}
+                  />
+                </div>
                 <div className="grid grid-cols-2 gap-y-4 gap-x-8">
                   <FieldRow label="Datum">
                     <div>{format(new Date(booking.createdAt), "dd.MM.yyyy HH:mm")}</div>
@@ -695,6 +838,13 @@ export default function AdminBookingDetail() {
                                 <StatusBadge status={(sibling as any).status || "received"} />
                               )}
                             </div>
+                          </div>
+                          <div className="mb-3">
+                            <PhotoUpload
+                              currentPath={(sibling as any).photoPath}
+                              onSave={(path) => saveSiblingPhoto(sibling.id, path)}
+                              disabled={isReadOnly}
+                            />
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <div><span className="text-muted-foreground">Klasse:</span> {sibling.gradeYear}</div>

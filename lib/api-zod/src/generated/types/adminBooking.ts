@@ -39,5 +39,10 @@ export interface AdminBooking {
      * @nullable
      */
   durationMinutes?: number | null;
+  /**
+     * Object storage path of the child's photo
+     * @nullable
+     */
+  photoPath?: string | null;
   siblings?: Sibling[];
 }

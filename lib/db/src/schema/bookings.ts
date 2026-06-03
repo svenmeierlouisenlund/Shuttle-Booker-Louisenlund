@@ -61,6 +61,7 @@ export const bookingsTable = pgTable("bookings", {
   durationMinutes: integer("duration_minutes"),
   status: bookingStatusEnum("status").notNull().default("received"),
   adminNotes: text("admin_notes"),
+  photoPath: text("photo_path"),
   pickupAddress: text("pickup_address"),
   pickupPostalCode: text("pickup_postal_code"),
   pickupCity: text("pickup_city"),
@@ -81,6 +82,7 @@ export const siblingsTable = pgTable("siblings", {
   outboundRoute: routeOptionEnum("outbound_route").notNull(),
   returnRoute: routeOptionEnum("return_route").notNull(),
   priceCents: integer("price_cents"),
+  photoPath: text("photo_path"),
   status: bookingStatusEnum("status").notNull().default("received"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
