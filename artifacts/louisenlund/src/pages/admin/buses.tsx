@@ -30,6 +30,8 @@ import {
   Phone,
   User,
   ExternalLink,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
@@ -139,6 +141,31 @@ async function updateBus(busId: number, data: { name?: string }) {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error((err as { error?: string }).error ?? "Fehler beim Aktualisieren");
+  }
+}
+
+async function createBus() {
+  const res = await fetch("/api/admin/buses", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? "Fehler beim Erstellen");
+  }
+  return res.json();
+}
+
+async function deleteBus(busId: number) {
+  const res = await fetch(`/api/admin/buses/${busId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error((err as { error?: string }).error ?? "Fehler beim Löschen");
   }
 }
 
@@ -287,15 +314,18 @@ function BusCard({
   bus,
   overBusId,
   onRemove,
+  onDelete,
   removingKey,
 }: {
   bus: BusWithAssignments;
   overBusId: number | null;
   onRemove: (passenger: Passenger) => void;
+  onDelete: () => void;
   removingKey: string | null;
 }) {
   const [editingName, setEditingName] = useState(false);
   const [nameVal, setNameVal] = useState(bus.name);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
@@ -337,20 +367,36 @@ function BusCard({
               </Button>
             </div>
           ) : (
-            <CardTitle className="text-sm font-semibold text-[#004289] flex items-center gap-1.5">
+            <CardTitle className="text-sm font-semibold text-[#004289] flex items-center gap-1.5 min-w-0">
               <Bus className="w-4 h-4 shrink-0" />
-              {bus.name}
+              <span className="truncate">{bus.name}</span>
               <button
                 onClick={() => { setNameVal(bus.name); setEditingName(true); }}
-                className="ml-1 text-gray-300 hover:text-gray-500 transition-colors"
+                className="ml-1 text-gray-300 hover:text-gray-500 transition-colors shrink-0"
               >
                 <Pencil className="w-3 h-3" />
               </button>
             </CardTitle>
           )}
-          <Badge variant={full ? "destructive" : "secondary"} className="text-xs shrink-0">
-            {bus.assignments.length}/{bus.capacity}
-          </Badge>
+          <div className="flex items-center gap-1 shrink-0">
+            <Badge variant={full ? "destructive" : "secondary"} className="text-xs">
+              {bus.assignments.length}/{bus.capacity}
+            </Badge>
+            {confirmDelete ? (
+              <>
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-600 hover:bg-red-50" onClick={onDelete} title="Löschen bestätigen">
+                  <Check className="w-3 h-3" />
+                </Button>
+                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-400 hover:bg-gray-50" onClick={() => setConfirmDelete(false)} title="Abbrechen">
+                  <X className="w-3 h-3" />
+                </Button>
+              </>
+            ) : (
+              <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-200 hover:text-red-500 hover:bg-red-50" onClick={() => setConfirmDelete(true)} title="Bus löschen">
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            )}
+          </div>
         </div>
         <div className="h-1.5 rounded-full bg-gray-100 mt-2">
           <div
@@ -565,6 +611,24 @@ export default function AdminBuses() {
     },
   });
 
+  const createMutation = useMutation({
+    mutationFn: createBus,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-buses"] });
+      toast({ title: "Bus erstellt", description: "Der neue Bus wurde angelegt." });
+    },
+    onError: (err: Error) => toast({ title: "Fehler", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (busId: number) => deleteBus(busId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-buses"] });
+      toast({ title: "Bus gelöscht" });
+    },
+    onError: (err: Error) => toast({ title: "Fehler beim Löschen", description: err.message, variant: "destructive" }),
+  });
+
   const handleRemove = (bus: BusWithAssignments, passenger: Passenger) => {
     const key = `${passenger.type}-${passenger.id}`;
     setRemovingKey(key);
@@ -701,6 +765,14 @@ export default function AdminBuses() {
                 Schüler per <strong>Drag & Drop</strong> auf Busse ziehen. Umzug zwischen Bussen direkt möglich.
               </p>
             </div>
+            <Button
+              onClick={() => createMutation.mutate()}
+              disabled={createMutation.isPending}
+              className="bg-[#004289] hover:bg-[#003070] gap-2 shrink-0"
+            >
+              {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+              Bus anlegen
+            </Button>
             <div className="flex gap-3 text-sm">
               <div className="bg-white border border-gray-200 rounded px-3 py-2 text-center">
                 <div className="text-lg font-bold text-[#004289]">{totalAssigned}</div>
@@ -736,6 +808,7 @@ export default function AdminBuses() {
                 bus={bus}
                 overBusId={overBusId}
                 onRemove={(passenger) => handleRemove(bus, passenger)}
+                onDelete={() => deleteMutation.mutate(bus.id)}
                 removingKey={removingKey}
               />
             ))}
