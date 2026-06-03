@@ -50,6 +50,65 @@ interface BusDetailResponse {
   passengers: PassengerDetail[];
 }
 
+// ── Pickup stop (siblings grouped) ────────────────────────────────────────────
+
+interface PickupStop {
+  bookingId: number;
+  address: string;
+  postalCode: string;
+  city: string;
+  children: PassengerDetail[];
+  parentName: string;
+  parentPhone: string;
+  outboundRoute: string;
+  returnRoute: string;
+  referenceNumber: string;
+}
+
+function buildStops(passengers: PassengerDetail[]): PickupStop[] {
+  const map = new Map<number, PickupStop>();
+
+  for (const p of passengers) {
+    if (p.type === "booking") {
+      map.set(p.bookingId, {
+        bookingId: p.bookingId,
+        address: p.childAddress,
+        postalCode: p.childPostalCode,
+        city: p.childCity,
+        children: [p],
+        parentName: p.parentName,
+        parentPhone: p.parentPhone,
+        outboundRoute: p.outboundRoute,
+        returnRoute: p.returnRoute,
+        referenceNumber: p.referenceNumber,
+      });
+    }
+  }
+  for (const p of passengers) {
+    if (p.type === "sibling") {
+      const stop = map.get(p.bookingId);
+      if (stop) {
+        stop.children.push(p);
+      } else {
+        map.set(-p.id, {
+          bookingId: p.bookingId,
+          address: p.childAddress,
+          postalCode: p.childPostalCode,
+          city: p.childCity,
+          children: [p],
+          parentName: p.parentName,
+          parentPhone: p.parentPhone,
+          outboundRoute: p.outboundRoute,
+          returnRoute: p.returnRoute,
+          referenceNumber: p.referenceNumber,
+        });
+      }
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => a.postalCode.localeCompare(b.postalCode));
+}
+
 // ── Geocoding ──────────────────────────────────────────────────────────────────
 
 const GEOCACHE_KEY = "ll_geocode_cache_v3";
@@ -73,13 +132,14 @@ async function geocodeAddress(addr: string): Promise<[number, number] | null> {
 
 // ── Map helpers ────────────────────────────────────────────────────────────────
 
-function createIcon(n: number) {
+function createIcon(n: number, multi: boolean) {
+  const bg = multi ? "#b45309" : "#004289";
   return L.divIcon({
     className: "",
     iconSize: [28, 28],
     iconAnchor: [14, 14],
     popupAnchor: [0, -14],
-    html: `<div style="background:#004289;color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)">${n}</div>`,
+    html: `<div style="background:${bg};color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)">${n}</div>`,
   });
 }
 
@@ -96,49 +156,51 @@ function FitBounds({ coords }: { coords: [number, number][] }) {
 // ── Route Map ─────────────────────────────────────────────────────────────────
 
 function RouteMap({ passengers }: { passengers: PassengerDetail[] }) {
-  const [markers, setMarkers] = useState<{ passenger: PassengerDetail; coords: [number, number]; order: number }[]>([]);
+  const stops = buildStops(passengers);
+  const [markers, setMarkers] = useState<{ stop: PickupStop; coords: [number, number]; order: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [done, setDone] = useState(0);
   const cache = useRef(getCache());
 
   useEffect(() => {
-    if (passengers.length === 0) { setLoading(false); return; }
+    if (stops.length === 0) { setLoading(false); return; }
 
     let cancelled = false;
     const result: typeof markers = [];
     let counter = 0;
 
     (async () => {
-      const total = passengers.length;
-      for (let i = 0; i < total; i++) {
+      for (let i = 0; i < stops.length; i++) {
         if (cancelled) break;
-        const p = passengers[i];
-        const fullAddr = `${p.childAddress}, ${p.childPostalCode} ${p.childCity}, Deutschland`;
+        const stop = stops[i];
+        const fullAddr = `${stop.address}, ${stop.postalCode} ${stop.city}, Deutschland`;
         let coords = cache.current[fullAddr];
         if (coords === undefined) {
           coords = await geocodeAddress(fullAddr);
           cache.current[fullAddr] = coords;
           saveCache(cache.current);
-          await new Promise(r => setTimeout(r, 1100)); // Nominatim rate limit
+          await new Promise(r => setTimeout(r, 1100));
         }
         counter++;
         if (!cancelled) setDone(counter);
-        if (coords) result.push({ passenger: p, coords, order: i + 1 });
+        if (coords) result.push({ stop, coords, order: i + 1 });
       }
       if (!cancelled) { setMarkers(result); setLoading(false); }
     })();
 
     return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [passengers]);
 
   const coords = markers.map(m => m.coords);
+  const multi = (stop: PickupStop) => stop.children.length > 1;
 
   return (
     <div className="space-y-3">
       {loading && (
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Loader2 className="w-4 h-4 animate-spin" />
-          Adressen werden geocodiert … {done}/{passengers.length}
+          Adressen werden geocodiert … {done}/{stops.length}
         </div>
       )}
       <div className="rounded-lg overflow-hidden border border-gray-200" style={{ height: 420 }}>
@@ -149,15 +211,25 @@ function RouteMap({ passengers }: { passengers: PassengerDetail[] }) {
           />
           <FitBounds coords={coords} />
           {markers.map(m => (
-            <Marker key={`${m.passenger.type}-${m.passenger.id}`} position={m.coords} icon={createIcon(m.order)}>
+            <Marker key={m.stop.bookingId} position={m.coords} icon={createIcon(m.order, multi(m.stop))}>
               <Popup>
-                <div className="text-sm space-y-1">
-                  <p className="font-semibold">{m.order}. {m.passenger.childName}</p>
-                  <p className="text-gray-600">{m.passenger.gradeYear}</p>
-                  <p className="text-gray-600">{m.passenger.childAddress}</p>
-                  <p className="text-gray-600">{m.passenger.childPostalCode} {m.passenger.childCity}</p>
-                  {m.passenger.parentPhone && (
-                    <p className="text-gray-600">📞 {m.passenger.parentPhone}</p>
+                <div className="text-sm space-y-1.5" style={{ minWidth: 180 }}>
+                  <p className="font-semibold text-[#004289]">
+                    Haltepunkt {m.order}
+                    {multi(m.stop) && <span className="ml-1 text-amber-700 text-xs">(Geschwister)</span>}
+                  </p>
+                  <p className="text-gray-600 text-xs">{m.stop.address}, {m.stop.postalCode} {m.stop.city}</p>
+                  <div className="border-t border-gray-100 pt-1 space-y-0.5">
+                    {m.stop.children.map(c => (
+                      <p key={`${c.type}-${c.id}`} className="text-gray-800 text-xs">
+                        {c.type === "sibling" ? "↳ " : ""}
+                        <span className="font-medium">{c.childName}</span>
+                        <span className="text-gray-400"> · {c.gradeYear}</span>
+                      </p>
+                    ))}
+                  </div>
+                  {m.stop.parentPhone && (
+                    <p className="text-gray-600 text-xs">📞 {m.stop.parentName}: {m.stop.parentPhone}</p>
                   )}
                 </div>
               </Popup>
@@ -166,13 +238,28 @@ function RouteMap({ passengers }: { passengers: PassengerDetail[] }) {
         </MapContainer>
       </div>
       {/* Legend */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+      <div className="space-y-1">
         {markers.map(m => (
-          <div key={`${m.passenger.type}-${m.passenger.id}`} className="flex items-center gap-2 text-xs text-gray-600">
-            <span className="w-5 h-5 rounded-full bg-[#004289] text-white flex items-center justify-center shrink-0 text-[10px] font-bold">
+          <div key={m.stop.bookingId} className="flex items-start gap-2 text-xs text-gray-600">
+            <span
+              className="w-5 h-5 rounded-full text-white flex items-center justify-center shrink-0 text-[10px] font-bold mt-0.5"
+              style={{ background: multi(m.stop) ? "#b45309" : "#004289" }}
+            >
               {m.order}
             </span>
-            {m.passenger.childName} · {m.passenger.childPostalCode} {m.passenger.childCity}
+            <div>
+              <span className="font-medium">{m.stop.postalCode} {m.stop.city}</span>
+              {" · "}
+              {m.stop.children.map((c, i) => (
+                <span key={`${c.type}-${c.id}`}>
+                  {i > 0 && <span className="text-gray-400"> & </span>}
+                  {c.childName}
+                </span>
+              ))}
+              {multi(m.stop) && (
+                <span className="ml-1.5 text-amber-700 bg-amber-50 rounded px-1">Geschwister</span>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -413,61 +500,94 @@ export default function BusDetail() {
               </div>
             </CardHeader>
             <CardContent className="pt-4">
-              {activeTab === "passengers" && (
-                <div className="space-y-2">
-                  {passengers.length === 0 ? (
-                    <p className="text-sm text-gray-400 italic text-center py-6">
-                      Keine Schüler zugeordnet.
-                    </p>
-                  ) : (
-                    passengers.map((p, i) => (
-                      <div
-                        key={`${p.type}-${p.id}`}
-                        className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
-                          p.type === "sibling"
-                            ? "bg-blue-50 border-blue-100"
-                            : "bg-white border-gray-100"
-                        }`}
-                      >
-                        <span className="w-6 h-6 rounded-full bg-[#004289] text-white flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
-                          {i + 1}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-semibold text-gray-900">{p.childName}</p>
-                            {p.type === "sibling" && (
-                              <Badge className="text-[10px] h-4 px-1 bg-blue-100 text-blue-700 border-0">
-                                Geschwister
-                              </Badge>
-                            )}
-                            <span className="text-xs text-gray-400">{p.gradeYear}</span>
-                            <span className="text-xs text-gray-400">·</span>
-                            <span className="text-xs text-gray-400">{p.referenceNumber}</span>
-                          </div>
-                          <div className="flex items-start gap-1 mt-1">
-                            <Home className="w-3 h-3 text-gray-400 mt-0.5 shrink-0" />
-                            <p className="text-xs text-gray-600">
-                              {p.childAddress}{p.childAddress && ","} {p.childPostalCode} {p.childCity}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-3 mt-1 flex-wrap">
-                            <span className="text-xs text-gray-500 flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {routeSummary(p)}
-                            </span>
-                            {p.parentPhone && (
-                              <span className="text-xs text-gray-500 flex items-center gap-1">
-                                <Phone className="w-3 h-3" />
-                                {p.parentName}: {p.parentPhone}
+              {activeTab === "passengers" && (() => {
+                const stops = buildStops(passengers);
+                return (
+                  <div className="space-y-3">
+                    {stops.length === 0 ? (
+                      <p className="text-sm text-gray-400 italic text-center py-6">
+                        Keine Schüler zugeordnet.
+                      </p>
+                    ) : (
+                      stops.map((stop, idx) => {
+                        const isMulti = stop.children.length > 1;
+                        return (
+                          <div
+                            key={stop.bookingId}
+                            className={`rounded-lg border overflow-hidden ${
+                              isMulti ? "border-amber-200" : "border-gray-100"
+                            }`}
+                          >
+                            {/* Stop header */}
+                            <div className={`flex items-center gap-2.5 px-3 py-2 ${isMulti ? "bg-amber-50" : "bg-gray-50"}`}>
+                              <span
+                                className="w-6 h-6 rounded-full text-white flex items-center justify-center text-xs font-bold shrink-0"
+                                style={{ background: isMulti ? "#b45309" : "#004289" }}
+                              >
+                                {idx + 1}
                               </span>
-                            )}
+                              <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-medium text-gray-700 flex items-center gap-1">
+                                  <Home className="w-3 h-3 text-gray-400" />
+                                  {stop.address}{stop.address && ","} {stop.postalCode} {stop.city}
+                                </span>
+                                {isMulti && (
+                                  <Badge className="text-[10px] h-4 px-1 bg-amber-100 text-amber-800 border-0">
+                                    {stop.children.length} Geschwister
+                                  </Badge>
+                                )}
+                              </div>
+                              {stop.parentPhone && (
+                                <span className="text-xs text-gray-500 flex items-center gap-1 shrink-0">
+                                  <Phone className="w-3 h-3" />
+                                  {stop.parentName}
+                                </span>
+                              )}
+                            </div>
+                            {/* Children */}
+                            <div className="divide-y divide-gray-50">
+                              {stop.children.map((p, ci) => (
+                                <div
+                                  key={`${p.type}-${p.id}`}
+                                  className={`flex items-start gap-3 px-3 py-2.5 ${
+                                    p.type === "sibling" ? "bg-white pl-8" : "bg-white"
+                                  }`}
+                                >
+                                  {p.type === "sibling" && (
+                                    <span className="text-gray-300 text-sm -ml-4 mr-0 mt-0.5 shrink-0">↳</span>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <p className="text-sm font-semibold text-gray-900">{p.childName}</p>
+                                      {p.type === "sibling" && (
+                                        <Badge className="text-[10px] h-4 px-1 bg-blue-100 text-blue-700 border-0">
+                                          Geschwister
+                                        </Badge>
+                                      )}
+                                      <span className="text-xs text-gray-400">{p.gradeYear}</span>
+                                      <span className="text-xs text-gray-400">·</span>
+                                      <span className="text-xs text-gray-400">{p.referenceNumber}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                                      <span className="text-xs text-gray-500 flex items-center gap-1">
+                                        <MapPin className="w-3 h-3" />
+                                        {routeSummary(p)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  {ci === 0 && stop.parentPhone && (
+                                    <span className="text-xs text-gray-400 shrink-0">{stop.parentPhone}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
+                        );
+                      })
+                    )}
+                  </div>
+                );
+              })()}
 
               {activeTab === "route" && (
                 <div>
