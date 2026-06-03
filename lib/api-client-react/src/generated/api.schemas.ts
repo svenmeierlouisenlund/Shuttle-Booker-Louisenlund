@@ -145,6 +145,19 @@ export interface AdminBooking {
   siblings?: Sibling[];
 }
 
+/**
+ * Tariff zone of the pickup location (if cheaper than home zone, used for pricing)
+ * @nullable
+ */
+export type AdminBookingDetailPickupTariffZone = typeof AdminBookingDetailPickupTariffZone[keyof typeof AdminBookingDetailPickupTariffZone] | null;
+
+
+export const AdminBookingDetailPickupTariffZone = {
+  zone1: 'zone1',
+  zone2: 'zone2',
+  zone3: 'zone3',
+} as const;
+
 export interface AdminBookingDetail {
   id: number;
   referenceNumber: string;
@@ -189,6 +202,11 @@ export interface AdminBookingDetail {
   pickupPostalCode?: string | null;
   /** @nullable */
   pickupCity?: string | null;
+  /**
+     * Tariff zone of the pickup location (if cheaper than home zone, used for pricing)
+     * @nullable
+     */
+  pickupTariffZone?: AdminBookingDetailPickupTariffZone;
   siblings: Sibling[];
 }
 
@@ -238,6 +256,19 @@ export const BookingStatusUpdateReturnRoute = {
   none: 'none',
 } as const;
 
+/**
+ * Tariff zone of the pickup location (overrides home zone for pricing if cheaper)
+ * @nullable
+ */
+export type BookingStatusUpdatePickupTariffZone = typeof BookingStatusUpdatePickupTariffZone[keyof typeof BookingStatusUpdatePickupTariffZone] | null;
+
+
+export const BookingStatusUpdatePickupTariffZone = {
+  zone1: 'zone1',
+  zone2: 'zone2',
+  zone3: 'zone3',
+} as const;
+
 export type BookingStatusUpdateSiblingUpdatesItem = {
   id: number;
   outboundRoute: RouteOption;
@@ -272,6 +303,11 @@ export interface BookingStatusUpdate {
   pickupPostalCode?: string | null;
   /** @nullable */
   pickupCity?: string | null;
+  /**
+     * Tariff zone of the pickup location (overrides home zone for pricing if cheaper)
+     * @nullable
+     */
+  pickupTariffZone?: BookingStatusUpdatePickupTariffZone;
   /** Per-sibling route overrides (by sibling id) */
   siblingUpdates?: BookingStatusUpdateSiblingUpdatesItem[];
 }

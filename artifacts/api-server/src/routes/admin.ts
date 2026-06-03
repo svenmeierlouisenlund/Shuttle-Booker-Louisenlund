@@ -11,7 +11,7 @@ import {
 import { eq, and, count, sum, desc, sql, inArray, or, ne } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import multer from "multer";
-import { calcBookingPriceFromConfig, calcSiblingPriceFromConfig, gradeRank } from "../pricing.js";
+import { calcBookingPriceFromConfig, calcSiblingPriceFromConfig, gradeRank, effectiveZone } from "../pricing.js";
 import { getPricingConfig, invalidatePricingConfig } from "../services/pricing-cache.js";
 import { recalcFamilyPrices } from "../services/family.js";
 import { calcRouteToSchool, sleep } from "../services/routing.js";
@@ -1022,6 +1022,7 @@ router.get("/admin/bookings/:id", requireAuth, async (req, res) => {
     pickupAddress: booking.pickupAddress ?? null,
     pickupPostalCode: booking.pickupPostalCode ?? null,
     pickupCity: booking.pickupCity ?? null,
+    pickupTariffZone: booking.pickupTariffZone ?? null,
     siblings: siblings.map((s) => ({
       id: s.id,
       referenceNumber: s.referenceNumber,
@@ -1076,14 +1077,18 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
   if (d.pickupAddress !== undefined) updates.pickupAddress = d.pickupAddress ?? null;
   if (d.pickupPostalCode !== undefined) updates.pickupPostalCode = d.pickupPostalCode ?? null;
   if (d.pickupCity !== undefined) updates.pickupCity = d.pickupCity ?? null;
+  if (d.pickupTariffZone !== undefined) updates.pickupTariffZone = d.pickupTariffZone ?? null;
 
   // Recalculate own price if any price-affecting field changes
   const priceFieldsChanged =
     d.tariffZone !== undefined || d.bookingType !== undefined ||
     d.outboundRoute !== undefined || d.returnRoute !== undefined ||
-    d.gradeYear !== undefined;
+    d.gradeYear !== undefined || d.pickupTariffZone !== undefined;
   if (priceFieldsChanged) {
-    const zone = (d.tariffZone ?? current.tariffZone) as any;
+    const zone = effectiveZone(
+      (d.tariffZone ?? current.tariffZone) as any,
+      d.pickupTariffZone !== undefined ? d.pickupTariffZone : current.pickupTariffZone,
+    );
     const bType = (d.bookingType ?? current.bookingType) as any;
     const out = (d.outboundRoute ?? current.outboundRoute) as any;
     const ret = (d.returnRoute ?? current.returnRoute) as any;
@@ -1134,7 +1139,7 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
     const currentSiblings = await db.select().from(siblingsTable).where(eq(siblingsTable.bookingId, id));
     const mainGrade = current.gradeYear;
     const patchConfig = await getPricingConfig();
-    const zone = current.tariffZone as any;
+    const zone = effectiveZone(current.tariffZone as any, current.pickupTariffZone);
     const bType = current.bookingType as any;
 
     for (const su of d.siblingUpdates) {

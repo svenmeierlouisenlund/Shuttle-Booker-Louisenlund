@@ -8,6 +8,7 @@
 import type { BookingStatus } from './bookingStatus';
 import type { BookingStatusUpdateBookingType } from './bookingStatusUpdateBookingType';
 import type { BookingStatusUpdateOutboundRoute } from './bookingStatusUpdateOutboundRoute';
+import type { BookingStatusUpdatePickupTariffZone } from './bookingStatusUpdatePickupTariffZone';
 import type { BookingStatusUpdateReturnRoute } from './bookingStatusUpdateReturnRoute';
 import type { BookingStatusUpdateSiblingUpdatesItem } from './bookingStatusUpdateSiblingUpdatesItem';
 import type { BookingStatusUpdateTariffZone } from './bookingStatusUpdateTariffZone';
@@ -37,6 +38,11 @@ export interface BookingStatusUpdate {
   pickupPostalCode?: string | null;
   /** @nullable */
   pickupCity?: string | null;
+  /**
+     * Tariff zone of the pickup location (overrides home zone for pricing if cheaper)
+     * @nullable
+     */
+  pickupTariffZone?: BookingStatusUpdatePickupTariffZone;
   /** Per-sibling route overrides (by sibling id) */
   siblingUpdates?: BookingStatusUpdateSiblingUpdatesItem[];
 }

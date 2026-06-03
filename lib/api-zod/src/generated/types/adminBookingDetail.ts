@@ -5,6 +5,7 @@
  * Regionalshuttle Buchungssystem - Stiftung Louisenlund
  * OpenAPI spec version: 0.1.0
  */
+import type { AdminBookingDetailPickupTariffZone } from './adminBookingDetailPickupTariffZone';
 import type { Sibling } from './sibling';
 
 export interface AdminBookingDetail {
@@ -51,5 +52,10 @@ export interface AdminBookingDetail {
   pickupPostalCode?: string | null;
   /** @nullable */
   pickupCity?: string | null;
+  /**
+     * Tariff zone of the pickup location (if cheaper than home zone, used for pricing)
+     * @nullable
+     */
+  pickupTariffZone?: AdminBookingDetailPickupTariffZone;
   siblings: Sibling[];
 }
