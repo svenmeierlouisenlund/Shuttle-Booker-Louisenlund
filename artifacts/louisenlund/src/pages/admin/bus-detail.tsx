@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useParams, useLocation } from "wouter";
+import { useParams, useLocation, Link } from "wouter";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   Loader2, Bus, ArrowLeft, Phone, User, MapPin, Users,
-  Pencil, Check, X, Navigation, Home, School,
+  Pencil, Check, X, Navigation, Home, School, ExternalLink,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
@@ -23,6 +24,133 @@ function DestBadge({ gradeYear }: { gradeYear: string }) {
   return isHof(gradeYear)
     ? <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-medium bg-green-100 text-green-700">Hof</span>
     : <span className="inline-flex items-center px-1.5 py-0 rounded text-[10px] font-medium bg-purple-100 text-purple-700">Schloss</span>;
+}
+
+// ── Passenger Detail Sheet ─────────────────────────────────────────────────────
+
+const ROUTE_LABELS: Record<string, string> = {
+  none: "Keine", zone1: "Zone 1", zone2: "Zone 2", zone3: "Zone 3",
+  zone4: "Zone 4", zone5: "Zone 5",
+};
+const STATUS_LABELS: Record<string, string> = {
+  eingegangen: "Eingegangen", geprueft: "Geprüft", bestaetigt: "Bestätigt",
+  rueckfrage_offen: "Rückfrage offen", waitlisted: "Warteliste",
+};
+const TARIFF_LABELS: Record<string, string> = {
+  zone1: "Zone 1", zone2: "Zone 2", zone3: "Zone 3", zone4: "Zone 4", zone5: "Zone 5",
+};
+
+function PassengerDetailSheet({
+  passenger,
+  onClose,
+}: {
+  passenger: PassengerDetail | null;
+  onClose: () => void;
+}) {
+  if (!passenger) return null;
+  const isSibling = passenger.type === "sibling";
+  const addr = [passenger.pickupAddress, passenger.pickupPostalCode, passenger.pickupCity].filter(Boolean).join(", ");
+
+  return (
+    <Sheet open={!!passenger} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+        <SheetHeader className="mb-4">
+          <SheetTitle className="flex items-center gap-2 text-[#004289]">
+            <User className="w-5 h-5" />
+            {passenger.childName}
+          </SheetTitle>
+        </SheetHeader>
+
+        <div className="space-y-5">
+          {/* Kind */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Kind</p>
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Name</span>
+                <span className="font-medium text-gray-900">{passenger.childName}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Jahrgang</span>
+                <span className="font-medium text-gray-900 flex items-center gap-1.5">
+                  {passenger.gradeYear}
+                  <DestBadge gradeYear={passenger.gradeYear} />
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Referenz</span>
+                <span className="font-mono text-xs text-gray-700">{passenger.referenceNumber}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Status</span>
+                <span className="font-medium text-gray-900">{STATUS_LABELS[passenger.status] ?? passenger.status}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Routen */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Routen</p>
+            <div className="space-y-1.5">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Hinfahrt</span>
+                <span className="font-medium text-gray-900">{ROUTE_LABELS[passenger.outboundRoute] ?? passenger.outboundRoute}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Rückfahrt</span>
+                <span className="font-medium text-gray-900">{ROUTE_LABELS[passenger.returnRoute] ?? passenger.returnRoute}</span>
+              </div>
+              {!isSibling && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Tarifstufe</span>
+                  <span className="font-medium text-gray-900">{TARIFF_LABELS[passenger.tariffZone] ?? passenger.tariffZone}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Abholadresse */}
+          {!!addr && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Abholadresse</p>
+              <p className="text-sm text-gray-800">{addr}</p>
+            </div>
+          )}
+
+          {/* Erziehungsberechtigte */}
+          {passenger.parentName && (
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Erziehungsberechtigte</p>
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Name</span>
+                  <span className="font-medium text-gray-900">{passenger.parentName}</span>
+                </div>
+                {passenger.parentPhone && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Telefon</span>
+                    <a href={`tel:${passenger.parentPhone}`} className="font-medium text-[#004289] hover:underline">
+                      {passenger.parentPhone}
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Link zur Buchung */}
+          <div className="pt-2 border-t border-gray-100">
+            <Link href={`/admin/bookings/${passenger.bookingId}`}>
+              <Button variant="outline" size="sm" className="w-full gap-2 text-[#004289] border-[#004289]/30 hover:bg-[#004289]/5">
+                <ExternalLink className="w-3.5 h-3.5" />
+                Zur vollständigen Buchung
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -447,6 +575,7 @@ export default function BusDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<"passengers" | "route">("passengers");
+  const [selectedPassenger, setSelectedPassenger] = useState<PassengerDetail | null>(null);
 
   const { data, isLoading, error } = useQuery<BusDetailResponse>({
     queryKey: ["bus-detail", busId],
@@ -669,8 +798,9 @@ export default function BusDetail() {
                               {stop.children.map((p, ci) => (
                                 <div
                                   key={`${p.type}-${p.id}`}
-                                  className={`flex items-start gap-3 px-3 py-2.5 ${
-                                    p.type === "sibling" ? "bg-white pl-8" : "bg-white"
+                                  onClick={() => setSelectedPassenger(p)}
+                                  className={`flex items-start gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors ${
+                                    p.type === "sibling" ? "pl-8" : ""
                                   }`}
                                 >
                                   {p.type === "sibling" && (
@@ -731,6 +861,10 @@ export default function BusDetail() {
           </Card>
         </div>
       </div>
+      <PassengerDetailSheet
+        passenger={selectedPassenger}
+        onClose={() => setSelectedPassenger(null)}
+      />
     </AdminLayout>
   );
 }
