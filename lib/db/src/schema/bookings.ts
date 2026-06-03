@@ -73,7 +73,7 @@ export const siblingsTable = pgTable("siblings", {
   bookingId: integer("booking_id")
     .notNull()
     .references(() => bookingsTable.id, { onDelete: "cascade" }),
-  referenceNumber: text("reference_number"),
+  referenceNumber: text("reference_number").notNull().unique(),
   childName: text("child_name").notNull(),
   studentNumber: text("student_number"),
   gradeYear: text("grade_year").notNull(),
@@ -103,6 +103,7 @@ export const insertBookingSchema = createInsertSchema(bookingsTable).omit({
 export const insertSiblingSchema = createInsertSchema(siblingsTable).omit({
   id: true,
   bookingId: true,
+  referenceNumber: true,
   createdAt: true,
 });
 
