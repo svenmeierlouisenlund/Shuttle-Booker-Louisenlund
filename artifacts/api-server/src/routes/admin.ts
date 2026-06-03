@@ -1309,11 +1309,16 @@ router.post("/admin/smtp-config/test", requireAuth, async (req, res) => {
 // ── Bus seeding ───────────────────────────────────────────────────────────────
 
 async function seedBuses() {
-  const existing = await db.select({ id: busesTable.id }).from(busesTable).limit(1);
-  if (existing.length > 0) return;
-  await db.insert(busesTable).values(
-    Array.from({ length: 8 }, (_, i) => ({ name: `Bus ${i + 1}`, capacity: 8 }))
-  );
+  const existing = await db.select({ id: busesTable.id }).from(busesTable).where(eq(busesTable.isWaitlistBus, false)).limit(1);
+  if (existing.length === 0) {
+    await db.insert(busesTable).values(
+      Array.from({ length: 8 }, (_, i) => ({ name: `Bus ${i + 1}`, capacity: 8 }))
+    );
+  }
+  const wlBus = await db.select({ id: busesTable.id }).from(busesTable).where(eq(busesTable.isWaitlistBus, true)).limit(1);
+  if (wlBus.length === 0) {
+    await db.insert(busesTable).values({ name: "Warteliste", capacity: 9999, isWaitlistBus: true });
+  }
 }
 
 // Seed on first request lazily
@@ -1327,9 +1332,11 @@ async function ensureBusesSeeded() {
 router.get("/admin/buses", requireAuth, async (req, res) => {
   await ensureBusesSeeded();
 
-  const buses = await db.select().from(busesTable).orderBy(busesTable.id);
+  const allBuses = await db.select().from(busesTable).orderBy(busesTable.id);
+  const waitlistBusMeta = allBuses.find(b => b.isWaitlistBus);
+  const regularBuses = allBuses.filter(b => !b.isWaitlistBus);
 
-  // Booking assignments
+  // Booking assignments (only for regular buses — waitlist bus is status-driven)
   const bookingAssignments = await db
     .select({
       busId: busAssignmentsTable.busId,
@@ -1346,7 +1353,7 @@ router.get("/admin/buses", requireAuth, async (req, res) => {
     .from(busAssignmentsTable)
     .innerJoin(bookingsTable, eq(busAssignmentsTable.bookingId, bookingsTable.id));
 
-  // Sibling assignments
+  // Sibling assignments (only for regular buses — waitlist bus is status-driven)
   const siblingAssignments = await db
     .select({
       busId: siblingBusAssignmentsTable.busId,
@@ -1355,10 +1362,11 @@ router.get("/admin/buses", requireAuth, async (req, res) => {
       gradeYear: siblingsTable.gradeYear,
       outboundRoute: siblingsTable.outboundRoute,
       returnRoute: siblingsTable.returnRoute,
-      referenceNumber: bookingsTable.referenceNumber,
+      siblingRefNumber: siblingsTable.referenceNumber,
+      parentRefNumber: bookingsTable.referenceNumber,
       tariffZone: bookingsTable.tariffZone,
       parentName: bookingsTable.parentName,
-      status: bookingsTable.status,
+      status: siblingsTable.status,
       bookingId: siblingsTable.bookingId,
     })
     .from(siblingBusAssignmentsTable)
@@ -1389,19 +1397,38 @@ router.get("/admin/buses", requireAuth, async (req, res) => {
   }
   for (const a of siblingAssignments) {
     if (!passengersByBus[a.busId]) passengersByBus[a.busId] = [];
-    passengersByBus[a.busId].push({ type: "sibling", id: a.siblingId, bookingId: a.bookingId, childName: a.childName, gradeYear: a.gradeYear, tariffZone: a.tariffZone, outboundRoute: a.outboundRoute, returnRoute: a.returnRoute, referenceNumber: a.referenceNumber, parentName: a.parentName, status: a.status });
+    passengersByBus[a.busId].push({ type: "sibling", id: a.siblingId, bookingId: a.bookingId, childName: a.childName, gradeYear: a.gradeYear, tariffZone: a.tariffZone, outboundRoute: a.outboundRoute, returnRoute: a.returnRoute, referenceNumber: a.siblingRefNumber ?? a.parentRefNumber, parentName: a.parentName, status: a.status });
   }
 
-  const busesWithAssignments = buses.map(b => ({ ...b, assignments: passengersByBus[b.id] ?? [] }));
+  const regularBusesWithAssignments = regularBuses.map(b => ({ ...b, assignments: passengersByBus[b.id] ?? [] }));
 
-  // Waitlisted bookings
-  const waitlisted = await db
+  // Waitlist bus: populated from status queries (not DB assignments)
+  // Waitlisted main bookings
+  const waitlistedBookings = await db
     .select({ id: bookingsTable.id, referenceNumber: bookingsTable.referenceNumber, childName: bookingsTable.childName, gradeYear: bookingsTable.gradeYear, tariffZone: bookingsTable.tariffZone, outboundRoute: bookingsTable.outboundRoute, returnRoute: bookingsTable.returnRoute, parentName: bookingsTable.parentName, status: bookingsTable.status })
     .from(bookingsTable)
     .where(eq(bookingsTable.status, "waitlisted"))
     .orderBy(bookingsTable.createdAt);
 
-  // Unassigned bookings (non-waitlisted, without bus assignment)
+  // Waitlisted siblings (by sibling's own status)
+  const waitlistedSiblings = await db
+    .select({ id: siblingsTable.id, childName: siblingsTable.childName, gradeYear: siblingsTable.gradeYear, outboundRoute: siblingsTable.outboundRoute, returnRoute: siblingsTable.returnRoute, bookingId: siblingsTable.bookingId, siblingRefNumber: siblingsTable.referenceNumber, parentRefNumber: bookingsTable.referenceNumber, tariffZone: bookingsTable.tariffZone, parentName: bookingsTable.parentName, status: siblingsTable.status })
+    .from(siblingsTable)
+    .innerJoin(bookingsTable, eq(siblingsTable.bookingId, bookingsTable.id))
+    .where(eq(siblingsTable.status, "waitlisted"))
+    .orderBy(siblingsTable.createdAt);
+
+  const waitlistBusPassengers: Passenger[] = [
+    ...waitlistedBookings.map(b => ({ type: "booking" as const, id: b.id, bookingId: b.id, childName: b.childName, gradeYear: b.gradeYear, tariffZone: b.tariffZone, outboundRoute: b.outboundRoute, returnRoute: b.returnRoute, referenceNumber: b.referenceNumber, parentName: b.parentName, status: b.status })),
+    ...waitlistedSiblings.map(s => ({ type: "sibling" as const, id: s.id, bookingId: s.bookingId, childName: s.childName, gradeYear: s.gradeYear, tariffZone: s.tariffZone, outboundRoute: s.outboundRoute, returnRoute: s.returnRoute, referenceNumber: s.siblingRefNumber ?? s.parentRefNumber, parentName: s.parentName, status: s.status })),
+  ];
+
+  const busesWithAssignments = [
+    ...(waitlistBusMeta ? [{ ...waitlistBusMeta, assignments: waitlistBusPassengers }] : []),
+    ...regularBusesWithAssignments,
+  ];
+
+  // Unassigned bookings: non-waitlisted, without bus assignment, with at least one route
   const allNonWaitlisted = await db
     .select({ id: bookingsTable.id, referenceNumber: bookingsTable.referenceNumber, childName: bookingsTable.childName, gradeYear: bookingsTable.gradeYear, tariffZone: bookingsTable.tariffZone, outboundRoute: bookingsTable.outboundRoute, returnRoute: bookingsTable.returnRoute, parentName: bookingsTable.parentName, status: bookingsTable.status })
     .from(bookingsTable)
@@ -1412,22 +1439,26 @@ router.get("/admin/buses", requireAuth, async (req, res) => {
     .filter(b => !assignedBookingIds.has(b.id))
     .map(b => ({ type: "booking" as const, id: b.id, bookingId: b.id, ...b }));
 
-  // Unassigned siblings (whose parent booking is not waitlisted)
-  const allSiblings = await db
-    .select({ id: siblingsTable.id, childName: siblingsTable.childName, gradeYear: siblingsTable.gradeYear, outboundRoute: siblingsTable.outboundRoute, returnRoute: siblingsTable.returnRoute, bookingId: siblingsTable.bookingId, referenceNumber: bookingsTable.referenceNumber, tariffZone: bookingsTable.tariffZone, parentName: bookingsTable.parentName, status: bookingsTable.status })
+  // Unassigned siblings: sibling not waitlisted, parent not waitlisted, not already on a bus
+  const allNonWaitlistedSiblings = await db
+    .select({ id: siblingsTable.id, childName: siblingsTable.childName, gradeYear: siblingsTable.gradeYear, outboundRoute: siblingsTable.outboundRoute, returnRoute: siblingsTable.returnRoute, bookingId: siblingsTable.bookingId, siblingRefNumber: siblingsTable.referenceNumber, parentRefNumber: bookingsTable.referenceNumber, tariffZone: bookingsTable.tariffZone, parentName: bookingsTable.parentName, status: siblingsTable.status })
     .from(siblingsTable)
     .innerJoin(bookingsTable, eq(siblingsTable.bookingId, bookingsTable.id))
-    .where(and(ne(bookingsTable.status, "waitlisted"), or(ne(siblingsTable.outboundRoute, "none"), ne(siblingsTable.returnRoute, "none"))))
+    .where(and(
+      ne(siblingsTable.status, "waitlisted"),
+      ne(bookingsTable.status, "waitlisted"),
+      or(ne(siblingsTable.outboundRoute, "none"), ne(siblingsTable.returnRoute, "none"))
+    ))
     .orderBy(siblingsTable.createdAt);
 
-  const unassignedSiblings: Passenger[] = allSiblings
+  const unassignedSiblings: Passenger[] = allNonWaitlistedSiblings
     .filter(s => !assignedSiblingIds.has(s.id))
-    .map(s => ({ type: "sibling" as const, id: s.id, bookingId: s.bookingId, childName: s.childName, gradeYear: s.gradeYear, tariffZone: s.tariffZone, outboundRoute: s.outboundRoute, returnRoute: s.returnRoute, referenceNumber: s.referenceNumber, parentName: s.parentName, status: s.status }));
+    .map(s => ({ type: "sibling" as const, id: s.id, bookingId: s.bookingId, childName: s.childName, gradeYear: s.gradeYear, tariffZone: s.tariffZone, outboundRoute: s.outboundRoute, returnRoute: s.returnRoute, referenceNumber: s.siblingRefNumber ?? s.parentRefNumber, parentName: s.parentName, status: s.status }));
 
   const unassigned: Passenger[] = [...unassignedBookings, ...unassignedSiblings]
     .sort((a, b) => a.referenceNumber.localeCompare(b.referenceNumber));
 
-  res.json({ buses: busesWithAssignments, waitlisted, unassigned });
+  res.json({ buses: busesWithAssignments, waitlisted: [], unassigned });
 });
 
 // GET /admin/buses/:busId — detail view with full passenger addresses

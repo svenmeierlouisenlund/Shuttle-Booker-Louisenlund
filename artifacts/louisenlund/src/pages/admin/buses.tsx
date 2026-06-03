@@ -69,6 +69,7 @@ interface BusWithAssignments {
   notes: string | null;
   driverName: string | null;
   driverPhone: string | null;
+  isWaitlistBus: boolean;
   assignments: Passenger[];
 }
 
@@ -456,48 +457,65 @@ function UnassignedPool({ passengers }: { passengers: Passenger[] }) {
   );
 }
 
-// ── Waitlist Section ────────────────────────────────────────────────────────────
+// ── Waitlist Bus Card ────────────────────────────────────────────────────────────
 
-function WaitlistSection({ waitlisted }: { waitlisted: WaitlistedBooking[] }) {
-  const { setNodeRef, isOver } = useDroppable({ id: "waitlist" });
-
-  if (waitlisted.length === 0) return null;
-
-  const passengers: Passenger[] = waitlisted.map(b => ({
-    type: "booking" as const,
-    id: b.id,
-    bookingId: b.id,
-    childName: b.childName,
-    gradeYear: b.gradeYear,
-    tariffZone: b.tariffZone,
-    outboundRoute: b.outboundRoute,
-    returnRoute: b.returnRoute,
-    referenceNumber: b.referenceNumber,
-    parentName: b.parentName,
-    status: b.status,
-  }));
+function WaitlistBusCard({ bus }: { bus: BusWithAssignments }) {
+  const [, navigate] = useLocation();
 
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-3">
-        <Clock className="w-4 h-4 text-amber-600" />
-        <h2 className="font-semibold text-gray-800">Warteliste ({waitlisted.length})</h2>
-        <span className="text-xs text-gray-400">— Drag & Drop auf einen Bus zum manuellen Zuordnen</span>
-      </div>
-      <div
-        ref={setNodeRef}
-        className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 min-h-12 rounded-lg p-2 border-2 border-dashed transition-colors
-          ${isOver ? "border-amber-400 bg-amber-50/40" : "border-transparent"}`}
-      >
-        {passengers.map(p => (
-          <DraggablePassenger
-            key={`${p.type}-${p.id}`}
-            passenger={p}
-            source="waitlist"
-          />
-        ))}
-      </div>
-    </div>
+    <Card className="flex flex-col border-amber-200 bg-amber-50/30 col-span-full sm:col-span-2 lg:col-span-4">
+      <CardHeader className="pb-2 pt-4 px-4">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <CardTitle className="text-sm font-semibold text-amber-700 flex items-center gap-1.5">
+            <Clock className="w-4 h-4 shrink-0" />
+            Warteliste
+            <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-700 border-0 ml-1">
+              {bus.assignments.length} Kind{bus.assignments.length !== 1 ? "er" : ""}
+            </Badge>
+          </CardTitle>
+          <span className="text-xs text-amber-600/70">Status-basiert — Kinder erscheinen automatisch bei Warteliste-Status</span>
+        </div>
+      </CardHeader>
+      <CardContent className="px-4 pb-4">
+        {bus.assignments.length === 0 ? (
+          <p className="text-xs text-amber-500/70 italic py-3 text-center">Keine Kinder auf der Warteliste</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            {bus.assignments.map(p => (
+              <div
+                key={`${p.type}-${p.id}`}
+                className={`flex items-center gap-2 rounded border py-2 px-3 select-none
+                  ${p.type === "sibling"
+                    ? "bg-blue-50 border-blue-100"
+                    : "bg-white border-amber-100"}`}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-sm font-medium text-gray-900 truncate">{p.childName}</p>
+                    {p.type === "sibling" && (
+                      <Badge variant="secondary" className="text-[10px] h-4 px-1 bg-blue-100 text-blue-700 shrink-0">
+                        Geschwister
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 truncate">{p.gradeYear} · {routeSummary(p)}</p>
+                  <p className="text-xs text-gray-400">{p.referenceNumber}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate(`/admin/buses/${bus.id}`)}
+          className="mt-3 text-xs text-amber-700 hover:bg-amber-100/50 gap-1.5"
+        >
+          <ExternalLink className="w-3 h-3" />
+          Details & Routenplanung
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -564,19 +582,6 @@ export default function AdminBuses() {
     if (source === "pool" || source === "waitlist") {
       const allPassengers: Passenger[] = [
         ...data.unassigned,
-        ...data.waitlisted.map(b => ({
-          type: "booking" as const,
-          id: b.id,
-          bookingId: b.id,
-          childName: b.childName,
-          gradeYear: b.gradeYear,
-          tariffZone: b.tariffZone,
-          outboundRoute: b.outboundRoute,
-          returnRoute: b.returnRoute,
-          referenceNumber: b.referenceNumber,
-          parentName: b.parentName,
-          status: b.status,
-        })),
       ];
       const found = allPassengers.find(p => p.type === type && p.id === passengerId);
       setActivePassenger(found ?? null);
@@ -619,9 +624,13 @@ export default function AdminBuses() {
     // No-op if same bus
     if (sourceBusId === targetBusId) return;
 
-    // Check target bus isn't full
+    // Check target bus isn't full and isn't the waitlist bus
     const targetBus = data.buses.find(b => b.id === targetBusId);
     if (!targetBus) return;
+    if (targetBus.isWaitlistBus) {
+      toast({ title: "Nicht möglich", description: "Warteliste wird automatisch über den Status gesteuert.", variant: "destructive" });
+      return;
+    }
     if (targetBus.assignments.length >= targetBus.capacity) {
       toast({ title: "Bus ist voll", description: `${targetBus.name} hat keine freien Plätze mehr.`, variant: "destructive" });
       return;
@@ -664,12 +673,16 @@ export default function AdminBuses() {
     );
   }
 
-  const totalCapacity = data.buses.reduce((s, b) => s + b.capacity, 0);
-  const totalAssigned = data.buses.reduce((s, b) => s + b.assignments.length, 0);
-  const totalSiblings = data.buses.reduce(
+  const regularBuses = data.buses.filter(b => !b.isWaitlistBus);
+  const waitlistBus = data.buses.find(b => b.isWaitlistBus);
+
+  const totalCapacity = regularBuses.reduce((s, b) => s + b.capacity, 0);
+  const totalAssigned = regularBuses.reduce((s, b) => s + b.assignments.length, 0);
+  const totalSiblings = regularBuses.reduce(
     (s, b) => s + b.assignments.filter(p => p.type === "sibling").length,
     0
   );
+  const totalWaitlisted = waitlistBus?.assignments.length ?? 0;
 
   return (
     <AdminLayout>
@@ -701,16 +714,23 @@ export default function AdminBuses() {
                 <div className="text-lg font-bold text-gray-400">{totalCapacity - totalAssigned}</div>
                 <div className="text-xs text-gray-500">Frei</div>
               </div>
-              <div className="bg-white border border-gray-200 rounded px-3 py-2 text-center">
-                <div className="text-lg font-bold text-amber-600">{data.waitlisted.length}</div>
-                <div className="text-xs text-gray-500">Warteliste</div>
+              <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 text-center">
+                <div className="text-lg font-bold text-amber-600">{totalWaitlisted}</div>
+                <div className="text-xs text-amber-600/70">Warteliste</div>
               </div>
             </div>
           </div>
 
-          {/* Bus grid */}
+          {/* Warteliste Bus Card */}
+          {waitlistBus && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <WaitlistBusCard bus={waitlistBus} />
+            </div>
+          )}
+
+          {/* Regular bus grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {data.buses.map(bus => (
+            {regularBuses.map(bus => (
               <BusCard
                 key={bus.id}
                 bus={bus}
@@ -720,9 +740,6 @@ export default function AdminBuses() {
               />
             ))}
           </div>
-
-          {/* Waitlist */}
-          <WaitlistSection waitlisted={data.waitlisted} />
 
           {/* Unassigned pool */}
           <UnassignedPool passengers={data.unassigned} />
