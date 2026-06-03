@@ -9,6 +9,7 @@ import type { BookingStatus } from './bookingStatus';
 import type { BookingStatusUpdateBookingType } from './bookingStatusUpdateBookingType';
 import type { BookingStatusUpdateOutboundRoute } from './bookingStatusUpdateOutboundRoute';
 import type { BookingStatusUpdateReturnRoute } from './bookingStatusUpdateReturnRoute';
+import type { BookingStatusUpdateSiblingUpdatesItem } from './bookingStatusUpdateSiblingUpdatesItem';
 import type { BookingStatusUpdateTariffZone } from './bookingStatusUpdateTariffZone';
 
 export interface BookingStatusUpdate {
@@ -36,4 +37,6 @@ export interface BookingStatusUpdate {
   pickupPostalCode?: string | null;
   /** @nullable */
   pickupCity?: string | null;
+  /** Per-sibling route overrides (by sibling id) */
+  siblingUpdates?: BookingStatusUpdateSiblingUpdatesItem[];
 }

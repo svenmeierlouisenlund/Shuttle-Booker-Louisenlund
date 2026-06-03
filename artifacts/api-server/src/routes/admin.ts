@@ -972,7 +972,56 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
     const mainFullPrice = calcBookingPriceFromConfig(patchConfig, zone, bType, out, ret);
     updates.priceCents = mainIsFullPayer ? mainFullPrice : Math.round(mainFullPrice * 0.8);
 
-    // Recalculate each sibling's price
+    // Apply sibling route updates (if provided) before recalculating prices
+    if (d.siblingUpdates && d.siblingUpdates.length > 0) {
+      for (const su of d.siblingUpdates) {
+        const sib = currentSiblings.find((s) => s.id === su.id);
+        if (sib) {
+          await db.update(siblingsTable)
+            .set({ outboundRoute: su.outboundRoute as any, returnRoute: su.returnRoute as any })
+            .where(eq(siblingsTable.id, su.id));
+          sib.outboundRoute = su.outboundRoute as any;
+          sib.returnRoute = su.returnRoute as any;
+        }
+      }
+    }
+
+    // Recalculate each sibling's price (using potentially-updated routes)
+    for (const sib of currentSiblings) {
+      const sibIsFullPayer = gradeRank(sib.gradeYear) === maxRank && !fullPayerFound;
+      if (sibIsFullPayer) fullPayerFound = true;
+      const sibFullPrice = calcBookingPriceFromConfig(patchConfig, zone, bType, sib.outboundRoute as any, sib.returnRoute as any);
+      const sibPrice = sibIsFullPayer ? sibFullPrice : Math.round(sibFullPrice * 0.8);
+      await db.update(siblingsTable).set({ priceCents: sibPrice }).where(eq(siblingsTable.id, sib.id));
+    }
+  } else if (d.siblingUpdates && d.siblingUpdates.length > 0) {
+    // No main price-affecting fields changed, but sibling routes need updating
+    const currentSiblings = await db.select().from(siblingsTable).where(eq(siblingsTable.bookingId, id));
+    const mainGrade = current.gradeYear;
+    const patchConfig = await getPricingConfig();
+    const zone = current.tariffZone as any;
+    const bType = current.bookingType as any;
+
+    for (const su of d.siblingUpdates) {
+      const sib = currentSiblings.find((s) => s.id === su.id);
+      if (sib) {
+        await db.update(siblingsTable)
+          .set({ outboundRoute: su.outboundRoute as any, returnRoute: su.returnRoute as any })
+          .where(eq(siblingsTable.id, su.id));
+        sib.outboundRoute = su.outboundRoute as any;
+        sib.returnRoute = su.returnRoute as any;
+      }
+    }
+
+    // Recalculate prices with updated routes
+    const allGrades = [mainGrade, ...currentSiblings.map((s) => s.gradeYear)];
+    const maxRank = Math.max(...allGrades.map((g) => gradeRank(g)));
+    let fullPayerFound = false;
+    const mainIsFullPayer = gradeRank(mainGrade) === maxRank && !fullPayerFound;
+    if (mainIsFullPayer) fullPayerFound = true;
+    const mainFullPrice = calcBookingPriceFromConfig(patchConfig, zone, bType, current.outboundRoute as any, current.returnRoute as any);
+    updates.priceCents = mainIsFullPayer ? mainFullPrice : Math.round(mainFullPrice * 0.8);
+
     for (const sib of currentSiblings) {
       const sibIsFullPayer = gradeRank(sib.gradeYear) === maxRank && !fullPayerFound;
       if (sibIsFullPayer) fullPayerFound = true;

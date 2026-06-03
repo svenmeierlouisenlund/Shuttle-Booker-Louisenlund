@@ -789,6 +789,22 @@ components:
           type: ["string", "null"]
         pickupCity:
           type: ["string", "null"]
+        siblingUpdates:
+          type: array
+          description: Per-sibling route overrides (by sibling id)
+          items:
+            type: object
+            required:
+              - id
+              - outboundRoute
+              - returnRoute
+            properties:
+              id:
+                type: integer
+              outboundRoute:
+                $ref: "#/components/schemas/RouteOption"
+              returnRoute:
+                $ref: "#/components/schemas/RouteOption"
 
     AdminStats:
       type: object

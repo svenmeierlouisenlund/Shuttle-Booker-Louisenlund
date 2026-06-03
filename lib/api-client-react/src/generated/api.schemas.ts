@@ -232,6 +232,12 @@ export const BookingStatusUpdateReturnRoute = {
   none: 'none',
 } as const;
 
+export type BookingStatusUpdateSiblingUpdatesItem = {
+  id: number;
+  outboundRoute: RouteOption;
+  returnRoute: RouteOption;
+};
+
 export interface BookingStatusUpdate {
   status?: BookingStatus;
   /** @nullable */
@@ -257,6 +263,8 @@ export interface BookingStatusUpdate {
   pickupPostalCode?: string | null;
   /** @nullable */
   pickupCity?: string | null;
+  /** Per-sibling route overrides (by sibling id) */
+  siblingUpdates?: BookingStatusUpdateSiblingUpdatesItem[];
 }
 
 export type AdminStatsByStatus = {[key: string]: number};
