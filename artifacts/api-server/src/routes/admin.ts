@@ -796,28 +796,43 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
     .from(bookingsTable)
     .where(whereClause);
 
-  // For waitlisted filter: only sum siblings that are themselves waitlisted.
-  // For all other filters: sum all siblings belonging to matching bookings.
-  const siblingTotalResult = params.status === "waitlisted"
-    ? await db
-        .select({ siblingPriceCents: sum(siblingsTable.priceCents) })
-        .from(siblingsTable)
-        .where(eq(siblingsTable.status, "waitlisted" as any))
-    : await db
-        .select({ siblingPriceCents: sum(siblingsTable.priceCents) })
-        .from(siblingsTable)
-        .innerJoin(bookingsTable, eq(siblingsTable.bookingId, bookingsTable.id))
-        .where(whereClause);
-  const siblingTotalCents = Number(siblingTotalResult[0]?.siblingPriceCents ?? 0);
+  // Revenue sum logic:
+  // - When filtering by 'waitlisted': only count waitlisted children
+  // - All other cases (full list or other status filters): exclude waitlisted children
+  let effectiveTotalPriceCents: number;
+  let siblingTotalCents: number;
 
-  // For waitlisted filter: totalPriceCents should only include waitlisted main bookings
-  const effectiveTotalPriceCents = params.status === "waitlisted"
-    ? await db
-        .select({ val: sum(bookingsTable.priceCents) })
-        .from(bookingsTable)
-        .where(eq(bookingsTable.status, "waitlisted" as any))
-        .then((r) => Number(r[0]?.val ?? 0))
-    : Number(totalPriceCents ?? 0);
+  if (params.status === "waitlisted") {
+    effectiveTotalPriceCents = await db
+      .select({ val: sum(bookingsTable.priceCents) })
+      .from(bookingsTable)
+      .where(eq(bookingsTable.status, "waitlisted" as any))
+      .then((r) => Number(r[0]?.val ?? 0));
+    siblingTotalCents = await db
+      .select({ siblingPriceCents: sum(siblingsTable.priceCents) })
+      .from(siblingsTable)
+      .where(eq(siblingsTable.status, "waitlisted" as any))
+      .then((r) => Number(r[0]?.siblingPriceCents ?? 0));
+  } else {
+    // Exclude waitlisted from sum (applies to full list and all other status filters)
+    const nonWaitlistConditions = [...conditions, ne(bookingsTable.status, "waitlisted" as any)];
+    const nonWaitlistWhere = and(...nonWaitlistConditions);
+    effectiveTotalPriceCents = await db
+      .select({ val: sum(bookingsTable.priceCents) })
+      .from(bookingsTable)
+      .where(nonWaitlistWhere)
+      .then((r) => Number(r[0]?.val ?? 0));
+    const siblingNonWaitlistWhere = and(
+      whereClause ?? sql`true`,
+      ne(siblingsTable.status, "waitlisted" as any),
+    );
+    siblingTotalCents = await db
+      .select({ siblingPriceCents: sum(siblingsTable.priceCents) })
+      .from(siblingsTable)
+      .innerJoin(bookingsTable, eq(siblingsTable.bookingId, bookingsTable.id))
+      .where(siblingNonWaitlistWhere)
+      .then((r) => Number(r[0]?.siblingPriceCents ?? 0));
+  }
 
   const rows = await db
     .select()
