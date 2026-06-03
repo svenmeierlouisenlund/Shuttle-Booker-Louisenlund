@@ -7,6 +7,7 @@
  */
 import type { AdminBooking } from './adminBooking';
 import type { AdminStatsByBookingType } from './adminStatsByBookingType';
+import type { AdminStatsByCity } from './adminStatsByCity';
 import type { AdminStatsByGradeYear } from './adminStatsByGradeYear';
 import type { AdminStatsByStatus } from './adminStatsByStatus';
 import type { AdminStatsByTariffZone } from './adminStatsByTariffZone';
@@ -18,5 +19,9 @@ export interface AdminStats {
   byBookingType: AdminStatsByBookingType;
   byGradeYear: AdminStatsByGradeYear;
   totalChildren: number;
+  totalRevenueCents: number;
+  freeSeats: number;
+  waitlistCount: number;
+  byCity: AdminStatsByCity;
   recentBookings: AdminBooking[];
 }

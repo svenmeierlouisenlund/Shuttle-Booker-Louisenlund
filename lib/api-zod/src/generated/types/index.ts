@@ -13,6 +13,7 @@ export * from './adminCredentials';
 export * from './adminSession';
 export * from './adminStats';
 export * from './adminStatsByBookingType';
+export * from './adminStatsByCity';
 export * from './adminStatsByGradeYear';
 export * from './adminStatsByStatus';
 export * from './adminStatsByTariffZone';

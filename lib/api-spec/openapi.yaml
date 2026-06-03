@@ -827,6 +827,10 @@ components:
         - byGradeYear
         - totalChildren
         - recentBookings
+        - totalRevenueCents
+        - freeSeats
+        - waitlistCount
+        - byCity
       properties:
         totalBookings:
           type: integer
@@ -848,6 +852,16 @@ components:
             type: integer
         totalChildren:
           type: integer
+        totalRevenueCents:
+          type: integer
+        freeSeats:
+          type: integer
+        waitlistCount:
+          type: integer
+        byCity:
+          type: object
+          additionalProperties:
+            type: integer
         recentBookings:
           type: array
           items:
