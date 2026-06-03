@@ -1341,11 +1341,72 @@ router.get("/admin/buses", requireAuth, async (req, res) => {
   res.json({ buses: busesWithAssignments, waitlisted, unassigned });
 });
 
+// GET /admin/buses/:busId — detail view with full passenger addresses
+router.get("/admin/buses/:busId", requireAuth, async (req, res) => {
+  const busId = parseInt(req.params.busId, 10);
+  if (isNaN(busId)) { res.status(400).json({ error: "Ungültige Bus-ID" }); return; }
+
+  const [bus] = await db.select().from(busesTable).where(eq(busesTable.id, busId)).limit(1);
+  if (!bus) { res.status(404).json({ error: "Bus nicht gefunden" }); return; }
+
+  const bookingPassengers = await db
+    .select({
+      type: sql<"booking">`'booking'`,
+      id: bookingsTable.id,
+      bookingId: bookingsTable.id,
+      childName: bookingsTable.childName,
+      gradeYear: bookingsTable.gradeYear,
+      childAddress: bookingsTable.childAddress,
+      childPostalCode: bookingsTable.childPostalCode,
+      childCity: bookingsTable.childCity,
+      tariffZone: bookingsTable.tariffZone,
+      outboundRoute: bookingsTable.outboundRoute,
+      returnRoute: bookingsTable.returnRoute,
+      referenceNumber: bookingsTable.referenceNumber,
+      parentName: bookingsTable.parentName,
+      parentPhone: bookingsTable.parentPhone,
+      status: bookingsTable.status,
+    })
+    .from(busAssignmentsTable)
+    .innerJoin(bookingsTable, eq(busAssignmentsTable.bookingId, bookingsTable.id))
+    .where(eq(busAssignmentsTable.busId, busId));
+
+  const siblingPassengers = await db
+    .select({
+      type: sql<"sibling">`'sibling'`,
+      id: siblingsTable.id,
+      bookingId: siblingsTable.bookingId,
+      childName: siblingsTable.childName,
+      gradeYear: siblingsTable.gradeYear,
+      childAddress: bookingsTable.childAddress,
+      childPostalCode: bookingsTable.childPostalCode,
+      childCity: bookingsTable.childCity,
+      tariffZone: bookingsTable.tariffZone,
+      outboundRoute: siblingsTable.outboundRoute,
+      returnRoute: siblingsTable.returnRoute,
+      referenceNumber: bookingsTable.referenceNumber,
+      parentName: bookingsTable.parentName,
+      parentPhone: bookingsTable.parentPhone,
+      status: bookingsTable.status,
+    })
+    .from(siblingBusAssignmentsTable)
+    .innerJoin(siblingsTable, eq(siblingBusAssignmentsTable.siblingId, siblingsTable.id))
+    .innerJoin(bookingsTable, eq(siblingsTable.bookingId, bookingsTable.id))
+    .where(eq(siblingBusAssignmentsTable.busId, busId));
+
+  const passengers = [...bookingPassengers, ...siblingPassengers]
+    .sort((a, b) => (a.childPostalCode ?? "").localeCompare(b.childPostalCode ?? ""));
+
+  res.json({ bus, passengers });
+});
+
 router.put("/admin/buses/:busId", requireAuth, async (req, res) => {
   const busId = parseInt(req.params.busId, 10);
   if (isNaN(busId)) { res.status(400).json({ error: "Ungültige Bus-ID" }); return; }
 
-  const { name, capacity, notes } = req.body as { name?: string; capacity?: number; notes?: string };
+  const { name, capacity, notes, driverName, driverPhone } = req.body as {
+    name?: string; capacity?: number; notes?: string; driverName?: string; driverPhone?: string;
+  };
   const update: Record<string, unknown> = {};
   if (name !== undefined) update.name = String(name).trim();
   if (capacity !== undefined) {
@@ -1354,6 +1415,8 @@ router.put("/admin/buses/:busId", requireAuth, async (req, res) => {
     update.capacity = cap;
   }
   if (notes !== undefined) update.notes = notes || null;
+  if (driverName !== undefined) update.driverName = driverName.trim() || null;
+  if (driverPhone !== undefined) update.driverPhone = driverPhone.trim() || null;
 
   if (Object.keys(update).length === 0) { res.status(400).json({ error: "Keine Felder zum Aktualisieren" }); return; }
 

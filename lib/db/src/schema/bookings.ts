@@ -111,6 +111,8 @@ export const busesTable = pgTable("buses", {
   name: text("name").notNull(),
   capacity: integer("capacity").notNull().default(8),
   notes: text("notes"),
+  driverName: text("driver_name"),
+  driverPhone: text("driver_phone"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
