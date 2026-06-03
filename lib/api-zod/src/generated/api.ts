@@ -131,6 +131,7 @@ export const ListAdminBookingsResponse = zod.object({
   "priceCents": zod.number().nullish(),
   "distanceKm": zod.number().nullish().describe('Driving distance from home to school in km'),
   "durationMinutes": zod.number().nullish().describe('Estimated driving duration in minutes'),
+  "photoPath": zod.string().nullish().describe('Object storage path of the child\'s photo'),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
   "referenceNumber": zod.string().nullish(),
@@ -141,7 +142,8 @@ export const ListAdminBookingsResponse = zod.object({
   "returnRoute": zod.string(),
   "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']),
   "priceCents": zod.number().nullish(),
-  "busName": zod.string().nullish().describe('Name of the assigned bus (if any)')
+  "busName": zod.string().nullish().describe('Name of the assigned bus (if any)'),
+  "photoPath": zod.string().nullish().describe('Object storage path of the child\'s photo')
 })).optional()
 })),
   "total": zod.number(),
@@ -187,6 +189,7 @@ export const GetAdminBookingResponse = zod.object({
   "pickupCity": zod.string().nullish(),
   "pickupTariffZone": zod.union([zod.literal('zone1'),zod.literal('zone2'),zod.literal('zone3'),zod.literal(null)]).nullish().describe('Tariff zone of the pickup location (if cheaper than home zone, used for pricing)'),
   "busName": zod.string().nullish().describe('Name of the assigned bus for the main child (if any)'),
+  "photoPath": zod.string().nullish().describe('Object storage path of the child\'s photo'),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
   "referenceNumber": zod.string().nullish(),
@@ -197,7 +200,8 @@ export const GetAdminBookingResponse = zod.object({
   "returnRoute": zod.string(),
   "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']),
   "priceCents": zod.number().nullish(),
-  "busName": zod.string().nullish().describe('Name of the assigned bus (if any)')
+  "busName": zod.string().nullish().describe('Name of the assigned bus (if any)'),
+  "photoPath": zod.string().nullish().describe('Object storage path of the child\'s photo')
 }))
 })
 
@@ -279,6 +283,7 @@ export const UpdateAdminBookingResponse = zod.object({
   "pickupCity": zod.string().nullish(),
   "pickupTariffZone": zod.union([zod.literal('zone1'),zod.literal('zone2'),zod.literal('zone3'),zod.literal(null)]).nullish().describe('Tariff zone of the pickup location (if cheaper than home zone, used for pricing)'),
   "busName": zod.string().nullish().describe('Name of the assigned bus for the main child (if any)'),
+  "photoPath": zod.string().nullish().describe('Object storage path of the child\'s photo'),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
   "referenceNumber": zod.string().nullish(),
@@ -289,7 +294,8 @@ export const UpdateAdminBookingResponse = zod.object({
   "returnRoute": zod.string(),
   "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']),
   "priceCents": zod.number().nullish(),
-  "busName": zod.string().nullish().describe('Name of the assigned bus (if any)')
+  "busName": zod.string().nullish().describe('Name of the assigned bus (if any)'),
+  "photoPath": zod.string().nullish().describe('Object storage path of the child\'s photo')
 }))
 })
 
@@ -340,6 +346,7 @@ export const GetAdminStatsResponse = zod.object({
   "priceCents": zod.number().nullish(),
   "distanceKm": zod.number().nullish().describe('Driving distance from home to school in km'),
   "durationMinutes": zod.number().nullish().describe('Estimated driving duration in minutes'),
+  "photoPath": zod.string().nullish().describe('Object storage path of the child\'s photo'),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
   "referenceNumber": zod.string().nullish(),
@@ -350,7 +357,8 @@ export const GetAdminStatsResponse = zod.object({
   "returnRoute": zod.string(),
   "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']),
   "priceCents": zod.number().nullish(),
-  "busName": zod.string().nullish().describe('Name of the assigned bus (if any)')
+  "busName": zod.string().nullish().describe('Name of the assigned bus (if any)'),
+  "photoPath": zod.string().nullish().describe('Object storage path of the child\'s photo')
 })).optional()
 }))
 })
@@ -510,6 +518,127 @@ export const TestSmtpConfigBody = zod.object({
 export const TestSmtpConfigResponse = zod.object({
   "success": zod.boolean(),
   "error": zod.string().nullish()
+})
+
+
+/**
+ * @summary Request a presigned URL for file upload
+ */
+
+
+
+
+
+export const RequestUploadUrlBody = zod.object({
+  "name": zod.string().min(1).describe('Original file name.'),
+  "size": zod.number().min(1).describe('File size in bytes.'),
+  "contentType": zod.string().min(1).describe('MIME type of the file (e.g. image\/jpeg).')
+})
+
+
+
+
+
+
+export const RequestUploadUrlResponse = zod.object({
+  "uploadURL": zod.string().url().describe('Presigned GCS URL for PUT upload.'),
+  "objectPath": zod.string().describe('Normalized object path (e.g. \/objects\/uploads\/uuid). Store this in your database.'),
+  "metadata": zod.object({
+  "name": zod.string().min(1).describe('Original file name.'),
+  "size": zod.number().min(1).describe('File size in bytes.'),
+  "contentType": zod.string().min(1).describe('MIME type of the file (e.g. image\/jpeg).')
+}).optional()
+})
+
+
+/**
+ * @summary Serve an object entity from PRIVATE_OBJECT_DIR
+ */
+export const GetStorageObjectParams = zod.object({
+  "objectPath": zod.coerce.string()
+})
+
+
+/**
+ * @summary Set or remove the photo for a booking
+ */
+export const UpdateBookingPhotoParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateBookingPhotoBody = zod.object({
+  "photoPath": zod.string().nullable().describe('Object storage path, or null to remove photo.')
+})
+
+export const UpdateBookingPhotoResponse = zod.object({
+  "id": zod.number(),
+  "referenceNumber": zod.string(),
+  "childName": zod.string(),
+  "childAddress": zod.string(),
+  "childPostalCode": zod.string(),
+  "childCity": zod.string(),
+  "studentNumber": zod.string().nullish(),
+  "gradeYear": zod.string(),
+  "parentName": zod.string(),
+  "parentEmail": zod.string(),
+  "parentPhone": zod.string(),
+  "tariffZone": zod.string(),
+  "bookingType": zod.string(),
+  "outboundRoute": zod.string(),
+  "returnRoute": zod.string(),
+  "signatureName": zod.string().optional(),
+  "status": zod.string(),
+  "adminNotes": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional(),
+  "priceCents": zod.number().nullish(),
+  "distanceKm": zod.number().nullish().describe('Driving distance from home to school in km'),
+  "durationMinutes": zod.number().nullish().describe('Estimated driving duration in minutes'),
+  "pickupAddress": zod.string().nullish().describe('Alternative pickup location (if different from home address)'),
+  "pickupPostalCode": zod.string().nullish(),
+  "pickupCity": zod.string().nullish(),
+  "pickupTariffZone": zod.union([zod.literal('zone1'),zod.literal('zone2'),zod.literal('zone3'),zod.literal(null)]).nullish().describe('Tariff zone of the pickup location (if cheaper than home zone, used for pricing)'),
+  "busName": zod.string().nullish().describe('Name of the assigned bus for the main child (if any)'),
+  "photoPath": zod.string().nullish().describe('Object storage path of the child\'s photo'),
+  "siblings": zod.array(zod.object({
+  "id": zod.number(),
+  "referenceNumber": zod.string().nullish(),
+  "childName": zod.string(),
+  "studentNumber": zod.string().nullish(),
+  "gradeYear": zod.string(),
+  "outboundRoute": zod.string(),
+  "returnRoute": zod.string(),
+  "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']),
+  "priceCents": zod.number().nullish(),
+  "busName": zod.string().nullish().describe('Name of the assigned bus (if any)'),
+  "photoPath": zod.string().nullish().describe('Object storage path of the child\'s photo')
+}))
+})
+
+
+/**
+ * @summary Set or remove the photo for a sibling
+ */
+export const UpdateSiblingPhotoParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateSiblingPhotoBody = zod.object({
+  "photoPath": zod.string().nullable().describe('Object storage path, or null to remove photo.')
+})
+
+export const UpdateSiblingPhotoResponse = zod.object({
+  "id": zod.number(),
+  "referenceNumber": zod.string().nullish(),
+  "childName": zod.string(),
+  "studentNumber": zod.string().nullish(),
+  "gradeYear": zod.string(),
+  "outboundRoute": zod.string(),
+  "returnRoute": zod.string(),
+  "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']),
+  "priceCents": zod.number().nullish(),
+  "busName": zod.string().nullish().describe('Name of the assigned bus (if any)'),
+  "photoPath": zod.string().nullish().describe('Object storage path of the child\'s photo')
 })
 
 

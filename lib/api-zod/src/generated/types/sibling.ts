@@ -25,4 +25,9 @@ export interface Sibling {
      * @nullable
      */
   busName?: string | null;
+  /**
+     * Object storage path of the child's photo
+     * @nullable
+     */
+  photoPath?: string | null;
 }

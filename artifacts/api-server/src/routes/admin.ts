@@ -67,7 +67,7 @@ function getSession(req: Request): SessionData | undefined {
   return token ? sessions.get(token) : undefined;
 }
 
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
+export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (!getSession(req)) {
     res.status(401).json({ error: "Nicht angemeldet" });
     return;
@@ -1211,6 +1211,7 @@ router.get("/admin/bookings/:id", requireAuth, async (req, res) => {
     pickupPostalCode: booking.pickupPostalCode ?? null,
     pickupCity: booking.pickupCity ?? null,
     pickupTariffZone: booking.pickupTariffZone ?? null,
+    photoPath: booking.photoPath ?? null,
     busId: mainBusRow?.busId ?? null,
     busName: mainBusRow?.busName ?? null,
     siblings: siblings.map((s) => ({
@@ -1222,11 +1223,38 @@ router.get("/admin/bookings/:id", requireAuth, async (req, res) => {
       outboundRoute: s.outboundRoute,
       returnRoute: s.returnRoute,
       priceCents: s.priceCents,
+      photoPath: s.photoPath ?? null,
       status: s.status,
       busId: siblingBusMap[s.id]?.busId ?? null,
       busName: siblingBusMap[s.id]?.busName ?? null,
     })),
   });
+});
+
+router.patch("/admin/bookings/:id/photo", requireAuth, async (req, res) => {
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Ungültige ID" }); return; }
+  const { photoPath } = req.body ?? {};
+  const [updated] = await db
+    .update(bookingsTable)
+    .set({ photoPath: photoPath ?? null, updatedAt: new Date() })
+    .where(eq(bookingsTable.id, id))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Buchung nicht gefunden" }); return; }
+  res.json({ photoPath: updated.photoPath ?? null });
+});
+
+router.patch("/admin/siblings/:id/photo", requireAuth, async (req, res) => {
+  const id = parseInt(String(req.params.id), 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Ungültige ID" }); return; }
+  const { photoPath } = req.body ?? {};
+  const [updated] = await db
+    .update(siblingsTable)
+    .set({ photoPath: photoPath ?? null })
+    .where(eq(siblingsTable.id, id))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Geschwisterkind nicht gefunden" }); return; }
+  res.json({ photoPath: updated.photoPath ?? null });
 });
 
 router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
@@ -1410,6 +1438,7 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
     status: updated.status,
     adminNotes: updated.adminNotes,
     priceCents: updated.priceCents,
+    photoPath: updated.photoPath ?? null,
     createdAt: updated.createdAt.toISOString(),
     updatedAt: updated.updatedAt.toISOString(),
     siblings: siblings.map((s) => ({
@@ -1421,6 +1450,7 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
       outboundRoute: s.outboundRoute,
       returnRoute: s.returnRoute,
       priceCents: s.priceCents,
+      photoPath: s.photoPath ?? null,
       status: s.status,
     })),
   });

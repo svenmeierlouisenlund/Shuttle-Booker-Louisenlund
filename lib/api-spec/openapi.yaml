@@ -14,6 +14,8 @@ tags:
     description: Shuttle bookings
   - name: admin
     description: Admin operations
+  - name: Storage
+    description: Object storage upload and serving endpoints.
 paths:
   /healthz:
     get:
@@ -506,6 +508,109 @@ paths:
         "401":
           description: Unauthorized
 
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadUrlRequest'
+      responses:
+        '200':
+          description: Presigned upload URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUrlResponse'
+        '400':
+          description: Missing or invalid required fields.
+        '500':
+          description: Failed to generate upload URL.
+
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an object entity from PRIVATE_OBJECT_DIR
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Object content streamed.
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Object not found.
+
+  /admin/bookings/{id}/photo:
+    patch:
+      tags: [admin]
+      operationId: updateBookingPhoto
+      summary: Set or remove the photo for a booking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhotoUpdate'
+      responses:
+        '200':
+          description: Photo updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminBookingDetail'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Booking not found
+
+  /admin/siblings/{id}/photo:
+    patch:
+      tags: [admin]
+      operationId: updateSiblingPhoto
+      summary: Set or remove the photo for a sibling
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhotoUpdate'
+      responses:
+        '200':
+          description: Photo updated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Sibling'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Sibling not found
+
 components:
   schemas:
     HealthStatus:
@@ -669,6 +774,9 @@ components:
         busName:
           type: ["string", "null"]
           description: Name of the assigned bus (if any)
+        photoPath:
+          type: ["string", "null"]
+          description: Object storage path of the child's photo
 
     AdminBooking:
       type: object
@@ -734,6 +842,9 @@ components:
         durationMinutes:
           type: ["integer", "null"]
           description: Estimated driving duration in minutes
+        photoPath:
+          type: ["string", "null"]
+          description: Object storage path of the child's photo
         siblings:
           type: array
           items:
@@ -822,6 +933,9 @@ components:
         busName:
           type: ["string", "null"]
           description: Name of the assigned bus for the main child (if any)
+        photoPath:
+          type: ["string", "null"]
+          description: Object storage path of the child's photo
         siblings:
           type: array
           items:
@@ -1176,3 +1290,49 @@ components:
           type: boolean
         error:
           type: ["string", "null"]
+
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Original file name.
+        size:
+          type: integer
+          minimum: 1
+          description: File size in bytes.
+        contentType:
+          type: string
+          minLength: 1
+          description: MIME type of the file (e.g. image/jpeg).
+
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+          description: Presigned GCS URL for PUT upload.
+        objectPath:
+          type: string
+          description: Normalized object path (e.g. /objects/uploads/uuid). Store this in your database.
+        metadata:
+          $ref: '#/components/schemas/UploadUrlRequest'
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    PhotoUpdate:
+      type: object
+      required: [photoPath]
+      properties:
+        photoPath:
+          type: ["string", "null"]
+          description: Object storage path, or null to remove photo.

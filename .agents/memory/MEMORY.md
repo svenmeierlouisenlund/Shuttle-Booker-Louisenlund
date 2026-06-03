@@ -1,0 +1,1 @@
+- [Object Storage photo upload](photo-upload.md) — two-step presigned URL flow; requireAuth must be exported from admin.ts for storage.ts import; objectPath format is `/objects/uploads/{uuid}`.
