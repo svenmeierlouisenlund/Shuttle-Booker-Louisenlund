@@ -1,6 +1,6 @@
 import { useGetAdminMe, useAdminLogout } from "@workspace/api-client-react";
 import { Redirect } from "wouter";
-import { Loader2, MapPin, Euro } from "lucide-react";
+import { Loader2, MapPin, Euro, Bus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import logo from "@assets/Logo_-_Stiftung_Louisenlund_Print_1780387424925.png";
@@ -75,6 +75,16 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                 >
                   <Euro className="w-3.5 h-3.5 mr-1" />
                   Tarife
+                </Button>
+              </Link>
+              <Link href="/admin/buses">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-blue-100 hover:text-white hover:bg-white/10"
+                >
+                  <Bus className="w-3.5 h-3.5 mr-1" />
+                  Busse
                 </Button>
               </Link>
               <Link href="/admin/settings">

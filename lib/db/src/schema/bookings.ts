@@ -34,6 +34,7 @@ export const bookingStatusEnum = pgEnum("booking_status", [
   "reviewed",
   "confirmed",
   "query_open",
+  "waitlisted",
 ]);
 
 export const bookingsTable = pgTable("bookings", {
@@ -104,6 +105,29 @@ export type InsertBooking = z.infer<typeof insertBookingSchema>;
 export type Booking = typeof bookingsTable.$inferSelect;
 export type InsertSibling = z.infer<typeof insertSiblingSchema>;
 export type Sibling = typeof siblingsTable.$inferSelect;
+
+export const busesTable = pgTable("buses", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  capacity: integer("capacity").notNull().default(8),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const busAssignmentsTable = pgTable("bus_assignments", {
+  id: serial("id").primaryKey(),
+  busId: integer("bus_id")
+    .notNull()
+    .references(() => busesTable.id, { onDelete: "cascade" }),
+  bookingId: integer("booking_id")
+    .notNull()
+    .unique()
+    .references(() => bookingsTable.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type Bus = typeof busesTable.$inferSelect;
+export type BusAssignment = typeof busAssignmentsTable.$inferSelect;
 
 export const smtpConfigTable = pgTable("smtp_config", {
   id: integer("id").primaryKey().default(1),
