@@ -450,7 +450,7 @@ components:
 
     BookingStatus:
       type: string
-      enum: [received, reviewed, confirmed, query_open]
+      enum: [received, reviewed, confirmed, query_open, waitlisted]
 
     SiblingInput:
       type: object

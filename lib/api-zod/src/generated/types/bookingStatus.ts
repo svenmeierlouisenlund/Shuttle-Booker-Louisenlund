@@ -14,4 +14,5 @@ export const BookingStatus = {
   reviewed: 'reviewed',
   confirmed: 'confirmed',
   query_open: 'query_open',
+  waitlisted: 'waitlisted',
 } as const;

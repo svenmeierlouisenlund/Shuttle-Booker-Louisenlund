@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format } from "date-fns";
-import { Upload, CheckCircle2, AlertCircle, Loader2, Route } from "lucide-react";
+import { Upload, CheckCircle2, AlertCircle, Loader2, Route, ClipboardList, BookOpen } from "lucide-react";
 
 const statusMap: Record<string, string> = {
   received: "Eingegangen",
@@ -71,6 +71,7 @@ function loadColWidths(): number[] {
 type RouteCalcResult = { processed: number; failed: number; skipped: number; errors: string[] };
 
 export default function AdminBookingsList() {
+  const [view, setView] = useState<"all" | "waitlisted">("all");
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<string>("all");
   const [tariffZone, setTariffZone] = useState<string>("all");
@@ -126,12 +127,13 @@ export default function AdminBookingsList() {
   const queryParams = {
     page,
     limit: 50,
-    ...(status !== "all" ? { status } : {}),
+    ...(view === "waitlisted" ? { status: "waitlisted" } : status !== "all" ? { status } : {}),
     ...(tariffZone !== "all" ? { tariffZone } : {}),
     ...(gradeYear !== "all" ? { gradeYear } : {}),
   };
 
   const { data, isLoading } = useListAdminBookings(queryParams);
+  const { data: waitlistCount } = useListAdminBookings({ page: 1, limit: 1, status: "waitlisted" });
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
@@ -214,11 +216,53 @@ export default function AdminBookingsList() {
     }
   }
 
+  function handleViewChange(v: "all" | "waitlisted") {
+    setView(v);
+    setPage(1);
+    if (v === "waitlisted") setStatus("all");
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <h1 className="text-2xl font-serif font-semibold text-primary">Alle Buchungen</h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-serif font-semibold text-primary">
+              {view === "waitlisted" ? "Warteliste" : "Alle Buchungen"}
+            </h1>
+            {/* Tab Switcher */}
+            <div className="flex rounded-lg border border-border overflow-hidden text-sm">
+              <button
+                onClick={() => handleViewChange("all")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors ${
+                  view === "all"
+                    ? "bg-primary text-primary-foreground font-medium"
+                    : "bg-background text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <BookOpen className="w-3.5 h-3.5" />
+                Buchungen
+              </button>
+              <button
+                onClick={() => handleViewChange("waitlisted")}
+                className={`flex items-center gap-1.5 px-3 py-1.5 transition-colors border-l border-border ${
+                  view === "waitlisted"
+                    ? "bg-orange-500 text-white font-medium"
+                    : "bg-background text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <ClipboardList className="w-3.5 h-3.5" />
+                Warteliste
+                {(waitlistCount?.total ?? 0) > 0 && (
+                  <span className={`ml-0.5 rounded-full px-1.5 py-0 text-[11px] font-bold ${
+                    view === "waitlisted" ? "bg-white text-orange-600" : "bg-orange-100 text-orange-700"
+                  }`}>
+                    {waitlistCount!.total}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" onClick={handleOpenImport}>
               <Upload className="w-4 h-4 mr-2" />
@@ -238,7 +282,14 @@ export default function AdminBookingsList() {
         </div>
 
         <Card>
+          {view === "waitlisted" && (
+            <div className="flex items-center gap-2.5 px-5 py-3 bg-orange-50 border-b border-orange-200 text-orange-800 text-sm">
+              <ClipboardList className="w-4 h-4 shrink-0" />
+              <span>Nur Kinder auf der <strong>Warteliste</strong> werden angezeigt. Status ändern Sie in der Buchungsdetailseite.</span>
+            </div>
+          )}
           <CardHeader className="flex flex-row items-center gap-4 py-4 bg-muted/50 border-b">
+            {view !== "waitlisted" && (
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">Status:</span>
               <Select value={status} onValueChange={setStatus}>
@@ -255,6 +306,7 @@ export default function AdminBookingsList() {
                 </SelectContent>
               </Select>
             </div>
+            )}
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">Tarifzone:</span>
               <Select value={tariffZone} onValueChange={setTariffZone}>
@@ -316,11 +368,16 @@ export default function AdminBookingsList() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data?.bookings.flatMap((booking) => [
-                      <TableRow key={booking.id}>
+                    {data?.bookings.flatMap((booking) => {
+                      const isWaitlisted = booking.status === "waitlisted";
+                      return [
+                      <TableRow key={booking.id} className={isWaitlisted ? "bg-orange-50/70 hover:bg-orange-50 border-l-4 border-l-orange-400" : undefined}>
                         <TableCell className="font-mono text-xs truncate">{booking.referenceNumber}</TableCell>
                         <TableCell className="truncate">{format(new Date(booking.createdAt), "dd.MM.yyyy")}</TableCell>
-                        <TableCell className="font-medium truncate">{booking.childName}</TableCell>
+                        <TableCell className="font-medium truncate">
+                          {isWaitlisted && <ClipboardList className="inline w-3 h-3 mr-1 text-orange-500 shrink-0" />}
+                          {booking.childName}
+                        </TableCell>
                         <TableCell className="truncate">{booking.gradeYear}</TableCell>
                         <TableCell className="truncate">{booking.parentName}</TableCell>
                         <TableCell className="truncate">{tariffZoneMap[booking.tariffZone]}</TableCell>
@@ -342,11 +399,11 @@ export default function AdminBookingsList() {
                         </TableCell>
                       </TableRow>,
                       ...(booking.siblings ?? []).map((sibling) => (
-                        <TableRow key={`sib-${sibling.id}`} className="bg-blue-50/60 hover:bg-blue-50">
+                        <TableRow key={`sib-${sibling.id}`} className={isWaitlisted ? "bg-orange-50/40 hover:bg-orange-50 border-l-4 border-l-orange-300" : "bg-blue-50/60 hover:bg-blue-50"}>
                           <TableCell className="font-mono text-xs truncate text-muted-foreground pl-6">↳ {booking.referenceNumber}</TableCell>
                           <TableCell className="truncate text-muted-foreground">{format(new Date(booking.createdAt), "dd.MM.yyyy")}</TableCell>
                           <TableCell className="font-medium truncate">
-                            <span className="mr-1.5 inline-flex items-center rounded-sm border border-blue-300 bg-blue-100 px-1 py-0 text-[10px] font-semibold text-blue-700">Geschwister</span>
+                            <span className={`mr-1.5 inline-flex items-center rounded-sm border px-1 py-0 text-[10px] font-semibold ${isWaitlisted ? "border-orange-300 bg-orange-100 text-orange-700" : "border-blue-300 bg-blue-100 text-blue-700"}`}>Geschwister</span>
                             {sibling.childName}
                           </TableCell>
                           <TableCell className="truncate">{sibling.gradeYear}</TableCell>
@@ -370,7 +427,8 @@ export default function AdminBookingsList() {
                           </TableCell>
                         </TableRow>
                       )),
-                    ])}
+                    ];})}
+
                   </TableBody>
                   {data && data.totalPriceCents > 0 && (
                     <tfoot>
