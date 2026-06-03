@@ -481,10 +481,12 @@ export default function AdminBookingDetail() {
                     </FieldRow>
                     <FieldRow label="Zugeteilter Bus">
                       {(booking as any).busName ? (
-                        <div className="flex items-center gap-1.5 text-sm font-medium text-primary">
-                          <Bus className="w-4 h-4 shrink-0" />
-                          {(booking as any).busName}
-                        </div>
+                        <Link href={`/admin/buses/${(booking as any).busId}`}>
+                          <div className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline cursor-pointer">
+                            <Bus className="w-4 h-4 shrink-0" />
+                            {(booking as any).busName}
+                          </div>
+                        </Link>
                       ) : (
                         <div className="text-sm text-muted-foreground italic">Noch kein Bus zugeteilt</div>
                       )}
@@ -694,10 +696,12 @@ export default function AdminBookingDetail() {
                             <div className="flex items-center gap-1.5">
                               <span className="text-muted-foreground shrink-0">Bus:</span>
                               {(sibling as any).busName ? (
-                                <span className="flex items-center gap-1 font-medium text-primary">
-                                  <Bus className="w-3.5 h-3.5 shrink-0" />
-                                  {(sibling as any).busName}
-                                </span>
+                                <Link href={`/admin/buses/${(sibling as any).busId}`}>
+                                  <span className="flex items-center gap-1 font-medium text-primary hover:underline cursor-pointer">
+                                    <Bus className="w-3.5 h-3.5 shrink-0" />
+                                    {(sibling as any).busName}
+                                  </span>
+                                </Link>
                               ) : (
                                 <span className="text-muted-foreground italic">–</span>
                               )}

@@ -996,21 +996,21 @@ router.get("/admin/bookings/:id", requireAuth, async (req, res) => {
     .where(eq(siblingsTable.bookingId, id));
 
   const [mainBusRow] = await db
-    .select({ busName: busesTable.name })
+    .select({ busId: busAssignmentsTable.busId, busName: busesTable.name })
     .from(busAssignmentsTable)
     .innerJoin(busesTable, eq(busAssignmentsTable.busId, busesTable.id))
     .where(eq(busAssignmentsTable.bookingId, id))
     .limit(1);
 
-  const siblingBusMap: Record<number, string> = {};
+  const siblingBusMap: Record<number, { busId: number; busName: string }> = {};
   if (siblings.length > 0) {
     const sibBusRows = await db
-      .select({ siblingId: siblingBusAssignmentsTable.siblingId, busName: busesTable.name })
+      .select({ siblingId: siblingBusAssignmentsTable.siblingId, busId: siblingBusAssignmentsTable.busId, busName: busesTable.name })
       .from(siblingBusAssignmentsTable)
       .innerJoin(busesTable, eq(siblingBusAssignmentsTable.busId, busesTable.id))
       .where(inArray(siblingBusAssignmentsTable.siblingId, siblings.map(s => s.id)));
     for (const row of sibBusRows) {
-      siblingBusMap[row.siblingId] = row.busName;
+      siblingBusMap[row.siblingId] = { busId: row.busId, busName: row.busName };
     }
   }
 
@@ -1042,6 +1042,7 @@ router.get("/admin/bookings/:id", requireAuth, async (req, res) => {
     pickupPostalCode: booking.pickupPostalCode ?? null,
     pickupCity: booking.pickupCity ?? null,
     pickupTariffZone: booking.pickupTariffZone ?? null,
+    busId: mainBusRow?.busId ?? null,
     busName: mainBusRow?.busName ?? null,
     siblings: siblings.map((s) => ({
       id: s.id,
@@ -1053,7 +1054,8 @@ router.get("/admin/bookings/:id", requireAuth, async (req, res) => {
       returnRoute: s.returnRoute,
       priceCents: s.priceCents,
       status: s.status,
-      busName: siblingBusMap[s.id] ?? null,
+      busId: siblingBusMap[s.id]?.busId ?? null,
+      busName: siblingBusMap[s.id]?.busName ?? null,
     })),
   });
 });
