@@ -767,6 +767,7 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
       outboundRoute: s.outboundRoute,
       returnRoute: s.returnRoute,
       priceCents: s.priceCents,
+      status: s.status,
     })),
   }));
 
@@ -901,6 +902,7 @@ router.get("/admin/bookings/:id", requireAuth, async (req, res) => {
       outboundRoute: s.outboundRoute,
       returnRoute: s.returnRoute,
       priceCents: s.priceCents,
+      status: s.status,
     })),
   });
 });
@@ -982,6 +984,7 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
             returnRoute: su.returnRoute as any,
           };
           if (su.studentNumber !== undefined) sibSet.studentNumber = su.studentNumber ?? null;
+          if (su.status !== undefined) sibSet.status = su.status;
           await db.update(siblingsTable).set(sibSet).where(eq(siblingsTable.id, su.id));
           sib.outboundRoute = su.outboundRoute as any;
           sib.returnRoute = su.returnRoute as any;
@@ -1013,6 +1016,7 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
           returnRoute: su.returnRoute as any,
         };
         if (su.studentNumber !== undefined) sibSet.studentNumber = su.studentNumber ?? null;
+        if (su.status !== undefined) sibSet.status = su.status;
         await db.update(siblingsTable).set(sibSet).where(eq(siblingsTable.id, su.id));
         sib.outboundRoute = su.outboundRoute as any;
         sib.returnRoute = su.returnRoute as any;
@@ -1090,6 +1094,7 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
       outboundRoute: s.outboundRoute,
       returnRoute: s.returnRoute,
       priceCents: s.priceCents,
+      status: s.status,
     })),
   });
 });

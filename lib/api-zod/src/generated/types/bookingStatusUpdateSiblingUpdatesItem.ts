@@ -5,6 +5,7 @@
  * Regionalshuttle Buchungssystem - Stiftung Louisenlund
  * OpenAPI spec version: 0.1.0
  */
+import type { BookingStatus } from './bookingStatus';
 import type { RouteOption } from './routeOption';
 
 export type BookingStatusUpdateSiblingUpdatesItem = {
@@ -13,4 +14,5 @@ export type BookingStatusUpdateSiblingUpdatesItem = {
   returnRoute: RouteOption;
   /** @nullable */
   studentNumber?: string | null;
+  status?: BookingStatus;
 };

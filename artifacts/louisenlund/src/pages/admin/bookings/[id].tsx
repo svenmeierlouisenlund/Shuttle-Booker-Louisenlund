@@ -128,6 +128,16 @@ interface EditFields {
   pickupCity: string;
 }
 
+function StatusBadge({ status }: { status: string }) {
+  const label = statusMap[status] ?? status;
+  const color = statusColorMap[status] ?? "bg-gray-100 text-gray-800 border-gray-200";
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${color}`}>
+      {label}
+    </span>
+  );
+}
+
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
@@ -150,7 +160,7 @@ export default function AdminBookingDetail() {
   const [status, setStatus] = useState<string>("");
   const [adminNotes, setAdminNotes] = useState<string>("");
   const [editMode, setEditMode] = useState(false);
-  const [editSiblings, setEditSiblings] = useState<Record<number, { outboundRoute: string; returnRoute: string; studentNumber: string }>>({});
+  const [editSiblings, setEditSiblings] = useState<Record<number, { outboundRoute: string; returnRoute: string; studentNumber: string; status: string }>>({});
   const [editFields, setEditFields] = useState<EditFields>({
     childName: "", studentNumber: "", gradeYear: "", childAddress: "",
     childPostalCode: "", childCity: "",
@@ -197,9 +207,9 @@ export default function AdminBookingDetail() {
         pickupPostalCode: (booking as any).pickupPostalCode || "",
         pickupCity: (booking as any).pickupCity || "",
       });
-      const sibMap: Record<number, { outboundRoute: string; returnRoute: string; studentNumber: string }> = {};
+      const sibMap: Record<number, { outboundRoute: string; returnRoute: string; studentNumber: string; status: string }> = {};
       for (const s of booking.siblings ?? []) {
-        sibMap[s.id] = { outboundRoute: s.outboundRoute, returnRoute: s.returnRoute, studentNumber: s.studentNumber || "" };
+        sibMap[s.id] = { outboundRoute: s.outboundRoute, returnRoute: s.returnRoute, studentNumber: s.studentNumber || "", status: (s as any).status || "received" };
       }
       setEditSiblings(sibMap);
     }
@@ -225,9 +235,9 @@ export default function AdminBookingDetail() {
         pickupPostalCode: (booking as any).pickupPostalCode || "",
         pickupCity: (booking as any).pickupCity || "",
       });
-      const sibMap: Record<number, { outboundRoute: string; returnRoute: string; studentNumber: string }> = {};
+      const sibMap: Record<number, { outboundRoute: string; returnRoute: string; studentNumber: string; status: string }> = {};
       for (const s of booking.siblings ?? []) {
-        sibMap[s.id] = { outboundRoute: s.outboundRoute, returnRoute: s.returnRoute, studentNumber: s.studentNumber || "" };
+        sibMap[s.id] = { outboundRoute: s.outboundRoute, returnRoute: s.returnRoute, studentNumber: s.studentNumber || "", status: (s as any).status || "received" };
       }
       setEditSiblings(sibMap);
     }
@@ -293,6 +303,7 @@ export default function AdminBookingDetail() {
           outboundRoute: v.outboundRoute as any,
           returnRoute: v.returnRoute as any,
           studentNumber: v.studentNumber || null,
+          status: v.status as any,
         })),
       }
     }, {
@@ -596,17 +607,38 @@ export default function AdminBookingDetail() {
                         const livePrice = liveEditPrices?.sibPrices[idx];
                         const displayPrice = editMode && livePrice != null ? livePrice : sibling.priceCents;
                         return (
-                        <div key={sibling.id} className="bg-muted p-4 rounded-md">
+                        <div key={sibling.id} className={`bg-muted p-4 rounded-md ${((sibling as any).status || "received") === "waitlisted" ? "border border-orange-300" : ""}`}>
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="font-medium">{idx + 1}. {sibling.childName}</h4>
-                            {displayPrice != null && (
-                              <span className="text-sm font-semibold text-primary tabular-nums">
-                                {fmtPrice(displayPrice)}
-                                <span className="text-xs font-normal text-muted-foreground ml-1">
-                                  {fpFlags[idx + 1] ? "(Vollzahler)" : "(–20 %)"}
+                            <div className="flex items-center gap-3">
+                              {displayPrice != null && (
+                                <span className="text-sm font-semibold text-primary tabular-nums">
+                                  {fmtPrice(displayPrice)}
+                                  <span className="text-xs font-normal text-muted-foreground ml-1">
+                                    {fpFlags[idx + 1] ? "(Vollzahler)" : "(–20 %)"}
+                                  </span>
                                 </span>
-                              </span>
-                            )}
+                              )}
+                              {editMode ? (
+                                <Select
+                                  value={editSiblings[sibling.id]?.status ?? (sibling as any).status ?? "received"}
+                                  onValueChange={v => setEditSiblings(p => ({ ...p, [sibling.id]: { ...p[sibling.id], status: v } }))}
+                                >
+                                  <SelectTrigger className="h-7 text-xs w-40">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="received">Eingegangen</SelectItem>
+                                    <SelectItem value="reviewed">Geprüft</SelectItem>
+                                    <SelectItem value="confirmed">Bestätigt</SelectItem>
+                                    <SelectItem value="query_open">Rückfrage offen</SelectItem>
+                                    <SelectItem value="waitlisted">Warteliste</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <StatusBadge status={(sibling as any).status || "received"} />
+                              )}
+                            </div>
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <div><span className="text-muted-foreground">Klasse:</span> {sibling.gradeYear}</div>

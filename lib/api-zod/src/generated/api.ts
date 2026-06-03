@@ -136,6 +136,7 @@ export const ListAdminBookingsResponse = zod.object({
   "gradeYear": zod.string(),
   "outboundRoute": zod.string(),
   "returnRoute": zod.string(),
+  "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']),
   "priceCents": zod.number().nullish()
 })).optional()
 })),
@@ -187,6 +188,7 @@ export const GetAdminBookingResponse = zod.object({
   "gradeYear": zod.string(),
   "outboundRoute": zod.string(),
   "returnRoute": zod.string(),
+  "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']),
   "priceCents": zod.number().nullish()
 }))
 })
@@ -234,7 +236,8 @@ export const UpdateAdminBookingBody = zod.object({
   "id": zod.number(),
   "outboundRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']),
   "returnRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']),
-  "studentNumber": zod.string().nullish()
+  "studentNumber": zod.string().nullish(),
+  "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']).optional()
 })).optional().describe('Per-sibling route overrides (by sibling id)')
 })
 
@@ -272,6 +275,7 @@ export const UpdateAdminBookingResponse = zod.object({
   "gradeYear": zod.string(),
   "outboundRoute": zod.string(),
   "returnRoute": zod.string(),
+  "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']),
   "priceCents": zod.number().nullish()
 }))
 })
@@ -325,6 +329,7 @@ export const GetAdminStatsResponse = zod.object({
   "gradeYear": zod.string(),
   "outboundRoute": zod.string(),
   "returnRoute": zod.string(),
+  "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']),
   "priceCents": zod.number().nullish()
 })).optional()
 }))
