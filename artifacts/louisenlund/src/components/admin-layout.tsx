@@ -22,6 +22,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
   }
 
   const isFahrer = me?.role === "fahrer";
+  const isLimitedRole = me?.role === "fahrer" || me?.role === "schulbuero";
 
   const handleLogout = () => {
     logout.mutate(undefined, {
@@ -91,15 +92,17 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                   Busse
                 </Button>
               </Link>
-              <Link href="/admin/settings">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-blue-100 hover:text-white hover:bg-white/10"
-                >
-                  Einstellungen
-                </Button>
-              </Link>
+              {!isLimitedRole && (
+                <Link href="/admin/settings">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-blue-100 hover:text-white hover:bg-white/10"
+                  >
+                    Einstellungen
+                  </Button>
+                </Link>
+              )}
             </nav>
           </div>
           <div className="flex items-center gap-3">
