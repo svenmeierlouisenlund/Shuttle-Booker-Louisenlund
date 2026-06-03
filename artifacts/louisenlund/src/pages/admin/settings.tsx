@@ -426,6 +426,18 @@ export default function AdminSettings() {
   const [smtpLoaded, setSmtpLoaded] = useState(false);
   const [testEmail, setTestEmail] = useState("");
 
+  const isLimitedRole = me?.role === "fahrer" || me?.role === "schulbuero";
+
+  if (isLimitedRole) {
+    return (
+      <AdminLayout>
+        <div className="text-center py-20 text-gray-400">
+          Keine Berechtigung — Einstellungen sind nur für Administratoren und Buchhaltung zugänglich.
+        </div>
+      </AdminLayout>
+    );
+  }
+
   if (smtpData && !smtpLoaded) {
     setSmtpHost(smtpData.host);
     setSmtpPort(String(smtpData.port));
