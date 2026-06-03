@@ -571,15 +571,6 @@ function WaitlistBusCard({ bus }: { bus: BusWithAssignments }) {
             ))}
           </div>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(`/admin/buses/${bus.id}`)}
-          className="mt-3 text-xs text-amber-700 hover:bg-amber-100/50 gap-1.5"
-        >
-          <ExternalLink className="w-3 h-3" />
-          Details & Routenplanung
-        </Button>
       </CardContent>
     </Card>
   );
