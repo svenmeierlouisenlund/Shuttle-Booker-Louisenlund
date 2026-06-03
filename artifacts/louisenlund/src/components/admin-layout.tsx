@@ -21,6 +21,8 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
     return <Redirect to="/admin/login" />;
   }
 
+  const isFahrer = me?.role === "fahrer";
+
   const handleLogout = () => {
     logout.mutate(undefined, {
       onSuccess: () => {
@@ -67,16 +69,18 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                   Karte
                 </Button>
               </Link>
-              <Link href="/admin/pricing">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-blue-100 hover:text-white hover:bg-white/10"
-                >
-                  <Euro className="w-3.5 h-3.5 mr-1" />
-                  Tarife
-                </Button>
-              </Link>
+              {!isFahrer && (
+                <Link href="/admin/pricing">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-blue-100 hover:text-white hover:bg-white/10"
+                  >
+                    <Euro className="w-3.5 h-3.5 mr-1" />
+                    Tarife
+                  </Button>
+                </Link>
+              )}
               <Link href="/admin/buses">
                 <Button
                   variant="ghost"

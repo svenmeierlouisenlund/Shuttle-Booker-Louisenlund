@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Save, Info, Lock, EyeOff } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import { useIsReadOnly } from "@/hooks/use-read-only";
+import { useIsReadOnly, useIsFahrer } from "@/hooks/use-read-only";
 
 interface PricingByZone { zone1: number; zone2: number; zone3: number; }
 interface PricingPeriod { both: PricingByZone; oneWay: PricingByZone; }
@@ -93,6 +93,7 @@ const ZONE_LABELS: Record<string, string> = { zone1: "Zone 1", zone2: "Zone 2", 
 
 export default function AdminPricing() {
   const isReadOnly = useIsReadOnly();
+  const isFahrer = useIsFahrer();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormValues | null>(null);
@@ -179,6 +180,16 @@ export default function AdminPricing() {
     return (
       <AdminLayout>
         <div className="text-center py-20 text-red-600">Fehler beim Laden der Tarife.</div>
+      </AdminLayout>
+    );
+  }
+
+  if (isFahrer) {
+    return (
+      <AdminLayout>
+        <div className="text-center py-20 text-gray-400">
+          Keine Berechtigung — Kostendaten sind für Fahrer nicht einsehbar.
+        </div>
       </AdminLayout>
     );
   }
