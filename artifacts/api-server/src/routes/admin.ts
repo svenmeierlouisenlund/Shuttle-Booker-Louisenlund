@@ -796,13 +796,28 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
     .from(bookingsTable)
     .where(whereClause);
 
-  // Also sum sibling prices for all matching bookings (not just current page)
-  const siblingTotalResult = await db
-    .select({ siblingPriceCents: sum(siblingsTable.priceCents) })
-    .from(siblingsTable)
-    .innerJoin(bookingsTable, eq(siblingsTable.bookingId, bookingsTable.id))
-    .where(whereClause);
+  // For waitlisted filter: only sum siblings that are themselves waitlisted.
+  // For all other filters: sum all siblings belonging to matching bookings.
+  const siblingTotalResult = params.status === "waitlisted"
+    ? await db
+        .select({ siblingPriceCents: sum(siblingsTable.priceCents) })
+        .from(siblingsTable)
+        .where(eq(siblingsTable.status, "waitlisted" as any))
+    : await db
+        .select({ siblingPriceCents: sum(siblingsTable.priceCents) })
+        .from(siblingsTable)
+        .innerJoin(bookingsTable, eq(siblingsTable.bookingId, bookingsTable.id))
+        .where(whereClause);
   const siblingTotalCents = Number(siblingTotalResult[0]?.siblingPriceCents ?? 0);
+
+  // For waitlisted filter: totalPriceCents should only include waitlisted main bookings
+  const effectiveTotalPriceCents = params.status === "waitlisted"
+    ? await db
+        .select({ val: sum(bookingsTable.priceCents) })
+        .from(bookingsTable)
+        .where(eq(bookingsTable.status, "waitlisted" as any))
+        .then((r) => Number(r[0]?.val ?? 0))
+    : Number(totalPriceCents ?? 0);
 
   const rows = await db
     .select()
@@ -858,7 +873,7 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
     })),
   }));
 
-  res.json({ bookings, total: Number(total), page, limit, totalPriceCents: Number(totalPriceCents ?? 0) + siblingTotalCents });
+  res.json({ bookings, total: Number(total), page, limit, totalPriceCents: effectiveTotalPriceCents + siblingTotalCents });
 });
 
 router.post("/admin/bookings/calculate-routes", requireAuth, async (req, res) => {
