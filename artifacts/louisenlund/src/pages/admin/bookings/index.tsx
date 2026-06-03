@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { AdminLayout } from "@/components/admin-layout";
 import { useListAdminBookings } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -53,20 +53,7 @@ type ImportResult = {
   errors: string[];
 };
 
-const COL_STORAGE_KEY = "ll-booking-col-widths-v1";
-const DEFAULT_COL_WIDTHS = [130, 100, 160, 100, 160, 110, 160, 140, 90, 80];
-const COL_MIN = 50;
-
-function loadColWidths(): number[] {
-  try {
-    const stored = localStorage.getItem(COL_STORAGE_KEY);
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (Array.isArray(parsed) && parsed.length === DEFAULT_COL_WIDTHS.length) return parsed;
-    }
-  } catch {}
-  return DEFAULT_COL_WIDTHS;
-}
+const COL_WIDTHS = [130, 100, 160, 100, 160, 110, 160, 140, 90, 80];
 
 type RouteCalcResult = { processed: number; failed: number; skipped: number; errors: string[] };
 
@@ -89,38 +76,6 @@ export default function AdminBookingsList() {
   const [routeCalcResult, setRouteCalcResult] = useState<RouteCalcResult | null>(null);
   const [routeCalcError, setRouteCalcError] = useState<string | null>(null);
 
-  const [colWidths, setColWidths] = useState<number[]>(loadColWidths);
-  const resizeRef = useRef<{ col: number; startX: number; startW: number } | null>(null);
-
-  const onResizeStart = useCallback((col: number) => (e: React.MouseEvent) => {
-    e.preventDefault();
-    resizeRef.current = { col, startX: e.clientX, startW: colWidths[col] };
-
-    const onMove = (ev: MouseEvent) => {
-      if (!resizeRef.current) return;
-      const { col: c, startX, startW } = resizeRef.current;
-      const newW = Math.max(COL_MIN, startW + ev.clientX - startX);
-      setColWidths(prev => {
-        const next = [...prev];
-        next[c] = newW;
-        try { localStorage.setItem(COL_STORAGE_KEY, JSON.stringify(next)); } catch {}
-        return next;
-      });
-    };
-
-    const onUp = () => {
-      resizeRef.current = null;
-      document.removeEventListener("mousemove", onMove);
-      document.removeEventListener("mouseup", onUp);
-      document.body.style.cursor = "";
-      document.body.style.userSelect = "";
-    };
-
-    document.body.style.cursor = "col-resize";
-    document.body.style.userSelect = "none";
-    document.addEventListener("mousemove", onMove);
-    document.addEventListener("mouseup", onUp);
-  }, [colWidths]);
 
   const queryClient = useQueryClient();
 
@@ -348,21 +303,15 @@ export default function AdminBookingsList() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <Table style={{ tableLayout: "fixed", width: colWidths.reduce((a, b) => a + b, 0) }}>
+                <Table style={{ tableLayout: "fixed", width: COL_WIDTHS.reduce((a, b) => a + b, 0) }}>
                   <colgroup>
-                    {colWidths.map((w, i) => <col key={i} style={{ width: w }} />)}
+                    {COL_WIDTHS.map((w, i) => <col key={i} style={{ width: w }} />)}
                   </colgroup>
                   <TableHeader>
                     <TableRow>
                       {(["Ref","Datum","Kind","Klasse","Eltern","Zone","Typ","Status","Preis","Aktion"] as const).map((label, i) => (
-                        <TableHead key={i} className="relative overflow-hidden whitespace-nowrap" style={{ width: colWidths[i] }}>
-                          <span className={i >= 8 ? "block text-right" : "block truncate pr-3"}>{label}</span>
-                          {i < 9 && (
-                            <div
-                              onMouseDown={onResizeStart(i)}
-                              className="absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/40 active:bg-primary/60 transition-colors z-10"
-                            />
-                          )}
+                        <TableHead key={i} className="overflow-hidden whitespace-nowrap" style={{ width: COL_WIDTHS[i] }}>
+                          <span className={i >= 8 ? "block text-right" : "block truncate"}>{label}</span>
                         </TableHead>
                       ))}
                     </TableRow>
