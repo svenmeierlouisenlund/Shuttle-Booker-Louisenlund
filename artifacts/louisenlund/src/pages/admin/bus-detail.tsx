@@ -9,7 +9,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import {
   Loader2, Bus, ArrowLeft, Phone, User, MapPin, Users,
-  Pencil, Check, X, Navigation, Home,
+  Pencil, Check, X, Navigation, Home, School,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
@@ -113,6 +113,9 @@ function buildStops(passengers: PassengerDetail[]): PickupStop[] {
 
 const GEOCACHE_KEY = "ll_geocode_cache_v3";
 
+// Stiftung Louisenlund — fester Startpunkt des Shuttles
+const LOUISENLUND_ADDR = "Louisenlund 9, 24357 Güby, Deutschland";
+
 function getCache(): Record<string, [number, number] | null> {
   try { return JSON.parse(localStorage.getItem(GEOCACHE_KEY) ?? "{}"); } catch { return {}; }
 }
@@ -130,7 +133,26 @@ async function geocodeAddress(addr: string): Promise<[number, number] | null> {
   return null;
 }
 
+/** Haversine-Distanz in km zwischen zwei Koordinaten */
+function haversineKm([lat1, lon1]: [number, number], [lat2, lon2]: [number, number]): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 // ── Map helpers ────────────────────────────────────────────────────────────────
+
+const startIcon = L.divIcon({
+  className: "",
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+  popupAnchor: [0, -16],
+  html: `<div style="background:#15803d;color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:900;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.5)">S</div>`,
+});
 
 function createIcon(n: number, multi: boolean) {
   const bg = multi ? "#b45309" : "#004289";
@@ -156,23 +178,38 @@ function FitBounds({ coords }: { coords: [number, number][] }) {
 // ── Route Map ─────────────────────────────────────────────────────────────────
 
 function RouteMap({ passengers }: { passengers: PassengerDetail[] }) {
-  const stops = buildStops(passengers);
-  const [markers, setMarkers] = useState<{ stop: PickupStop; coords: [number, number]; order: number }[]>([]);
+  const rawStops = buildStops(passengers);
+
+  const [louisenlundCoords, setLouisenlundCoords] = useState<[number, number] | null>(null);
+  const [markers, setMarkers] = useState<{ stop: PickupStop; coords: [number, number]; order: number; distKm: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [done, setDone] = useState(0);
   const cache = useRef(getCache());
 
   useEffect(() => {
-    if (stops.length === 0) { setLoading(false); return; }
-
     let cancelled = false;
-    const result: typeof markers = [];
-    let counter = 0;
 
     (async () => {
-      for (let i = 0; i < stops.length; i++) {
+      setLoading(true);
+      setDone(0);
+
+      // 1. Louisenlund zuerst geocodieren (gecacht nach erstem Mal)
+      let llCoords = cache.current[LOUISENLUND_ADDR];
+      if (llCoords === undefined) {
+        llCoords = await geocodeAddress(LOUISENLUND_ADDR);
+        cache.current[LOUISENLUND_ADDR] = llCoords;
+        saveCache(cache.current);
+        await new Promise(r => setTimeout(r, 1100));
+      }
+      if (!cancelled) setLouisenlundCoords(llCoords ?? null);
+
+      if (rawStops.length === 0) { if (!cancelled) setLoading(false); return; }
+
+      // 2. Alle Haltepunkte geocodieren
+      const withCoords: { stop: PickupStop; coords: [number, number]; distKm: number }[] = [];
+      let counter = 0;
+      for (const stop of rawStops) {
         if (cancelled) break;
-        const stop = stops[i];
         const fullAddr = `${stop.address}, ${stop.postalCode} ${stop.city}, Deutschland`;
         let coords = cache.current[fullAddr];
         if (coords === undefined) {
@@ -183,16 +220,29 @@ function RouteMap({ passengers }: { passengers: PassengerDetail[] }) {
         }
         counter++;
         if (!cancelled) setDone(counter);
-        if (coords) result.push({ stop, coords, order: i + 1 });
+        if (coords) {
+          const distKm = llCoords ? haversineKm(llCoords, coords) : 0;
+          withCoords.push({ stop, coords, distKm });
+        }
       }
-      if (!cancelled) { setMarkers(result); setLoading(false); }
+
+      // 3. Sortierung: weitester Halt zuerst (Rückweg von Louisenlund)
+      withCoords.sort((a, b) => b.distKm - a.distKm);
+
+      if (!cancelled) {
+        setMarkers(withCoords.map((m, i) => ({ ...m, order: i + 1 })));
+        setLoading(false);
+      }
     })();
 
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [passengers]);
 
-  const coords = markers.map(m => m.coords);
+  const allCoords: [number, number][] = [
+    ...(louisenlundCoords ? [louisenlundCoords] : []),
+    ...markers.map(m => m.coords),
+  ];
   const multi = (stop: PickupStop) => stop.children.length > 1;
 
   return (
@@ -200,24 +250,40 @@ function RouteMap({ passengers }: { passengers: PassengerDetail[] }) {
       {loading && (
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Loader2 className="w-4 h-4 animate-spin" />
-          Adressen werden geocodiert … {done}/{stops.length}
+          Adressen werden geocodiert … {done}/{rawStops.length}
         </div>
       )}
-      <div className="rounded-lg overflow-hidden border border-gray-200" style={{ height: 420 }}>
-        <MapContainer center={[54.5, 9.5]} zoom={9} style={{ height: "100%", width: "100%" }}>
+      <div className="rounded-lg overflow-hidden border border-gray-200" style={{ height: 460 }}>
+        <MapContainer center={[54.5, 9.7]} zoom={9} style={{ height: "100%", width: "100%" }}>
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           />
-          <FitBounds coords={coords} />
+          <FitBounds coords={allCoords} />
+
+          {/* Louisenlund — Startpunkt */}
+          {louisenlundCoords && (
+            <Marker position={louisenlundCoords} icon={startIcon}>
+              <Popup>
+                <div className="text-sm space-y-0.5">
+                  <p className="font-bold text-green-700">🏫 Stiftung Louisenlund</p>
+                  <p className="text-gray-600 text-xs">Louisenlund 9, 24357 Güby</p>
+                  <p className="text-gray-500 text-xs italic">Abfahrt / Rückkehr des Shuttles</p>
+                </div>
+              </Popup>
+            </Marker>
+          )}
+
+          {/* Schüler-Haltepunkte */}
           {markers.map(m => (
             <Marker key={m.stop.bookingId} position={m.coords} icon={createIcon(m.order, multi(m.stop))}>
               <Popup>
-                <div className="text-sm space-y-1.5" style={{ minWidth: 180 }}>
+                <div className="text-sm space-y-1.5" style={{ minWidth: 190 }}>
                   <p className="font-semibold text-[#004289]">
                     Haltepunkt {m.order}
                     {multi(m.stop) && <span className="ml-1 text-amber-700 text-xs">(Geschwister)</span>}
                   </p>
+                  <p className="text-gray-500 text-xs">{m.distKm.toFixed(1)} km von Louisenlund</p>
                   <p className="text-gray-600 text-xs">{m.stop.address}, {m.stop.postalCode} {m.stop.city}</p>
                   <div className="border-t border-gray-100 pt-1 space-y-0.5">
                     {m.stop.children.map(c => (
@@ -237,8 +303,20 @@ function RouteMap({ passengers }: { passengers: PassengerDetail[] }) {
           ))}
         </MapContainer>
       </div>
-      {/* Legend */}
+
+      {/* Legende */}
       <div className="space-y-1">
+        {/* Start */}
+        <div className="flex items-start gap-2 text-xs text-gray-600">
+          <span className="w-5 h-5 rounded-full bg-green-700 text-white flex items-center justify-center shrink-0 text-[10px] font-black mt-0.5">
+            S
+          </span>
+          <div>
+            <span className="font-semibold text-green-700">Stiftung Louisenlund</span>
+            <span className="text-gray-400"> · Start &amp; Ziel</span>
+          </div>
+        </div>
+        {/* Stops */}
         {markers.map(m => (
           <div key={m.stop.bookingId} className="flex items-start gap-2 text-xs text-gray-600">
             <span
@@ -249,10 +327,10 @@ function RouteMap({ passengers }: { passengers: PassengerDetail[] }) {
             </span>
             <div>
               <span className="font-medium">{m.stop.postalCode} {m.stop.city}</span>
-              {" · "}
+              <span className="text-gray-400"> ({m.distKm.toFixed(1)} km) · </span>
               {m.stop.children.map((c, i) => (
                 <span key={`${c.type}-${c.id}`}>
-                  {i > 0 && <span className="text-gray-400"> & </span>}
+                  {i > 0 && <span className="text-gray-400"> &amp; </span>}
                   {c.childName}
                 </span>
               ))}
