@@ -370,12 +370,14 @@ export default function AdminBookingsList() {
                   <TableBody>
                     {data?.bookings.flatMap((booking) => {
                       const isWaitlisted = booking.status === "waitlisted";
+                      const hasWaitlistedSibling = (booking.siblings ?? []).some((s) => (s as any).status === "waitlisted");
+                      const anyWaitlisted = isWaitlisted || hasWaitlistedSibling;
                       return [
-                      <TableRow key={booking.id} className={isWaitlisted ? "bg-orange-50/70 hover:bg-orange-50 border-l-4 border-l-orange-400" : undefined}>
+                      <TableRow key={booking.id} className={anyWaitlisted ? "bg-orange-50/70 hover:bg-orange-50 border-l-4 border-l-orange-400" : undefined}>
                         <TableCell className="font-mono text-xs truncate">{booking.referenceNumber}</TableCell>
                         <TableCell className="truncate">{format(new Date(booking.createdAt), "dd.MM.yyyy")}</TableCell>
                         <TableCell className="font-medium truncate">
-                          {isWaitlisted && <ClipboardList className="inline w-3 h-3 mr-1 text-orange-500 shrink-0" />}
+                          {anyWaitlisted && <ClipboardList className="inline w-3 h-3 mr-1 text-orange-500 shrink-0" />}
                           {booking.childName}
                         </TableCell>
                         <TableCell className="truncate">{booking.gradeYear}</TableCell>
@@ -398,12 +400,15 @@ export default function AdminBookingsList() {
                           </Link>
                         </TableCell>
                       </TableRow>,
-                      ...(booking.siblings ?? []).map((sibling) => (
-                        <TableRow key={`sib-${sibling.id}`} className={isWaitlisted ? "bg-orange-50/40 hover:bg-orange-50 border-l-4 border-l-orange-300" : "bg-blue-50/60 hover:bg-blue-50"}>
+                      ...(booking.siblings ?? []).map((sibling) => {
+                        const sibWaitlisted = (sibling as any).status === "waitlisted";
+                        const sibHighlight = sibWaitlisted || isWaitlisted;
+                        return (
+                        <TableRow key={`sib-${sibling.id}`} className={sibHighlight ? "bg-orange-50/40 hover:bg-orange-50 border-l-4 border-l-orange-300" : "bg-blue-50/60 hover:bg-blue-50"}>
                           <TableCell className="font-mono text-xs truncate text-muted-foreground pl-6">↳ {booking.referenceNumber}</TableCell>
                           <TableCell className="truncate text-muted-foreground">{format(new Date(booking.createdAt), "dd.MM.yyyy")}</TableCell>
                           <TableCell className="font-medium truncate">
-                            <span className={`mr-1.5 inline-flex items-center rounded-sm border px-1 py-0 text-[10px] font-semibold ${isWaitlisted ? "border-orange-300 bg-orange-100 text-orange-700" : "border-blue-300 bg-blue-100 text-blue-700"}`}>Geschwister</span>
+                            <span className={`mr-1.5 inline-flex items-center rounded-sm border px-1 py-0 text-[10px] font-semibold ${sibHighlight ? "border-orange-300 bg-orange-100 text-orange-700" : "border-blue-300 bg-blue-100 text-blue-700"}`}>Geschwister</span>
                             {sibling.childName}
                           </TableCell>
                           <TableCell className="truncate">{sibling.gradeYear}</TableCell>
@@ -413,8 +418,8 @@ export default function AdminBookingsList() {
                             {bookingTypeMap[booking.bookingType]}
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className={statusColorMap[booking.status]}>
-                              {statusMap[booking.status]}
+                            <Badge variant="outline" className={statusColorMap[(sibling as any).status ?? booking.status]}>
+                              {statusMap[(sibling as any).status ?? booking.status]}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right font-medium tabular-nums">
@@ -426,7 +431,8 @@ export default function AdminBookingsList() {
                             </Link>
                           </TableCell>
                         </TableRow>
-                      )),
+                        );
+                      }),
                     ];})}
 
                   </TableBody>
