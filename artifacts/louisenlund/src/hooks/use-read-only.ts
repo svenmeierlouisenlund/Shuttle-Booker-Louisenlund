@@ -4,3 +4,8 @@ export function useIsReadOnly(): boolean {
   const { data } = useGetAdminMe();
   return data?.role === "schulbuero" || data?.role === "fahrer";
 }
+
+export function useIsFahrer(): boolean {
+  const { data } = useGetAdminMe();
+  return data?.role === "fahrer";
+}

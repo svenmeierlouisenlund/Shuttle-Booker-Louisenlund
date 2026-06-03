@@ -1,7 +1,7 @@
 import { AdminLayout } from "@/components/admin-layout";
 import { useParams, Link, useLocation } from "wouter";
 import { useGetAdminBooking, useUpdateAdminBooking, useDeleteAdminBooking, getGetAdminBookingQueryKey } from "@workspace/api-client-react";
-import { useIsReadOnly } from "@/hooks/use-read-only";
+import { useIsReadOnly, useIsFahrer } from "@/hooks/use-read-only";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -151,6 +151,7 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 
 export default function AdminBookingDetail() {
   const isReadOnly = useIsReadOnly();
+  const isFahrer = useIsFahrer();
   const params = useParams();
   const id = Number(params.id);
   const [, navigate] = useLocation();
@@ -666,7 +667,7 @@ export default function AdminBookingDetail() {
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="font-medium">{idx + 1}. {sibling.childName}</h4>
                             <div className="flex items-center gap-3">
-                              {displayPrice != null && (
+                              {!isFahrer && displayPrice != null && (
                                 <span className="text-sm font-semibold text-primary tabular-nums">
                                   {fmtPrice(displayPrice)}
                                   <span className="text-xs font-normal text-muted-foreground ml-1">
@@ -818,7 +819,7 @@ export default function AdminBookingDetail() {
           </div>
 
           <div className="space-y-6">
-            {(() => {
+            {!isFahrer && (() => {
               const sibs = booking.siblings ?? [];
               const live = liveEditPrices;
               const hasAnyPrice = booking.priceCents != null || sibs.some(s => s.priceCents != null);

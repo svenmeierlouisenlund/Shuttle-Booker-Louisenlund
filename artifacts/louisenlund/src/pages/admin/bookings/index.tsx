@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { AdminLayout } from "@/components/admin-layout";
 import { useListAdminBookings } from "@workspace/api-client-react";
-import { useIsReadOnly } from "@/hooks/use-read-only";
+import { useIsReadOnly, useIsFahrer } from "@/hooks/use-read-only";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -61,6 +61,7 @@ type RouteCalcResult = { processed: number; failed: number; skipped: number; err
 
 export default function AdminBookingsList() {
   const isReadOnly = useIsReadOnly();
+  const isFahrer = useIsFahrer();
   const [view, setView] = useState<"all" | "waitlisted">("all");
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<string>("all");
@@ -382,13 +383,16 @@ export default function AdminBookingsList() {
               <div>
                 <Table style={{ tableLayout: "fixed", width: "100%" }}>
                   <colgroup>
-                    {COL_WIDTHS.map((w, i) => <col key={i} style={{ width: w }} />)}
+                    {(isFahrer ? [100, 88, 170, 95, 150, 90, 165, 140, 70] : COL_WIDTHS).map((w, i) => <col key={i} style={{ width: w }} />)}
                   </colgroup>
                   <TableHeader>
                     <TableRow>
-                      {(["Ref","Datum","Kind","Klasse","Eltern","Zone","Typ","Status","Preis","Aktion"] as const).map((label, i) => (
-                        <TableHead key={i} className="overflow-hidden whitespace-nowrap" style={{ width: COL_WIDTHS[i] }}>
-                          <span className={i >= 8 ? "block text-right" : "block truncate"}>{label}</span>
+                      {(isFahrer
+                        ? ["Ref","Datum","Kind","Klasse","Eltern","Zone","Typ","Status","Aktion"]
+                        : ["Ref","Datum","Kind","Klasse","Eltern","Zone","Typ","Status","Preis","Aktion"]
+                      ).map((label, i, arr) => (
+                        <TableHead key={i} className="overflow-hidden whitespace-nowrap">
+                          <span className={label === "Preis" || label === "Aktion" ? "block text-right" : "block truncate"}>{label}</span>
                         </TableHead>
                       ))}
                     </TableRow>
@@ -440,9 +444,11 @@ export default function AdminBookingsList() {
                             {statusMap[booking.status]}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-right font-medium tabular-nums">
-                          {fmtPrice(booking.priceCents)}
-                        </TableCell>
+                        {!isFahrer && (
+                          <TableCell className="text-right font-medium tabular-nums">
+                            {fmtPrice(booking.priceCents)}
+                          </TableCell>
+                        )}
                         <TableCell className="text-right">
                           <Link href={`/admin/bookings/${booking.id}`}>
                             <Button variant="ghost" size="sm">Details</Button>
@@ -471,9 +477,11 @@ export default function AdminBookingsList() {
                               {statusMap[(sibling as any).status ?? booking.status]}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right font-medium tabular-nums">
-                            {fmtPrice(sibling.priceCents)}
-                          </TableCell>
+                          {!isFahrer && (
+                            <TableCell className="text-right font-medium tabular-nums">
+                              {fmtPrice(sibling.priceCents)}
+                            </TableCell>
+                          )}
                           <TableCell className="text-right">
                             <Link href={`/admin/bookings/${booking.id}`}>
                               <Button variant="ghost" size="sm">Details</Button>
@@ -485,7 +493,7 @@ export default function AdminBookingsList() {
                     ];})}
 
                   </TableBody>
-                  {data && data.totalPriceCents > 0 && (
+                  {!isFahrer && data && data.totalPriceCents > 0 && (
                     <tfoot>
                       <tr className="border-t-2 border-border bg-muted/40">
                         <td colSpan={8} className="px-4 py-3 text-sm font-semibold text-right">

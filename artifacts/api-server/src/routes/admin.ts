@@ -1517,6 +1517,11 @@ router.put("/admin/smtp-config", requireAuth, async (req, res) => {
 });
 
 router.get("/admin/pricing", requireAuth, async (req, res) => {
+  const session = getSession(req);
+  if (session?.role === "fahrer") {
+    res.status(403).json({ error: "Keine Berechtigung für Kostendaten" });
+    return;
+  }
   const c = await getPricingConfig();
   res.json({
     fullYear: {
