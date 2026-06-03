@@ -233,7 +233,8 @@ export const UpdateAdminBookingBody = zod.object({
   "siblingUpdates": zod.array(zod.object({
   "id": zod.number(),
   "outboundRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']),
-  "returnRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none'])
+  "returnRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']),
+  "studentNumber": zod.string().nullish()
 })).optional().describe('Per-sibling route overrides (by sibling id)')
 })
 

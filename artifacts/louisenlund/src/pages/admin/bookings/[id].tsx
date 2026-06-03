@@ -150,7 +150,7 @@ export default function AdminBookingDetail() {
   const [status, setStatus] = useState<string>("");
   const [adminNotes, setAdminNotes] = useState<string>("");
   const [editMode, setEditMode] = useState(false);
-  const [editSiblings, setEditSiblings] = useState<Record<number, { outboundRoute: string; returnRoute: string }>>({});
+  const [editSiblings, setEditSiblings] = useState<Record<number, { outboundRoute: string; returnRoute: string; studentNumber: string }>>({});
   const [editFields, setEditFields] = useState<EditFields>({
     childName: "", studentNumber: "", gradeYear: "", childAddress: "",
     childPostalCode: "", childCity: "",
@@ -197,9 +197,9 @@ export default function AdminBookingDetail() {
         pickupPostalCode: (booking as any).pickupPostalCode || "",
         pickupCity: (booking as any).pickupCity || "",
       });
-      const sibMap: Record<number, { outboundRoute: string; returnRoute: string }> = {};
+      const sibMap: Record<number, { outboundRoute: string; returnRoute: string; studentNumber: string }> = {};
       for (const s of booking.siblings ?? []) {
-        sibMap[s.id] = { outboundRoute: s.outboundRoute, returnRoute: s.returnRoute };
+        sibMap[s.id] = { outboundRoute: s.outboundRoute, returnRoute: s.returnRoute, studentNumber: s.studentNumber || "" };
       }
       setEditSiblings(sibMap);
     }
@@ -225,9 +225,9 @@ export default function AdminBookingDetail() {
         pickupPostalCode: (booking as any).pickupPostalCode || "",
         pickupCity: (booking as any).pickupCity || "",
       });
-      const sibMap: Record<number, { outboundRoute: string; returnRoute: string }> = {};
+      const sibMap: Record<number, { outboundRoute: string; returnRoute: string; studentNumber: string }> = {};
       for (const s of booking.siblings ?? []) {
-        sibMap[s.id] = { outboundRoute: s.outboundRoute, returnRoute: s.returnRoute };
+        sibMap[s.id] = { outboundRoute: s.outboundRoute, returnRoute: s.returnRoute, studentNumber: s.studentNumber || "" };
       }
       setEditSiblings(sibMap);
     }
@@ -246,13 +246,15 @@ export default function AdminBookingDetail() {
     const mainPrice = mainIsFP ? mainRaw : Math.round(mainRaw * 0.8);
     const sibPrices = sibs.map(sib => {
       if (sib.priceCents == null) return null;
-      const sibRaw = calcLivePrice(pricingConfig, editFields.tariffZone, editFields.bookingType, sib.outboundRoute, sib.returnRoute);
+      const editedOut = editSiblings[sib.id]?.outboundRoute ?? sib.outboundRoute;
+      const editedRet = editSiblings[sib.id]?.returnRoute ?? sib.returnRoute;
+      const sibRaw = calcLivePrice(pricingConfig, editFields.tariffZone, editFields.bookingType, editedOut, editedRet);
       const sibIsFP = !fpFound && gradeRankAdmin(sib.gradeYear) === maxRank;
       if (sibIsFP) fpFound = true;
       return sibIsFP ? sibRaw : Math.round(sibRaw * 0.8);
     });
     return { mainPrice, sibPrices };
-  }, [editMode, pricingConfig, editFields, booking]);
+  }, [editMode, pricingConfig, editFields, editSiblings, booking]);
 
   function handleSaveStatus() {
     updateMutation.mutate({ id, data: { status: status as any, adminNotes } }, {
@@ -290,6 +292,7 @@ export default function AdminBookingDetail() {
           id: Number(idStr),
           outboundRoute: v.outboundRoute as any,
           returnRoute: v.returnRoute as any,
+          studentNumber: v.studentNumber || null,
         })),
       }
     }, {
@@ -589,13 +592,16 @@ export default function AdminBookingDetail() {
                   <div className="pt-4 border-t">
                     <h3 className="font-semibold mb-4 text-primary">Geschwisterkinder</h3>
                     <div className="space-y-4">
-                      {booking.siblings.map((sibling, idx) => (
+                      {booking.siblings.map((sibling, idx) => {
+                        const livePrice = liveEditPrices?.sibPrices[idx];
+                        const displayPrice = editMode && livePrice != null ? livePrice : sibling.priceCents;
+                        return (
                         <div key={sibling.id} className="bg-muted p-4 rounded-md">
                           <div className="flex items-center justify-between mb-2">
                             <h4 className="font-medium">{idx + 1}. {sibling.childName}</h4>
-                            {sibling.priceCents != null && (
+                            {displayPrice != null && (
                               <span className="text-sm font-semibold text-primary tabular-nums">
-                                {fmtPrice(sibling.priceCents)}
+                                {fmtPrice(displayPrice)}
                                 <span className="text-xs font-normal text-muted-foreground ml-1">
                                   {fpFlags[idx + 1] ? "(Vollzahler)" : "(–20 %)"}
                                 </span>
@@ -604,7 +610,19 @@ export default function AdminBookingDetail() {
                           </div>
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <div><span className="text-muted-foreground">Klasse:</span> {sibling.gradeYear}</div>
-                            <div><span className="text-muted-foreground">Schülernummer:</span> {sibling.studentNumber || "–"}</div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-muted-foreground shrink-0">Schülernummer:</span>
+                              {editMode ? (
+                                <Input
+                                  className="h-7 text-xs"
+                                  value={editSiblings[sibling.id]?.studentNumber ?? sibling.studentNumber ?? ""}
+                                  onChange={e => setEditSiblings(p => ({ ...p, [sibling.id]: { ...p[sibling.id], studentNumber: e.target.value } }))}
+                                  placeholder="–"
+                                />
+                              ) : (
+                                <span>{sibling.studentNumber || "–"}</span>
+                              )}
+                            </div>
                             <div className="flex items-center gap-2">
                               <span className="text-muted-foreground shrink-0">Hinfahrt:</span>
                               {editMode ? (
@@ -649,7 +667,8 @@ export default function AdminBookingDetail() {
                             </div>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                   );

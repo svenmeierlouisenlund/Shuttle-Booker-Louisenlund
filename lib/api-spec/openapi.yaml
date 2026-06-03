@@ -805,6 +805,8 @@ components:
                 $ref: "#/components/schemas/RouteOption"
               returnRoute:
                 $ref: "#/components/schemas/RouteOption"
+              studentNumber:
+                type: ["string", "null"]
 
     AdminStats:
       type: object

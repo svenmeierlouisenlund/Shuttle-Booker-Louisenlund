@@ -236,6 +236,8 @@ export type BookingStatusUpdateSiblingUpdatesItem = {
   id: number;
   outboundRoute: RouteOption;
   returnRoute: RouteOption;
+  /** @nullable */
+  studentNumber?: string | null;
 };
 
 export interface BookingStatusUpdate {
