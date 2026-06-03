@@ -611,6 +611,8 @@ components:
           type: string
         childCity:
           type: string
+        studentNumber:
+          type: ["string", "null"]
         gradeYear:
           type: string
         parentName:
