@@ -14,6 +14,7 @@ import AdminBookingDetail from "./pages/admin/bookings/[id]";
 import AdminSettings from "./pages/admin/settings";
 import AdminMap from "./pages/admin/map";
 import AdminPricing from "./pages/admin/pricing";
+import AdminBuses from "./pages/admin/buses";
 import Impressum from "./pages/impressum";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ function Router() {
       <Route path="/admin/settings" component={AdminSettings} />
       <Route path="/admin/map" component={AdminMap} />
       <Route path="/admin/pricing" component={AdminPricing} />
+      <Route path="/admin/buses" component={AdminBuses} />
       <Route path="/impressum" component={Impressum} />
       <Route component={NotFound} />
     </Switch>

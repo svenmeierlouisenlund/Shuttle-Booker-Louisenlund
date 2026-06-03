@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { bookingsTable, siblingsTable } from "@workspace/db";
+import { bookingsTable, siblingsTable, busesTable, busAssignmentsTable } from "@workspace/db";
 import { CreateBookingBody } from "@workspace/api-zod";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { sendBookingNotification, sendParentConfirmation } from "../services/email.js";
 import { calcBookingPriceFromConfig, calcSiblingPriceFromConfig, gradeRank } from "../pricing.js";
 import { getPricingConfig } from "../services/pricing-cache.js";
@@ -88,6 +88,14 @@ router.post("/bookings", async (req, res) => {
     ? calcBookingPriceFromConfig(pricingConfig, data.tariffZone, data.bookingType, data.outboundRoute, data.returnRoute)
     : calcSiblingPriceFromConfig(pricingConfig, data.tariffZone, data.bookingType, data.outboundRoute, data.returnRoute);
 
+  // Check if all buses are full → waitlist
+  const capacityResult = await db.select({ totalCapacity: sql<number>`COALESCE(SUM(capacity), 0)` }).from(busesTable);
+  const assignedResult = await db.select({ assigned: sql<number>`COUNT(*)` }).from(busAssignmentsTable);
+  const totalCapacity = Number(capacityResult[0]?.totalCapacity ?? 0);
+  const totalAssigned = Number(assignedResult[0]?.assigned ?? 0);
+  const isFull = totalCapacity > 0 && totalAssigned >= totalCapacity;
+  const bookingStatus = isFull ? "waitlisted" : "received";
+
   const [booking] = await db
     .insert(bookingsTable)
     .values({
@@ -95,7 +103,7 @@ router.post("/bookings", async (req, res) => {
       referenceNumber,
       gdprConsent: gdprConsent ?? false,
       priceCents,
-      status: "received",
+      status: bookingStatus,
     })
     .returning();
 

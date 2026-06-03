@@ -29,14 +29,16 @@ const statusMap: Record<string, string> = {
   received: "Eingegangen",
   reviewed: "Geprüft",
   confirmed: "Bestätigt",
-  query_open: "Rückfrage offen"
+  query_open: "Rückfrage offen",
+  waitlisted: "Warteliste",
 };
 
 const statusColorMap: Record<string, string> = {
   received: "bg-blue-100 text-blue-800 border-blue-200",
   reviewed: "bg-amber-100 text-amber-800 border-amber-200",
   confirmed: "bg-green-100 text-green-800 border-green-200",
-  query_open: "bg-red-100 text-red-800 border-red-200"
+  query_open: "bg-red-100 text-red-800 border-red-200",
+  waitlisted: "bg-orange-100 text-orange-800 border-orange-200",
 };
 
 const tariffZoneMap: Record<string, string> = {
