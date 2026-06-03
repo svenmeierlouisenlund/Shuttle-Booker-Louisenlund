@@ -105,6 +105,19 @@ async function seedAdminUser(): Promise<void> {
 
 seedAdminUser();
 
+// Global write-access guard: schulbuero and fahrer are read-only
+router.use((req, res, next) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+  const exempt = new Set(["/admin/login", "/admin/logout", "/admin/seed-bookings"]);
+  if (exempt.has(req.path)) return next();
+  const session = getSession(req);
+  if (session && (session.role === "schulbuero" || session.role === "fahrer")) {
+    res.status(403).json({ error: "Nur Leserechte – keine Änderungen erlaubt" });
+    return;
+  }
+  next();
+});
+
 const zoneLabels: Record<string, string> = {
   zone1: "Tarifzone 1",
   zone2: "Tarifzone 2",

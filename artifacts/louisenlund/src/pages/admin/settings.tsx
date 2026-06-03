@@ -494,6 +494,7 @@ export default function AdminSettings() {
   };
 
   const isAdmin = me?.role === "admin";
+  const isReadOnly = me?.role === "schulbuero" || me?.role === "fahrer";
 
   return (
     <AdminLayout>
@@ -607,10 +608,12 @@ export default function AdminSettings() {
                   </div>
                 </div>
 
-                <Button onClick={handleSmtpSave} disabled={updateSmtp.isPending} className="w-full sm:w-auto">
-                  {updateSmtp.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                  Konfiguration speichern
-                </Button>
+                {!isReadOnly && (
+                  <Button onClick={handleSmtpSave} disabled={updateSmtp.isPending} className="w-full sm:w-auto">
+                    {updateSmtp.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    Konfiguration speichern
+                  </Button>
+                )}
 
                 {smtpData?.configured && (
                   <div className="border-t pt-4 space-y-3">
@@ -672,54 +675,58 @@ export default function AdminSettings() {
                           <p className="text-xs text-muted-foreground truncate">{e.label}</p>
                         )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:bg-destructive/10 shrink-0"
-                        onClick={() => handleDelete(e.id, e.email)}
-                        disabled={deleteEmail.isPending}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      {!isReadOnly && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-destructive hover:bg-destructive/10 shrink-0"
+                          onClick={() => handleDelete(e.id, e.email)}
+                          disabled={deleteEmail.isPending}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </li>
                   ))}
                 </ul>
               )}
             </div>
 
-            <div className="border-t pt-4 space-y-3">
-              <Label className="text-sm font-medium">Neue Adresse hinzufügen</Label>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <Input
-                  type="email"
-                  placeholder="name@beispiel.de"
-                  value={newEmail}
-                  onChange={(e) => setNewEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-                  className="flex-1"
-                />
-                <Input
-                  type="text"
-                  placeholder="Bezeichnung (optional)"
-                  value={newLabel}
-                  onChange={(e) => setNewLabel(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-                  className="flex-1"
-                />
-                <Button
-                  onClick={handleAdd}
-                  disabled={!newEmail.trim() || addEmail.isPending}
-                  className="bg-primary hover:bg-primary/90"
-                >
-                  {addEmail.isPending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Plus className="w-4 h-4" />
-                  )}
-                  <span className="ml-1">Hinzufügen</span>
-                </Button>
+            {!isReadOnly && (
+              <div className="border-t pt-4 space-y-3">
+                <Label className="text-sm font-medium">Neue Adresse hinzufügen</Label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    type="email"
+                    placeholder="name@beispiel.de"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+                    className="flex-1"
+                  />
+                  <Input
+                    type="text"
+                    placeholder="Bezeichnung (optional)"
+                    value={newLabel}
+                    onChange={(e) => setNewLabel(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={handleAdd}
+                    disabled={!newEmail.trim() || addEmail.isPending}
+                    className="bg-primary hover:bg-primary/90"
+                  >
+                    {addEmail.isPending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Plus className="w-4 h-4" />
+                    )}
+                    <span className="ml-1">Hinzufügen</span>
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </div>

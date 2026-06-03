@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Save, Info, Lock } from "lucide-react";
+import { Loader2, Save, Info, Lock, EyeOff } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+import { useIsReadOnly } from "@/hooks/use-read-only";
 
 interface PricingByZone { zone1: number; zone2: number; zone3: number; }
 interface PricingPeriod { both: PricingByZone; oneWay: PricingByZone; }
@@ -91,6 +92,7 @@ const ZONES = ["zone1", "zone2", "zone3"] as const;
 const ZONE_LABELS: Record<string, string> = { zone1: "Zone 1", zone2: "Zone 2", zone3: "Zone 3" };
 
 export default function AdminPricing() {
+  const isReadOnly = useIsReadOnly();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [form, setForm] = useState<FormValues | null>(null);
@@ -206,18 +208,25 @@ export default function AdminPricing() {
               Grundpreise pro Kind und Buchungszeitraum. Der Geschwisterrabatt (−20 %) wird automatisch angewendet.
             </p>
           </div>
-          <Button
-            onClick={handleSaveClick}
-            disabled={mutation.isPending}
-            className="bg-[#004289] hover:bg-[#003070] shrink-0"
-          >
-            {mutation.isPending ? (
-              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="w-4 h-4 mr-2" />
-            )}
-            Speichern
-          </Button>
+          {isReadOnly ? (
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground border border-dashed rounded px-3 py-1.5 shrink-0">
+              <EyeOff className="w-3.5 h-3.5" />
+              Nur Leserechte
+            </div>
+          ) : (
+            <Button
+              onClick={handleSaveClick}
+              disabled={mutation.isPending}
+              className="bg-[#004289] hover:bg-[#003070] shrink-0"
+            >
+              {mutation.isPending ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Save className="w-4 h-4 mr-2" />
+              )}
+              Speichern
+            </Button>
+          )}
         </div>
 
         <div className="flex items-start gap-2 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800">

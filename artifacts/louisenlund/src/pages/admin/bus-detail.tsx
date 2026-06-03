@@ -13,6 +13,7 @@ import {
   Pencil, Check, X, Navigation, Home, School, ExternalLink,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+import { useIsReadOnly } from "@/hooks/use-read-only";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -503,10 +504,11 @@ function RouteMap({ passengers }: { passengers: PassengerDetail[] }) {
 // ── Inline Edit Field ──────────────────────────────────────────────────────────
 
 function EditableField({
-  label, value, icon, onSave, saving, placeholder,
+  label, value, icon, onSave, saving, placeholder, readOnly = false,
 }: {
   label: string; value: string | null; icon: React.ReactNode;
   onSave: (v: string) => void; saving: boolean; placeholder?: string;
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? "");
@@ -516,7 +518,7 @@ function EditableField({
   const commit = () => { onSave(draft); setEditing(false); };
   const cancel = () => { setDraft(value ?? ""); setEditing(false); };
 
-  if (editing) {
+  if (editing && !readOnly) {
     return (
       <div className="space-y-1">
         <Label className="text-xs text-gray-500">{label}</Label>
@@ -543,16 +545,25 @@ function EditableField({
   return (
     <div className="space-y-1">
       <Label className="text-xs text-gray-500">{label}</Label>
-      <button
-        onClick={() => setEditing(true)}
-        className="flex items-center gap-2 text-sm group w-full text-left"
-      >
-        <span className="text-gray-400">{icon}</span>
-        <span className={value ? "text-gray-900" : "text-gray-400 italic"}>
-          {value || placeholder || "–"}
-        </span>
-        <Pencil className="w-3 h-3 text-gray-300 group-hover:text-gray-500 ml-auto shrink-0" />
-      </button>
+      {readOnly ? (
+        <div className="flex items-center gap-2 text-sm w-full">
+          <span className="text-gray-400">{icon}</span>
+          <span className={value ? "text-gray-900" : "text-gray-400 italic"}>
+            {value || placeholder || "–"}
+          </span>
+        </div>
+      ) : (
+        <button
+          onClick={() => setEditing(true)}
+          className="flex items-center gap-2 text-sm group w-full text-left"
+        >
+          <span className="text-gray-400">{icon}</span>
+          <span className={value ? "text-gray-900" : "text-gray-400 italic"}>
+            {value || placeholder || "–"}
+          </span>
+          <Pencil className="w-3 h-3 text-gray-300 group-hover:text-gray-500 ml-auto shrink-0" />
+        </button>
+      )}
     </div>
   );
 }
@@ -569,6 +580,7 @@ function routeSummary(p: { outboundRoute: string; returnRoute: string }) {
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function BusDetail() {
+  const isReadOnly = useIsReadOnly();
   const params = useParams<{ id: string }>();
   const busId = parseInt(params.id ?? "", 10);
   const [, navigate] = useLocation();
@@ -698,6 +710,7 @@ export default function BusDetail() {
                 placeholder="Name des Fahrers"
                 saving={updateMutation.isPending}
                 onSave={v => updateMutation.mutate({ driverName: v })}
+                readOnly={isReadOnly}
               />
               <EditableField
                 label="Telefon / Rufnummer"
@@ -706,6 +719,7 @@ export default function BusDetail() {
                 placeholder="Rufnummer"
                 saving={updateMutation.isPending}
                 onSave={v => updateMutation.mutate({ driverPhone: v })}
+                readOnly={isReadOnly}
               />
               {bus.notes && (
                 <div className="pt-2 border-t border-gray-100">
