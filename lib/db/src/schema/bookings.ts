@@ -61,6 +61,9 @@ export const bookingsTable = pgTable("bookings", {
   durationMinutes: integer("duration_minutes"),
   status: bookingStatusEnum("status").notNull().default("received"),
   adminNotes: text("admin_notes"),
+  pickupAddress: text("pickup_address"),
+  pickupPostalCode: text("pickup_postal_code"),
+  pickupCity: text("pickup_city"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

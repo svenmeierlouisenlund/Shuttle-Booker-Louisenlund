@@ -36,6 +36,9 @@ interface PassengerDetail {
   childAddress: string;
   childPostalCode: string;
   childCity: string;
+  pickupAddress: string | null;
+  pickupPostalCode: string | null;
+  pickupCity: string | null;
   tariffZone: string;
   outboundRoute: string;
   returnRoute: string;
@@ -65,16 +68,30 @@ interface PickupStop {
   referenceNumber: string;
 }
 
+/** Effective pickup address: uses Sammelpunkt if set, otherwise Heimadresse */
+function effectiveAddress(p: PassengerDetail) {
+  if (p.pickupAddress) {
+    return {
+      address: p.pickupAddress,
+      postalCode: p.pickupPostalCode ?? p.childPostalCode,
+      city: p.pickupCity ?? p.childCity,
+      isPickup: true,
+    };
+  }
+  return { address: p.childAddress, postalCode: p.childPostalCode, city: p.childCity, isPickup: false };
+}
+
 function buildStops(passengers: PassengerDetail[]): PickupStop[] {
   const map = new Map<number, PickupStop>();
 
   for (const p of passengers) {
     if (p.type === "booking") {
+      const ea = effectiveAddress(p);
       map.set(p.bookingId, {
         bookingId: p.bookingId,
-        address: p.childAddress,
-        postalCode: p.childPostalCode,
-        city: p.childCity,
+        address: ea.address,
+        postalCode: ea.postalCode,
+        city: ea.city,
         children: [p],
         parentName: p.parentName,
         parentPhone: p.parentPhone,
@@ -90,11 +107,12 @@ function buildStops(passengers: PassengerDetail[]): PickupStop[] {
       if (stop) {
         stop.children.push(p);
       } else {
+        const ea = effectiveAddress(p);
         map.set(-p.id, {
           bookingId: p.bookingId,
-          address: p.childAddress,
-          postalCode: p.childPostalCode,
-          city: p.childCity,
+          address: ea.address,
+          postalCode: ea.postalCode,
+          city: ea.city,
           children: [p],
           parentName: p.parentName,
           parentPhone: p.parentPhone,

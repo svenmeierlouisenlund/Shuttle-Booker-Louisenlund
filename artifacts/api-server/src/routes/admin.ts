@@ -890,6 +890,9 @@ router.get("/admin/bookings/:id", requireAuth, async (req, res) => {
     priceCents: booking.priceCents,
     distanceKm: booking.distanceKm ?? null,
     durationMinutes: booking.durationMinutes ?? null,
+    pickupAddress: booking.pickupAddress ?? null,
+    pickupPostalCode: booking.pickupPostalCode ?? null,
+    pickupCity: booking.pickupCity ?? null,
     siblings: siblings.map((s) => ({
       id: s.id,
       childName: s.childName,
@@ -939,6 +942,9 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
   if (d.bookingType !== undefined) updates.bookingType = d.bookingType;
   if (d.outboundRoute !== undefined) updates.outboundRoute = d.outboundRoute;
   if (d.returnRoute !== undefined) updates.returnRoute = d.returnRoute;
+  if (d.pickupAddress !== undefined) updates.pickupAddress = d.pickupAddress ?? null;
+  if (d.pickupPostalCode !== undefined) updates.pickupPostalCode = d.pickupPostalCode ?? null;
+  if (d.pickupCity !== undefined) updates.pickupCity = d.pickupCity ?? null;
 
   // Recalculate own price if any price-affecting field changes
   const priceFieldsChanged =
@@ -1359,6 +1365,9 @@ router.get("/admin/buses/:busId", requireAuth, async (req, res) => {
       childAddress: bookingsTable.childAddress,
       childPostalCode: bookingsTable.childPostalCode,
       childCity: bookingsTable.childCity,
+      pickupAddress: bookingsTable.pickupAddress,
+      pickupPostalCode: bookingsTable.pickupPostalCode,
+      pickupCity: bookingsTable.pickupCity,
       tariffZone: bookingsTable.tariffZone,
       outboundRoute: bookingsTable.outboundRoute,
       returnRoute: bookingsTable.returnRoute,
@@ -1381,6 +1390,9 @@ router.get("/admin/buses/:busId", requireAuth, async (req, res) => {
       childAddress: bookingsTable.childAddress,
       childPostalCode: bookingsTable.childPostalCode,
       childCity: bookingsTable.childCity,
+      pickupAddress: bookingsTable.pickupAddress,
+      pickupPostalCode: bookingsTable.pickupPostalCode,
+      pickupCity: bookingsTable.pickupCity,
       tariffZone: bookingsTable.tariffZone,
       outboundRoute: siblingsTable.outboundRoute,
       returnRoute: siblingsTable.returnRoute,
