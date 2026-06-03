@@ -397,13 +397,11 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
         continue;
       }
 
-      let newRef = isNewFormat ? f.refNum : genRef();
-      // Ensure ref uniqueness when generating a new one
-      if (!isNewFormat || (await db.select({ id: bookingsTable.id }).from(bookingsTable).where(eq(bookingsTable.referenceNumber, newRef)).limit(1)).length > 0) {
+      // Use the ref from the file if present; otherwise always generate a fresh one.
+      let newRef = (isNewFormat && f.refNum) ? f.refNum : genRef();
+      // Ensure uniqueness in DB (covers both kept and generated refs)
+      while ((await db.select({ id: bookingsTable.id }).from(bookingsTable).where(eq(bookingsTable.referenceNumber, newRef)).limit(1)).length > 0) {
         newRef = genRef();
-        while ((await db.select({ id: bookingsTable.id }).from(bookingsTable).where(eq(bookingsTable.referenceNumber, newRef)).limit(1)).length > 0) {
-          newRef = genRef();
-        }
       }
 
       const priceCents = calcBookingPriceFromConfig(importPricingConfig, f.tariffZone as any, f.bookingType, f.outboundRoute as any, f.returnRoute as any);
