@@ -3,8 +3,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import {
   DndContext,
   DragOverlay,
@@ -196,12 +198,14 @@ function DraggablePassenger({
   onRemove,
   removing,
   compact = false,
+  onSelect,
 }: {
   passenger: Passenger;
   source: string;
   onRemove?: () => void;
   removing?: boolean;
   compact?: boolean;
+  onSelect?: (p: Passenger) => void;
 }) {
   const dragId = makeDragId(passenger, source);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: dragId });
@@ -232,7 +236,10 @@ function DraggablePassenger({
         <GripVertical className="w-3.5 h-3.5" />
       </button>
 
-      <div className="min-w-0 flex-1">
+      <div
+        className="min-w-0 flex-1 cursor-pointer"
+        onClick={() => onSelect?.(passenger)}
+      >
         <div className="flex items-center gap-1.5">
           <p className="text-sm font-medium text-gray-900 truncate">{passenger.childName}</p>
           {passenger.type === "sibling" && (
@@ -289,6 +296,194 @@ function PassengerGhost({ passenger }: { passenger: Passenger }) {
   );
 }
 
+// ── Passenger Detail Sheet ─────────────────────────────────────────────────────
+
+const ROUTE_LABELS: Record<string, string> = {
+  none: "Keine", zone1: "Zone 1", zone2: "Zone 2", zone3: "Zone 3",
+  zone4: "Zone 4", zone5: "Zone 5",
+};
+const STATUS_LABELS: Record<string, string> = {
+  eingegangen: "Eingegangen", geprueft: "Geprüft", bestaetigt: "Bestätigt",
+  rueckfrage_offen: "Rückfrage offen", waitlisted: "Warteliste",
+};
+const TARIFF_LABELS: Record<string, string> = {
+  zone1: "Zone 1", zone2: "Zone 2", zone3: "Zone 3", zone4: "Zone 4", zone5: "Zone 5",
+};
+
+function PassengerDetailSheet({
+  passenger,
+  onClose,
+}: {
+  passenger: Passenger | null;
+  onClose: () => void;
+}) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["booking-detail-sheet", passenger?.bookingId],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/bookings/${passenger!.bookingId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Fehler beim Laden");
+      return res.json() as Promise<Record<string, unknown>>;
+    },
+    enabled: !!passenger,
+  });
+
+  const isSibling = passenger?.type === "sibling";
+  const siblingData = isSibling && data?.siblings
+    ? (data.siblings as Record<string, unknown>[]).find((s) => s.id === passenger?.id)
+    : null;
+  const displayData = isSibling ? siblingData : data;
+
+  return (
+    <Sheet open={!!passenger} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+        <SheetHeader className="mb-4">
+          <SheetTitle className="flex items-center gap-2 text-[#004289]">
+            <User className="w-5 h-5" />
+            {passenger?.childName ?? "Schüler"}
+          </SheetTitle>
+        </SheetHeader>
+
+        {isLoading && (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          </div>
+        )}
+
+        {!isLoading && !!displayData && (
+          <div className="space-y-5">
+            {/* Kind */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Kind</p>
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Name</span>
+                  <span className="font-medium text-gray-900">{String(displayData.childName ?? "–")}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Jahrgang</span>
+                  <span className="font-medium text-gray-900 flex items-center gap-1.5">
+                    {String(displayData.gradeYear ?? passenger?.gradeYear ?? "–")}
+                    {passenger && <DestBadge gradeYear={passenger.gradeYear} />}
+                  </span>
+                </div>
+                {!!displayData.studentNumber && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Schülernummer</span>
+                    <span className="font-medium text-gray-900">{String(displayData.studentNumber)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Referenz</span>
+                  <span className="font-mono text-xs text-gray-700">{String(displayData.referenceNumber ?? passenger?.referenceNumber ?? "–")}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Status</span>
+                  <span className="font-medium text-gray-900">{STATUS_LABELS[String(displayData.status ?? "")] ?? String(displayData.status ?? "–")}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Routen */}
+            <div className="space-y-2" aria-label="routen">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Routen</p>
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Hinfahrt</span>
+                  <span className="font-medium text-gray-900">{ROUTE_LABELS[String(displayData.outboundRoute ?? "")] ?? String(displayData.outboundRoute ?? "–")}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Rückfahrt</span>
+                  <span className="font-medium text-gray-900">{ROUTE_LABELS[String(displayData.returnRoute ?? "")] ?? String(displayData.returnRoute ?? "–")}</span>
+                </div>
+                {!isSibling && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Tarifstufe</span>
+                    <span className="font-medium text-gray-900">{TARIFF_LABELS[String(data?.tariffZone ?? "")] ?? String(data?.tariffZone ?? "–")}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Adresse (nur Hauptbuchung) */}
+            {!isSibling && !!(data?.pickupAddress || data?.pickupCity) && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Abholadresse</p>
+                <p className="text-sm text-gray-800">
+                  {[data.pickupAddress, data.pickupPostalCode, data.pickupCity].filter(Boolean).join(", ")}
+                </p>
+              </div>
+            )}
+
+            {/* Eltern (nur Hauptbuchung) */}
+            {!isSibling && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Erziehungsberechtigte</p>
+                <div className="space-y-1.5">
+                  {!!data?.parentName && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Name</span>
+                      <span className="font-medium text-gray-900">{String(data.parentName)}</span>
+                    </div>
+                  )}
+                  {!!data?.parentEmail && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">E-Mail</span>
+                      <a href={`mailto:${data.parentEmail}`} className="font-medium text-[#004289] hover:underline text-right break-all">{String(data.parentEmail)}</a>
+                    </div>
+                  )}
+                  {!!data?.parentPhone && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Telefon</span>
+                      <a href={`tel:${data.parentPhone}`} className="font-medium text-[#004289] hover:underline">{String(data.parentPhone)}</a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Geschwister-Info: Elterndaten aus Hauptbuchung */}
+            {isSibling && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Erziehungsberechtigte</p>
+                <div className="space-y-1.5">
+                  {!!data?.parentName && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Name</span>
+                      <span className="font-medium text-gray-900">{String(data.parentName)}</span>
+                    </div>
+                  )}
+                  {!!data?.parentEmail && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">E-Mail</span>
+                      <a href={`mailto:${data.parentEmail}`} className="font-medium text-[#004289] hover:underline text-right break-all">{String(data.parentEmail)}</a>
+                    </div>
+                  )}
+                  {!!data?.parentPhone && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Telefon</span>
+                      <a href={`tel:${data.parentPhone}`} className="font-medium text-[#004289] hover:underline">{String(data.parentPhone)}</a>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Link zur Buchung */}
+            <div className="pt-2 border-t border-gray-100">
+              <Link href={`/admin/bookings/${passenger?.bookingId}`}>
+                <Button variant="outline" size="sm" className="w-full gap-2 text-[#004289] border-[#004289]/30 hover:bg-[#004289]/5">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Zur vollständigen Buchung
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 // ── Bus Drop Zone ───────────────────────────────────────────────────────────────
 
 function BusDropZone({
@@ -325,12 +520,14 @@ function BusCard({
   onRemove,
   onDelete,
   removingKey,
+  onSelect,
 }: {
   bus: BusWithAssignments;
   overBusId: number | null;
   onRemove: (passenger: Passenger) => void;
   onDelete: () => void;
   removingKey: string | null;
+  onSelect: (p: Passenger) => void;
 }) {
   const [editingName, setEditingName] = useState(false);
   const [nameVal, setNameVal] = useState(bus.name);
@@ -451,6 +648,7 @@ function BusCard({
                   source={String(bus.id)}
                   onRemove={() => onRemove(p)}
                   removing={removingKey === `${p.type}-${p.id}`}
+                  onSelect={onSelect}
                 />
               ))}
               {/* Ghost drop target when bus has items */}
@@ -483,7 +681,7 @@ function BusCard({
 
 // ── Unassigned Pool ─────────────────────────────────────────────────────────────
 
-function UnassignedPool({ passengers }: { passengers: Passenger[] }) {
+function UnassignedPool({ passengers, onSelect }: { passengers: Passenger[]; onSelect: (p: Passenger) => void }) {
   const { setNodeRef, isOver } = useDroppable({ id: "pool" });
 
   if (passengers.length === 0) return null;
@@ -505,6 +703,7 @@ function UnassignedPool({ passengers }: { passengers: Passenger[] }) {
             key={`${p.type}-${p.id}`}
             passenger={p}
             source="pool"
+            onSelect={onSelect}
           />
         ))}
       </div>
@@ -514,7 +713,7 @@ function UnassignedPool({ passengers }: { passengers: Passenger[] }) {
 
 // ── Waitlist Bus Card ────────────────────────────────────────────────────────────
 
-function WaitlistBusCard({ bus }: { bus: BusWithAssignments }) {
+function WaitlistBusCard({ bus, onSelect }: { bus: BusWithAssignments; onSelect: (p: Passenger) => void }) {
   const [, navigate] = useLocation();
 
   return (
@@ -539,10 +738,11 @@ function WaitlistBusCard({ bus }: { bus: BusWithAssignments }) {
             {bus.assignments.map(p => (
               <div
                 key={`${p.type}-${p.id}`}
-                className={`flex items-center gap-2 rounded border py-2 px-3 select-none
+                onClick={() => onSelect(p)}
+                className={`flex items-center gap-2 rounded border py-2 px-3 select-none cursor-pointer
                   ${p.type === "sibling"
-                    ? "bg-blue-50 border-blue-100"
-                    : "bg-white border-amber-100"}`}
+                    ? "bg-blue-50 border-blue-100 hover:border-blue-300"
+                    : "bg-white border-amber-100 hover:border-amber-300"}`}
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
@@ -583,6 +783,7 @@ export default function AdminBuses() {
   const [activePassenger, setActivePassenger] = useState<Passenger | null>(null);
   const [overBusId, setOverBusId] = useState<number | null>(null);
   const [removingKey, setRemovingKey] = useState<string | null>(null);
+  const [selectedPassenger, setSelectedPassenger] = useState<Passenger | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -805,7 +1006,7 @@ export default function AdminBuses() {
           {/* Warteliste Bus Card */}
           {waitlistBus && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <WaitlistBusCard bus={waitlistBus} />
+              <WaitlistBusCard bus={waitlistBus} onSelect={setSelectedPassenger} />
             </div>
           )}
 
@@ -819,18 +1020,25 @@ export default function AdminBuses() {
                 onRemove={(passenger) => handleRemove(bus, passenger)}
                 onDelete={() => deleteMutation.mutate(bus.id)}
                 removingKey={removingKey}
+                onSelect={setSelectedPassenger}
               />
             ))}
           </div>
 
           {/* Unassigned pool */}
-          <UnassignedPool passengers={data.unassigned} />
+          <UnassignedPool passengers={data.unassigned} onSelect={setSelectedPassenger} />
         </div>
 
         {/* Drag overlay */}
         <DragOverlay dropAnimation={null}>
           {activePassenger && <PassengerGhost passenger={activePassenger} />}
         </DragOverlay>
+
+        {/* Passenger detail sheet */}
+        <PassengerDetailSheet
+          passenger={selectedPassenger}
+          onClose={() => setSelectedPassenger(null)}
+        />
       </DndContext>
     </AdminLayout>
   );
