@@ -97,6 +97,7 @@ export const listAdminBookingsQueryPageDefault = 1;
 export const listAdminBookingsQueryLimitDefault = 50;
 
 export const ListAdminBookingsQueryParams = zod.object({
+  "search": zod.coerce.string().nullish(),
   "tariffZone": zod.coerce.string().nullish(),
   "bookingType": zod.coerce.string().nullish(),
   "status": zod.coerce.string().nullish(),

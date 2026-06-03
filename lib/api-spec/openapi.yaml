@@ -109,6 +109,10 @@ paths:
       tags: [admin]
       summary: List all bookings (admin)
       parameters:
+        - name: search
+          in: query
+          schema:
+            type: ["string", "null"]
         - name: tariffZone
           in: query
           schema:
