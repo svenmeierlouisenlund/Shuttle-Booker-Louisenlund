@@ -305,6 +305,10 @@ export const GetAdminStatsResponse = zod.object({
   "byBookingType": zod.record(zod.string(), zod.number()),
   "byGradeYear": zod.record(zod.string(), zod.number()),
   "totalChildren": zod.number(),
+  "totalRevenueCents": zod.number(),
+  "freeSeats": zod.number(),
+  "waitlistCount": zod.number(),
+  "byCity": zod.record(zod.string(), zod.number()),
   "recentBookings": zod.array(zod.object({
   "id": zod.number(),
   "referenceNumber": zod.string(),

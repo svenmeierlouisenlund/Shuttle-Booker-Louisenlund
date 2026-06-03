@@ -141,6 +141,60 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
   const [siblingCount] = await db.select({ total: count() }).from(siblingsTable);
   const totalChildren = total + Number(siblingCount?.total ?? 0);
 
+  // Total revenue: sum priceCents from bookings + siblings
+  const [revenueBookings] = await db
+    .select({ total: sql<number>`COALESCE(SUM(price_cents), 0)` })
+    .from(bookingsTable);
+  const [revenueSiblings] = await db
+    .select({ total: sql<number>`COALESCE(SUM(price_cents), 0)` })
+    .from(siblingsTable);
+  const totalRevenueCents =
+    Number(revenueBookings?.total ?? 0) + Number(revenueSiblings?.total ?? 0);
+
+  // Free seats: total capacity of non-waitlist buses minus assigned children
+  const busCapRows = await db
+    .select({ cap: sql<number>`COALESCE(SUM(capacity), 0)` })
+    .from(busesTable)
+    .where(eq(busesTable.isWaitlistBus, false));
+  const totalCapacity = Number(busCapRows[0]?.cap ?? 0);
+
+  const [assignedMain] = await db
+    .select({ cnt: count() })
+    .from(busAssignmentsTable)
+    .innerJoin(busesTable, eq(busAssignmentsTable.busId, busesTable.id))
+    .where(eq(busesTable.isWaitlistBus, false));
+  const [assignedSib] = await db
+    .select({ cnt: count() })
+    .from(siblingBusAssignmentsTable)
+    .innerJoin(busesTable, eq(siblingBusAssignmentsTable.busId, busesTable.id))
+    .where(eq(busesTable.isWaitlistBus, false));
+  const freeSeats =
+    totalCapacity -
+    Number(assignedMain?.cnt ?? 0) -
+    Number(assignedSib?.cnt ?? 0);
+
+  // Waitlist count: bookings + siblings with status = 'waitlisted'
+  const [waitMain] = await db
+    .select({ cnt: count() })
+    .from(bookingsTable)
+    .where(eq(bookingsTable.status, "waitlisted"));
+  const [waitSib] = await db
+    .select({ cnt: count() })
+    .from(siblingsTable)
+    .where(eq(siblingsTable.status, "waitlisted"));
+  const waitlistCount = Number(waitMain?.cnt ?? 0) + Number(waitSib?.cnt ?? 0);
+
+  // City distribution
+  const byCityRows = await db
+    .select({ city: bookingsTable.childCity, cnt: count() })
+    .from(bookingsTable)
+    .groupBy(bookingsTable.childCity)
+    .orderBy(desc(count()));
+  const byCity: Record<string, number> = {};
+  for (const r of byCityRows) {
+    if (r.city) byCity[r.city] = Number(r.cnt);
+  }
+
   const recentRows = await db
     .select()
     .from(bookingsTable)
@@ -182,6 +236,10 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
     byBookingType,
     byGradeYear,
     totalChildren,
+    totalRevenueCents,
+    freeSeats,
+    waitlistCount,
+    byCity,
     recentBookings,
   });
 });

@@ -284,6 +284,8 @@ export type AdminStatsByBookingType = {[key: string]: number};
 
 export type AdminStatsByGradeYear = {[key: string]: number};
 
+export type AdminStatsByCity = {[key: string]: number};
+
 export interface AdminStats {
   totalBookings: number;
   byStatus: AdminStatsByStatus;
@@ -291,6 +293,10 @@ export interface AdminStats {
   byBookingType: AdminStatsByBookingType;
   byGradeYear: AdminStatsByGradeYear;
   totalChildren: number;
+  totalRevenueCents: number;
+  freeSeats: number;
+  waitlistCount: number;
+  byCity: AdminStatsByCity;
   recentBookings: AdminBooking[];
 }
 
