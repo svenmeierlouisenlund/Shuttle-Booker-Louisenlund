@@ -559,7 +559,7 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
     // Sibling rows
     for (const s of siblingsByBooking[b.id] ?? []) {
       dataRows.push([
-        b.referenceNumber,
+        s.referenceNumber,
         "Geschwister",
         s.childName,
         b.childAddress,
@@ -575,7 +575,7 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
         zoneLabels[s.outboundRoute] ?? s.outboundRoute,
         zoneLabels[s.returnRoute] ?? s.returnRoute,
         s.priceCents != null ? s.priceCents / 100 : "",
-        statusLabels[b.status] ?? b.status,
+        statusLabels[s.status] ?? s.status,
         b.adminNotes ?? "",
         b.createdAt.toLocaleDateString("de-DE"),
       ]);
@@ -765,6 +765,7 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
     childAddress: b.childAddress,
     childPostalCode: b.childPostalCode ?? "",
     childCity: b.childCity ?? "",
+    studentNumber: b.studentNumber ?? null,
     gradeYear: b.gradeYear,
     parentName: b.parentName,
     parentEmail: b.parentEmail,

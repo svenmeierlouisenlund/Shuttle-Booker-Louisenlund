@@ -117,6 +117,8 @@ export interface AdminBooking {
   childAddress: string;
   childPostalCode: string;
   childCity: string;
+  /** @nullable */
+  studentNumber?: string | null;
   gradeYear: string;
   parentName: string;
   parentEmail: string;
