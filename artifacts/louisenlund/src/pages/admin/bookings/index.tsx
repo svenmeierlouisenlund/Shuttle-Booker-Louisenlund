@@ -276,18 +276,9 @@ export default function AdminBookingsList() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Alle Klassen</SelectItem>
-                  <SelectItem value="Jahrgang 1">Jahrgang 1</SelectItem>
-                  <SelectItem value="Jahrgang 2">Jahrgang 2</SelectItem>
-                  <SelectItem value="Jahrgang 3">Jahrgang 3</SelectItem>
-                  <SelectItem value="Jahrgang 4">Jahrgang 4</SelectItem>
-                  <SelectItem value="Jahrgang 5">Jahrgang 5</SelectItem>
-                  <SelectItem value="Jahrgang 6">Jahrgang 6</SelectItem>
-                  <SelectItem value="Jahrgang 7">Jahrgang 7</SelectItem>
-                  <SelectItem value="Jahrgang 8">Jahrgang 8</SelectItem>
-                  <SelectItem value="Jahrgang 9">Jahrgang 9</SelectItem>
-                  <SelectItem value="MYP5">MYP5</SelectItem>
-                  <SelectItem value="DP1">DP1</SelectItem>
-                  <SelectItem value="DP2">DP2</SelectItem>
+                  {["Jahrgang 1","Jahrgang 2","Jahrgang 3","Jahrgang 4","Jahrgang 5","Jahrgang 6","Jahrgang 7","Jahrgang 8","Jahrgang 9","Jahrgang 10","E-Jahrgang","Q1-Jahrgang","Q2-Jahrgang","MYP3","MYP4","MYP5","DP1","DP2"].map(g => (
+                    <SelectItem key={g} value={g}>{g}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
