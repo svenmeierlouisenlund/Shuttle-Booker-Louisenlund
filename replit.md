@@ -34,8 +34,11 @@ Buchungsportal für den Regionalshuttle der Stiftung Louisenlund für das Schulj
 
 ## Architecture decisions
 
-- Cookie-based admin auth (httpOnly session cookie, password stored in env var `ADMIN_PASSWORD`)
-- Admin default password: `louisenlund2026` — change via `ADMIN_PASSWORD` env var in production
+- Cookie-based admin auth: httpOnly session cookie → UUID token → in-memory sessions Map (`SessionData: {userId, username, role}`)
+- User accounts stored in `admin_users` table; default "admin" user seeded on startup from `ADMIN_PASSWORD` env var
+- Password hashing: PBKDF2-SHA512 via Node built-in `crypto`, format `salt:hash` (32 hex chars salt, 128 hex chars hash)
+- Roles: `admin` | `buchhaltung` | `schulbuero` | `fahrer` — only `admin` role can access user management
+- `verify-password` route checks current session user's password (used by pricing confirmation dialog)
 - CSV export uses BOM (UTF-8 with BOM) for proper Excel compatibility with German umlauts
 - Siblings stored in a separate `siblings` table linked to bookings via foreign key with CASCADE delete
 - Reference numbers format: `LL-YYYY-NNNNN` (e.g. `LL-2026-42387`)
@@ -47,6 +50,7 @@ Buchungsportal für den Regionalshuttle der Stiftung Louisenlund für das Schulj
 - Booking statuses: Eingegangen / Geprüft / Bestätigt / Rückfrage offen
 - 20% sibling discount (informational, displayed to user)
 - Supports up to 3 siblings per booking
+- User management (admin only): create/edit/deactivate/delete users with role assignment, shown in Einstellungen
 
 ## User preferences
 

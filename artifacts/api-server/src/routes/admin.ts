@@ -1,12 +1,15 @@
+import crypto from "node:crypto";
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
-import { bookingsTable, siblingsTable, notificationEmailsTable, smtpConfigTable, pricingConfigTable, busesTable, busAssignmentsTable, siblingBusAssignmentsTable } from "@workspace/db";
+import { bookingsTable, siblingsTable, notificationEmailsTable, smtpConfigTable, pricingConfigTable, busesTable, busAssignmentsTable, siblingBusAssignmentsTable, adminUsersTable } from "@workspace/db";
 import {
   ListAdminBookingsQueryParams,
   UpdateAdminBookingBody,
   AdminLoginBody,
   ExportBookingsQueryParams,
   AddNotificationEmailBody,
+  CreateAdminUserBody,
+  UpdateAdminUserBody,
 } from "@workspace/api-zod";
 import { eq, and, count, sum, desc, sql, inArray, or, ne } from "drizzle-orm";
 import ExcelJS from "exceljs";
@@ -33,14 +36,74 @@ router.use((_req, res, next) => {
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "louisenlund2026";
 const SESSION_TOKEN = "admin_session";
 
-function requireAuth(req: Request, res: Response, next: NextFunction): void {
+// ── Password hashing (PBKDF2-SHA512) ──────────────────────────────────────────
+
+function hashPassword(password: string, salt: string): string {
+  return crypto.pbkdf2Sync(password, salt, 100_000, 64, "sha512").toString("hex");
+}
+
+function verifyPassword(password: string, storedHash: string): boolean {
+  const [salt, hash] = storedHash.split(":");
+  if (!salt || !hash) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(hashPassword(password, salt)), Buffer.from(hash));
+  } catch {
+    return false;
+  }
+}
+
+function makePasswordHash(password: string): string {
+  const salt = crypto.randomBytes(16).toString("hex");
+  return `${salt}:${hashPassword(password, salt)}`;
+}
+
+// ── In-memory session store ────────────────────────────────────────────────────
+
+interface SessionData { userId: number; username: string; role: string; }
+const sessions = new Map<string, SessionData>();
+
+function getSession(req: Request): SessionData | undefined {
   const token = req.cookies?.[SESSION_TOKEN];
-  if (token !== "authenticated") {
+  return token ? sessions.get(token) : undefined;
+}
+
+function requireAuth(req: Request, res: Response, next: NextFunction): void {
+  if (!getSession(req)) {
     res.status(401).json({ error: "Nicht angemeldet" });
     return;
   }
   next();
 }
+
+function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  const session = getSession(req);
+  if (!session || session.role !== "admin") {
+    res.status(403).json({ error: "Keine Berechtigung" });
+    return;
+  }
+  next();
+}
+
+// ── Seed default admin on startup ─────────────────────────────────────────────
+
+async function seedAdminUser(): Promise<void> {
+  try {
+    const existing = await db.select({ id: adminUsersTable.id }).from(adminUsersTable).limit(1);
+    if (existing.length === 0) {
+      await db.insert(adminUsersTable).values({
+        username: "admin",
+        passwordHash: makePasswordHash(ADMIN_PASSWORD),
+        role: "admin",
+        isActive: true,
+      });
+    }
+  } catch (err) {
+    // Non-fatal — DB may not be ready yet
+    console.error("[auth] Seed failed:", err);
+  }
+}
+
+seedAdminUser();
 
 const zoneLabels: Record<string, string> = {
   zone1: "Tarifzone 1",
@@ -60,50 +123,143 @@ const statusLabels: Record<string, string> = {
   waitlisted: "Warteliste",
 };
 
-router.post("/admin/verify-password", requireAuth, (req, res) => {
+router.post("/admin/verify-password", requireAuth, async (req, res) => {
   const parsed = AdminLoginBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Ungültige Eingabe" });
     return;
   }
-  if (parsed.data.password !== ADMIN_PASSWORD) {
+  const session = getSession(req)!;
+  const [user] = await db.select()
+    .from(adminUsersTable)
+    .where(eq(adminUsersTable.id, session.userId))
+    .limit(1);
+  if (!user || !verifyPassword(parsed.data.password, user.passwordHash)) {
     res.status(401).json({ error: "Falsches Passwort" });
     return;
   }
   res.json({ verified: true });
 });
 
-router.post("/admin/login", (req, res) => {
+router.post("/admin/login", async (req, res) => {
   const parsed = AdminLoginBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Ungültige Eingabe" });
     return;
   }
-  if (parsed.data.password !== ADMIN_PASSWORD) {
-    res.status(401).json({ error: "Falsches Passwort" });
+  const { username = "admin", password } = parsed.data;
+  const [user] = await db.select()
+    .from(adminUsersTable)
+    .where(eq(adminUsersTable.username, username))
+    .limit(1);
+  if (!user || !user.isActive || !verifyPassword(password, user.passwordHash)) {
+    res.status(401).json({ error: "Benutzername oder Passwort falsch" });
     return;
   }
-  res.cookie(SESSION_TOKEN, "authenticated", {
+  const token = crypto.randomUUID();
+  sessions.set(token, { userId: user.id, username: user.username, role: user.role });
+  res.cookie(SESSION_TOKEN, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     maxAge: 24 * 60 * 60 * 1000,
   });
-  res.json({ authenticated: true, username: "Administrator" });
+  res.json({ authenticated: true, username: user.username, role: user.role });
 });
 
 router.post("/admin/logout", (req, res) => {
+  const token = req.cookies?.[SESSION_TOKEN];
+  if (token) sessions.delete(token);
   res.clearCookie(SESSION_TOKEN);
   res.json({ authenticated: false });
 });
 
 router.get("/admin/me", (req, res) => {
-  const token = req.cookies?.[SESSION_TOKEN];
-  if (token === "authenticated") {
-    res.json({ authenticated: true, username: "Administrator" });
+  const session = getSession(req);
+  if (session) {
+    res.json({ authenticated: true, username: session.username, role: session.role });
   } else {
     res.status(401).json({ authenticated: false });
   }
+});
+
+// ── User management ────────────────────────────────────────────────────────────
+
+router.get("/admin/users", requireAuth, requireAdmin, async (_req, res) => {
+  const users = await db.select({
+    id: adminUsersTable.id,
+    username: adminUsersTable.username,
+    role: adminUsersTable.role,
+    isActive: adminUsersTable.isActive,
+    createdAt: adminUsersTable.createdAt,
+  }).from(adminUsersTable).orderBy(adminUsersTable.createdAt);
+  res.json({ users });
+});
+
+router.post("/admin/users", requireAuth, requireAdmin, async (req, res) => {
+  const parsed = CreateAdminUserBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Ungültige Eingabe" });
+    return;
+  }
+  const { username, password, role } = parsed.data;
+  const [existing] = await db.select({ id: adminUsersTable.id })
+    .from(adminUsersTable).where(eq(adminUsersTable.username, username)).limit(1);
+  if (existing) {
+    res.status(409).json({ error: "Benutzername bereits vergeben" });
+    return;
+  }
+  const [user] = await db.insert(adminUsersTable).values({
+    username,
+    passwordHash: makePasswordHash(password),
+    role: role as "admin" | "buchhaltung" | "schulbuero" | "fahrer",
+    isActive: true,
+  }).returning({
+    id: adminUsersTable.id,
+    username: adminUsersTable.username,
+    role: adminUsersTable.role,
+    isActive: adminUsersTable.isActive,
+    createdAt: adminUsersTable.createdAt,
+  });
+  res.status(201).json(user);
+});
+
+router.put("/admin/users/:userId", requireAuth, requireAdmin, async (req, res) => {
+  const userId = parseInt(String(req.params.userId), 10);
+  if (isNaN(userId)) { res.status(400).json({ error: "Ungültige ID" }); return; }
+  const parsed = UpdateAdminUserBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Ungültige Eingabe" }); return; }
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (parsed.data.role !== undefined) updates.role = parsed.data.role;
+  if (parsed.data.isActive !== undefined) updates.isActive = parsed.data.isActive;
+  if (parsed.data.password) updates.passwordHash = makePasswordHash(parsed.data.password);
+  const [user] = await db.update(adminUsersTable)
+    .set(updates as Parameters<ReturnType<typeof db.update>["set"]>[0])
+    .where(eq(adminUsersTable.id, userId))
+    .returning({
+      id: adminUsersTable.id,
+      username: adminUsersTable.username,
+      role: adminUsersTable.role,
+      isActive: adminUsersTable.isActive,
+      createdAt: adminUsersTable.createdAt,
+    });
+  if (!user) { res.status(404).json({ error: "Benutzer nicht gefunden" }); return; }
+  res.json(user);
+});
+
+router.delete("/admin/users/:userId", requireAuth, requireAdmin, async (req, res) => {
+  const userId = parseInt(String(req.params.userId), 10);
+  if (isNaN(userId)) { res.status(400).json({ error: "Ungültige ID" }); return; }
+  const session = getSession(req)!;
+  if (session.userId === userId) {
+    res.status(400).json({ error: "Sie können sich nicht selbst löschen" });
+    return;
+  }
+  const [deleted] = await db.delete(adminUsersTable)
+    .where(eq(adminUsersTable.id, userId))
+    .returning({ id: adminUsersTable.id });
+  if (!deleted) { res.status(404).json({ error: "Benutzer nicht gefunden" }); return; }
+  res.json({ deleted: true });
 });
 
 router.get("/admin/stats", requireAuth, async (req, res) => {
@@ -1572,7 +1728,7 @@ router.get("/admin/buses", requireAuth, async (req, res) => {
 
   const unassignedBookings: Passenger[] = allNonWaitlisted
     .filter(b => !assignedBookingIds.has(b.id))
-    .map(b => ({ type: "booking" as const, id: b.id, bookingId: b.id, ...b }));
+    .map(b => ({ ...b, type: "booking" as const, bookingId: b.id }));
 
   // Unassigned siblings: sibling not waitlisted, parent not waitlisted, not already on a bus
   const allNonWaitlistedSiblings = await db
@@ -1598,7 +1754,7 @@ router.get("/admin/buses", requireAuth, async (req, res) => {
 
 // GET /admin/buses/:busId — detail view with full passenger addresses
 router.get("/admin/buses/:busId", requireAuth, async (req, res) => {
-  const busId = parseInt(req.params.busId, 10);
+  const busId = parseInt(String(req.params.busId), 10);
   if (isNaN(busId)) { res.status(400).json({ error: "Ungültige Bus-ID" }); return; }
 
   const [bus] = await db.select().from(busesTable).where(eq(busesTable.id, busId)).limit(1);
@@ -1679,7 +1835,7 @@ router.post("/admin/buses", requireAuth, async (req, res) => {
 });
 
 router.delete("/admin/buses/:busId", requireAuth, async (req, res) => {
-  const busId = parseInt(req.params.busId, 10);
+  const busId = parseInt(String(req.params.busId), 10);
   if (isNaN(busId)) { res.status(400).json({ error: "Ungültige Bus-ID" }); return; }
   const [bus] = await db.select().from(busesTable).where(eq(busesTable.id, busId)).limit(1);
   if (!bus) { res.status(404).json({ error: "Bus nicht gefunden" }); return; }
@@ -1689,7 +1845,7 @@ router.delete("/admin/buses/:busId", requireAuth, async (req, res) => {
 });
 
 router.put("/admin/buses/:busId", requireAuth, async (req, res) => {
-  const busId = parseInt(req.params.busId, 10);
+  const busId = parseInt(String(req.params.busId), 10);
   if (isNaN(busId)) { res.status(400).json({ error: "Ungültige Bus-ID" }); return; }
 
   const { name, capacity, notes, driverName, driverPhone } = req.body as {
@@ -1714,7 +1870,7 @@ router.put("/admin/buses/:busId", requireAuth, async (req, res) => {
 });
 
 router.post("/admin/buses/:busId/assign", requireAuth, async (req, res) => {
-  const busId = parseInt(req.params.busId, 10);
+  const busId = parseInt(String(req.params.busId), 10);
   const { type, id } = req.body as { type?: string; id?: unknown };
   const passengerId = parseInt(String(id), 10);
   if (isNaN(busId) || isNaN(passengerId) || (type !== "booking" && type !== "sibling")) {
@@ -1753,8 +1909,8 @@ router.post("/admin/buses/:busId/assign", requireAuth, async (req, res) => {
 });
 
 router.delete("/admin/buses/:busId/assign/booking/:bookingId", requireAuth, async (req, res) => {
-  const busId = parseInt(req.params.busId, 10);
-  const bookingId = parseInt(req.params.bookingId, 10);
+  const busId = parseInt(String(req.params.busId), 10);
+  const bookingId = parseInt(String(req.params.bookingId), 10);
   if (isNaN(busId) || isNaN(bookingId)) { res.status(400).json({ error: "Ungültige Parameter" }); return; }
   await db.delete(busAssignmentsTable).where(and(eq(busAssignmentsTable.busId, busId), eq(busAssignmentsTable.bookingId, bookingId)));
   req.log.info({ busId, bookingId }, "Booking removed from bus");
@@ -1762,8 +1918,8 @@ router.delete("/admin/buses/:busId/assign/booking/:bookingId", requireAuth, asyn
 });
 
 router.delete("/admin/buses/:busId/assign/sibling/:siblingId", requireAuth, async (req, res) => {
-  const busId = parseInt(req.params.busId, 10);
-  const siblingId = parseInt(req.params.siblingId, 10);
+  const busId = parseInt(String(req.params.busId), 10);
+  const siblingId = parseInt(String(req.params.siblingId), 10);
   if (isNaN(busId) || isNaN(siblingId)) { res.status(400).json({ error: "Ungültige Parameter" }); return; }
   await db.delete(siblingBusAssignmentsTable).where(and(eq(siblingBusAssignmentsTable.busId, busId), eq(siblingBusAssignmentsTable.siblingId, siblingId)));
   req.log.info({ busId, siblingId }, "Sibling removed from bus");

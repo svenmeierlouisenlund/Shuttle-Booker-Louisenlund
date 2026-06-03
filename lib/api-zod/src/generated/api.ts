@@ -360,12 +360,14 @@ export const GetAdminStatsResponse = zod.object({
  * @summary Admin login
  */
 export const AdminLoginBody = zod.object({
+  "username": zod.string().optional(),
   "password": zod.string()
 })
 
 export const AdminLoginResponse = zod.object({
   "authenticated": zod.boolean(),
-  "username": zod.string().nullish()
+  "username": zod.string().nullish(),
+  "role": zod.string().nullish()
 })
 
 
@@ -374,7 +376,62 @@ export const AdminLoginResponse = zod.object({
  */
 export const GetAdminMeResponse = zod.object({
   "authenticated": zod.boolean(),
-  "username": zod.string().nullish()
+  "username": zod.string().nullish(),
+  "role": zod.string().nullish()
+})
+
+
+/**
+ * @summary List admin users
+ */
+export const ListAdminUsersResponse = zod.object({
+  "users": zod.array(zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "role": zod.enum(['admin', 'buchhaltung', 'schulbuero', 'fahrer']),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Create admin user
+ */
+export const CreateAdminUserBody = zod.object({
+  "username": zod.string(),
+  "password": zod.string(),
+  "role": zod.enum(['admin', 'buchhaltung', 'schulbuero', 'fahrer'])
+})
+
+
+/**
+ * @summary Update admin user
+ */
+export const UpdateAdminUserParams = zod.object({
+  "userId": zod.coerce.number()
+})
+
+export const UpdateAdminUserBody = zod.object({
+  "role": zod.enum(['admin', 'buchhaltung', 'schulbuero', 'fahrer']).optional(),
+  "password": zod.string().optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateAdminUserResponse = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "role": zod.enum(['admin', 'buchhaltung', 'schulbuero', 'fahrer']),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete admin user
+ */
+export const DeleteAdminUserParams = zod.object({
+  "userId": zod.coerce.number()
 })
 
 

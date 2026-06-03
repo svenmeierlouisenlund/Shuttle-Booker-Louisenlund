@@ -380,6 +380,7 @@ export interface DeleteBookingResponse {
 }
 
 export interface AdminCredentials {
+  username?: string;
   password: string;
 }
 
@@ -387,6 +388,62 @@ export interface AdminSession {
   authenticated: boolean;
   /** @nullable */
   username?: string | null;
+  /** @nullable */
+  role?: string | null;
+}
+
+export type AdminUserRole = typeof AdminUserRole[keyof typeof AdminUserRole];
+
+
+export const AdminUserRole = {
+  admin: 'admin',
+  buchhaltung: 'buchhaltung',
+  schulbuero: 'schulbuero',
+  fahrer: 'fahrer',
+} as const;
+
+export interface AdminUser {
+  id: number;
+  username: string;
+  role: AdminUserRole;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface AdminUserList {
+  users: AdminUser[];
+}
+
+export type NewAdminUserRole = typeof NewAdminUserRole[keyof typeof NewAdminUserRole];
+
+
+export const NewAdminUserRole = {
+  admin: 'admin',
+  buchhaltung: 'buchhaltung',
+  schulbuero: 'schulbuero',
+  fahrer: 'fahrer',
+} as const;
+
+export interface NewAdminUser {
+  username: string;
+  password: string;
+  role: NewAdminUserRole;
+}
+
+export type AdminUserUpdateRole = typeof AdminUserUpdateRole[keyof typeof AdminUserUpdateRole];
+
+
+export const AdminUserUpdateRole = {
+  admin: 'admin',
+  buchhaltung: 'buchhaltung',
+  schulbuero: 'schulbuero',
+  fahrer: 'fahrer',
+} as const;
+
+export interface AdminUserUpdate {
+  role?: AdminUserUpdateRole;
+  password?: string;
+  isActive?: boolean;
 }
 
 export interface SmtpConfig {

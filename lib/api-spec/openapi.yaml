@@ -310,6 +310,90 @@ paths:
         "401":
           description: Not authenticated
 
+  /admin/users:
+    get:
+      operationId: listAdminUsers
+      tags: [admin]
+      summary: List admin users
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUserList"
+        "401":
+          description: Unauthorized
+    post:
+      operationId: createAdminUser
+      tags: [admin]
+      summary: Create admin user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewAdminUser"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "400":
+          description: Validation error
+        "409":
+          description: Username already exists
+        "401":
+          description: Unauthorized
+
+  /admin/users/{userId}:
+    put:
+      operationId: updateAdminUser
+      tags: [admin]
+      summary: Update admin user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUserUpdate"
+      responses:
+        "200":
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+        "404":
+          description: User not found
+        "401":
+          description: Unauthorized
+    delete:
+      operationId: deleteAdminUser
+      tags: [admin]
+      summary: Delete admin user
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User deleted
+        "404":
+          description: User not found
+        "401":
+          description: Unauthorized
+
   /admin/notification-emails:
     get:
       operationId: listNotificationEmails
@@ -958,6 +1042,8 @@ components:
       required:
         - password
       properties:
+        username:
+          type: string
         password:
           type: string
 
@@ -970,6 +1056,66 @@ components:
           type: boolean
         username:
           type: ["string", "null"]
+        role:
+          type: ["string", "null"]
+
+    AdminUser:
+      type: object
+      required:
+        - id
+        - username
+        - role
+        - isActive
+        - createdAt
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        role:
+          type: string
+          enum: [admin, buchhaltung, schulbuero, fahrer]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    AdminUserList:
+      type: object
+      required:
+        - users
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminUser"
+
+    NewAdminUser:
+      type: object
+      required:
+        - username
+        - password
+        - role
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [admin, buchhaltung, schulbuero, fahrer]
+
+    AdminUserUpdate:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [admin, buchhaltung, schulbuero, fahrer]
+        password:
+          type: string
+        isActive:
+          type: boolean
 
     SmtpConfig:
       type: object

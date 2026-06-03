@@ -10,4 +10,6 @@ export interface AdminSession {
   authenticated: boolean;
   /** @nullable */
   username?: string | null;
+  /** @nullable */
+  role?: string | null;
 }

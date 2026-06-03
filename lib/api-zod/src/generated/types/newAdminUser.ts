@@ -5,8 +5,10 @@
  * Regionalshuttle Buchungssystem - Stiftung Louisenlund
  * OpenAPI spec version: 0.1.0
  */
+import type { NewAdminUserRole } from './newAdminUserRole';
 
-export interface AdminCredentials {
-  username?: string;
+export interface NewAdminUser {
+  username: string;
   password: string;
+  role: NewAdminUserRole;
 }

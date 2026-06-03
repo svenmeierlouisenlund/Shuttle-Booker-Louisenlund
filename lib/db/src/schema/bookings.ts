@@ -152,6 +152,25 @@ export type Bus = typeof busesTable.$inferSelect;
 export type BusAssignment = typeof busAssignmentsTable.$inferSelect;
 export type SiblingBusAssignment = typeof siblingBusAssignmentsTable.$inferSelect;
 
+export const userRoleEnum = pgEnum("user_role", [
+  "admin",
+  "buchhaltung",
+  "schulbuero",
+  "fahrer",
+]);
+
+export const adminUsersTable = pgTable("admin_users", {
+  id: serial("id").primaryKey(),
+  username: text("username").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  role: userRoleEnum("role").notNull().default("schulbuero"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type AdminUser = typeof adminUsersTable.$inferSelect;
+
 export const smtpConfigTable = pgTable("smtp_config", {
   id: integer("id").primaryKey().default(1),
   host: text("host").notNull().default(""),
