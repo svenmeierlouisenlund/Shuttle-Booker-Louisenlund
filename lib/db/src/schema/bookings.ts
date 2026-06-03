@@ -64,6 +64,7 @@ export const bookingsTable = pgTable("bookings", {
   pickupAddress: text("pickup_address"),
   pickupPostalCode: text("pickup_postal_code"),
   pickupCity: text("pickup_city"),
+  pickupTariffZone: tariffZoneEnum("pickup_tariff_zone"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

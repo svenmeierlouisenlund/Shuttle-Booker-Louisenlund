@@ -184,6 +184,7 @@ export const GetAdminBookingResponse = zod.object({
   "pickupAddress": zod.string().nullish().describe('Alternative pickup location (if different from home address)'),
   "pickupPostalCode": zod.string().nullish(),
   "pickupCity": zod.string().nullish(),
+  "pickupTariffZone": zod.union([zod.literal('zone1'),zod.literal('zone2'),zod.literal('zone3'),zod.literal(null)]).nullish().describe('Tariff zone of the pickup location (if cheaper than home zone, used for pricing)'),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
   "referenceNumber": zod.string().nullish(),
@@ -236,6 +237,7 @@ export const UpdateAdminBookingBody = zod.object({
   "pickupAddress": zod.string().nullish(),
   "pickupPostalCode": zod.string().nullish(),
   "pickupCity": zod.string().nullish(),
+  "pickupTariffZone": zod.union([zod.literal('zone1'),zod.literal('zone2'),zod.literal('zone3'),zod.literal(null)]).nullish().describe('Tariff zone of the pickup location (overrides home zone for pricing if cheaper)'),
   "siblingUpdates": zod.array(zod.object({
   "id": zod.number(),
   "outboundRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']),
@@ -272,6 +274,7 @@ export const UpdateAdminBookingResponse = zod.object({
   "pickupAddress": zod.string().nullish().describe('Alternative pickup location (if different from home address)'),
   "pickupPostalCode": zod.string().nullish(),
   "pickupCity": zod.string().nullish(),
+  "pickupTariffZone": zod.union([zod.literal('zone1'),zod.literal('zone2'),zod.literal('zone3'),zod.literal(null)]).nullish().describe('Tariff zone of the pickup location (if cheaper than home zone, used for pricing)'),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
   "referenceNumber": zod.string().nullish(),

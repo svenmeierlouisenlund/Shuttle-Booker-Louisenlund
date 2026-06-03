@@ -126,6 +126,7 @@ interface EditFields {
   pickupAddress: string;
   pickupPostalCode: string;
   pickupCity: string;
+  pickupTariffZone: string;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -166,7 +167,7 @@ export default function AdminBookingDetail() {
     childPostalCode: "", childCity: "",
     parentName: "", parentEmail: "", parentPhone: "",
     tariffZone: "", bookingType: "", outboundRoute: "", returnRoute: "",
-    pickupAddress: "", pickupPostalCode: "", pickupCity: "",
+    pickupAddress: "", pickupPostalCode: "", pickupCity: "", pickupTariffZone: "",
   });
   const [pricingConfig, setPricingConfig] = useState<PricingConfigFlat | null>(null);
 
@@ -206,6 +207,7 @@ export default function AdminBookingDetail() {
         pickupAddress: (booking as any).pickupAddress || "",
         pickupPostalCode: (booking as any).pickupPostalCode || "",
         pickupCity: (booking as any).pickupCity || "",
+        pickupTariffZone: (booking as any).pickupTariffZone || "",
       });
       const sibMap: Record<number, { outboundRoute: string; returnRoute: string; studentNumber: string; status: string }> = {};
       for (const s of booking.siblings ?? []) {
@@ -234,6 +236,7 @@ export default function AdminBookingDetail() {
         pickupAddress: (booking as any).pickupAddress || "",
         pickupPostalCode: (booking as any).pickupPostalCode || "",
         pickupCity: (booking as any).pickupCity || "",
+        pickupTariffZone: (booking as any).pickupTariffZone || "",
       });
       const sibMap: Record<number, { outboundRoute: string; returnRoute: string; studentNumber: string; status: string }> = {};
       for (const s of booking.siblings ?? []) {
@@ -250,7 +253,12 @@ export default function AdminBookingDetail() {
     const allGrades = [editFields.gradeYear, ...sibs.map(s => s.gradeYear)];
     const maxRank = Math.max(...allGrades.map(gradeRankAdmin));
     let fpFound = false;
-    const mainRaw = calcLivePrice(pricingConfig, editFields.tariffZone, editFields.bookingType, editFields.outboundRoute, editFields.returnRoute);
+    const effZone = (() => {
+      const ranks: Record<string, number> = { zone1: 1, zone2: 2, zone3: 3 };
+      const ptz = editFields.pickupTariffZone;
+      return ptz && ranks[ptz] < (ranks[editFields.tariffZone] ?? 99) ? ptz : editFields.tariffZone;
+    })();
+    const mainRaw = calcLivePrice(pricingConfig, effZone, editFields.bookingType, editFields.outboundRoute, editFields.returnRoute);
     const mainIsFP = !fpFound && gradeRankAdmin(editFields.gradeYear) === maxRank;
     if (mainIsFP) fpFound = true;
     const mainPrice = mainIsFP ? mainRaw : Math.round(mainRaw * 0.8);
@@ -258,7 +266,7 @@ export default function AdminBookingDetail() {
       if (sib.priceCents == null) return null;
       const editedOut = editSiblings[sib.id]?.outboundRoute ?? sib.outboundRoute;
       const editedRet = editSiblings[sib.id]?.returnRoute ?? sib.returnRoute;
-      const sibRaw = calcLivePrice(pricingConfig, editFields.tariffZone, editFields.bookingType, editedOut, editedRet);
+      const sibRaw = calcLivePrice(pricingConfig, effZone, editFields.bookingType, editedOut, editedRet);
       const sibIsFP = !fpFound && gradeRankAdmin(sib.gradeYear) === maxRank;
       if (sibIsFP) fpFound = true;
       return sibIsFP ? sibRaw : Math.round(sibRaw * 0.8);
@@ -298,6 +306,7 @@ export default function AdminBookingDetail() {
         pickupAddress: editFields.pickupAddress || null,
         pickupPostalCode: editFields.pickupPostalCode || null,
         pickupCity: editFields.pickupCity || null,
+        pickupTariffZone: (editFields.pickupTariffZone as any) || null,
         siblingUpdates: Object.entries(editSiblings).map(([idStr, v]) => ({
           id: Number(idStr),
           outboundRoute: v.outboundRoute as any,
@@ -515,6 +524,11 @@ export default function AdminBookingDetail() {
                       <div className="text-sm space-y-1">
                         <p className="font-medium text-gray-800">{(booking as any).pickupAddress}</p>
                         <p className="text-gray-600">{(booking as any).pickupPostalCode} {(booking as any).pickupCity}</p>
+                        {(booking as any).pickupTariffZone && (
+                          <p className="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded px-2 py-0.5 inline-block">
+                            Günstigere Preiszone: {tariffZoneMap[(booking as any).pickupTariffZone]}
+                          </p>
+                        )}
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground italic">Kein Sammelpunkt — Schüler wird an der Heimatadresse abgeholt.</p>
@@ -546,11 +560,36 @@ export default function AdminBookingDetail() {
                             placeholder="z.B. Schleswig"
                           />
                         </FieldRow>
+                        <div className="col-span-2">
+                          <FieldRow label="Tarifzone des Abholortes (optional — nur wenn günstiger als Wohnort)">
+                            <Select
+                              value={editFields.pickupTariffZone || "none"}
+                              onValueChange={v => setField("pickupTariffZone")(v === "none" ? "" : v)}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Keine abweichende Zone" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Keine abweichende Zone</SelectItem>
+                                <SelectItem value="zone1">Tarifzone 1 (günstigste)</SelectItem>
+                                <SelectItem value="zone2">Tarifzone 2</SelectItem>
+                                <SelectItem value="zone3">Tarifzone 3</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            {editFields.pickupTariffZone && editFields.tariffZone && (() => {
+                              const ranks: Record<string, number> = { zone1: 1, zone2: 2, zone3: 3 };
+                              const cheaper = ranks[editFields.pickupTariffZone] < ranks[editFields.tariffZone];
+                              return cheaper
+                                ? <p className="text-xs text-green-700 mt-1">✓ Preis wird auf {tariffZoneMap[editFields.pickupTariffZone]} angepasst (inkl. Geschwisterkinder).</p>
+                                : <p className="text-xs text-amber-600 mt-1">⚠ Abholort-Zone ist nicht günstiger als Wohnort — keine Preisanpassung.</p>;
+                            })()}
+                          </FieldRow>
+                        </div>
                       </div>
                       {editFields.pickupAddress && (
                         <button
                           type="button"
-                          onClick={() => setEditFields(p => ({ ...p, pickupAddress: "", pickupPostalCode: "", pickupCity: "" }))}
+                          onClick={() => setEditFields(p => ({ ...p, pickupAddress: "", pickupPostalCode: "", pickupCity: "", pickupTariffZone: "" }))}
                           className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
                         >
                           <X className="w-3 h-3" />

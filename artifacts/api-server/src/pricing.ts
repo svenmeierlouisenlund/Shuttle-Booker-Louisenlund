@@ -114,6 +114,22 @@ export function calcSiblingPriceFromConfig(
   return Math.round(base * SIBLING_DISCOUNT);
 }
 
+const ZONE_RANK: Record<string, number> = { zone1: 1, zone2: 2, zone3: 3 };
+
+/**
+ * Returns the cheaper of the two zones. If pickupZone is set and cheaper than
+ * homeZone, returns pickupZone; otherwise returns homeZone.
+ */
+export function effectiveZone(
+  homeZone: TariffZone,
+  pickupZone?: string | null,
+): TariffZone {
+  if (pickupZone && ZONE_RANK[pickupZone] < ZONE_RANK[homeZone]) {
+    return pickupZone as TariffZone;
+  }
+  return homeZone;
+}
+
 export function formatPrice(cents: number): string {
   return (cents / 100).toLocaleString("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }

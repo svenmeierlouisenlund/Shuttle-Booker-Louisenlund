@@ -8,6 +8,7 @@
 
 export * from './adminBooking';
 export * from './adminBookingDetail';
+export * from './adminBookingDetailPickupTariffZone';
 export * from './adminBookingList';
 export * from './adminCredentials';
 export * from './adminSession';
@@ -24,6 +25,7 @@ export * from './bookingStatus';
 export * from './bookingStatusUpdate';
 export * from './bookingStatusUpdateBookingType';
 export * from './bookingStatusUpdateOutboundRoute';
+export * from './bookingStatusUpdatePickupTariffZone';
 export * from './bookingStatusUpdateReturnRoute';
 export * from './bookingStatusUpdateSiblingUpdatesItem';
 export * from './bookingStatusUpdateTariffZone';
