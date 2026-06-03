@@ -184,15 +184,22 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
     .where(eq(siblingsTable.status, "waitlisted"));
   const waitlistCount = Number(waitMain?.cnt ?? 0) + Number(waitSib?.cnt ?? 0);
 
-  // City distribution
-  const byCityRows = await db
-    .select({ city: bookingsTable.childCity, cnt: count() })
-    .from(bookingsTable)
-    .groupBy(bookingsTable.childCity)
-    .orderBy(desc(count()));
+  // City distribution: main bookings + siblings (siblings use parent booking's city)
+  const byCityRows = await db.execute(sql`
+    SELECT child_city, COUNT(*) AS cnt
+    FROM (
+      SELECT child_city FROM bookings
+      UNION ALL
+      SELECT b.child_city FROM siblings s JOIN bookings b ON s.booking_id = b.id
+    ) combined
+    WHERE child_city IS NOT NULL AND child_city <> ''
+    GROUP BY child_city
+    ORDER BY cnt DESC
+  `);
   const byCity: Record<string, number> = {};
-  for (const r of byCityRows) {
-    if (r.city) byCity[r.city] = Number(r.cnt);
+  for (const r of byCityRows.rows) {
+    const city = r.child_city as string;
+    if (city) byCity[city] = Number(r.cnt);
   }
 
   const recentRows = await db
