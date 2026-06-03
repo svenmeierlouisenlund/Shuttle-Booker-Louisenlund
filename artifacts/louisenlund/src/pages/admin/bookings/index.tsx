@@ -67,6 +67,7 @@ export default function AdminBookingsList() {
   const [bookingType, setBookingType] = useState<string>("all");
   const [searchInput, setSearchInput] = useState<string>("");
   const [search, setSearch] = useState<string>("");
+  const [pageSize, setPageSize] = useState<number>(30);
 
   const [importOpen, setImportOpen] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -90,7 +91,7 @@ export default function AdminBookingsList() {
 
   const queryParams = {
     page,
-    limit: 30,
+    limit: pageSize,
     ...(view === "waitlisted" ? { status: "waitlisted" } : status !== "all" ? { status } : {}),
     ...(tariffZone !== "all" ? { tariffZone } : {}),
     ...(gradeYear !== "all" ? { gradeYear } : {}),
@@ -322,6 +323,17 @@ export default function AdminBookingsList() {
                   {["Jahrgang 1","Jahrgang 2","Jahrgang 3","Jahrgang 4","Jahrgang 5","Jahrgang 6","Jahrgang 7","Jahrgang 8","Jahrgang 9","Jahrgang 10","E-Jahrgang","Q1-Jahrgang","Q2-Jahrgang","MYP3","MYP4","MYP5","DP1","DP2"].map(g => (
                     <SelectItem key={g} value={g}>{g}</SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+              <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1); }}>
+                <SelectTrigger className="w-[110px] bg-background h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="15">15 / Seite</SelectItem>
+                  <SelectItem value="30">30 / Seite</SelectItem>
+                  <SelectItem value="50">50 / Seite</SelectItem>
+                  <SelectItem value="100">100 / Seite</SelectItem>
                 </SelectContent>
               </Select>
               {(search || status !== "all" || tariffZone !== "all" || bookingType !== "all" || gradeYear !== "all") && (
