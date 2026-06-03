@@ -118,6 +118,7 @@ export const busesTable = pgTable("buses", {
   notes: text("notes"),
   driverName: text("driver_name"),
   driverPhone: text("driver_phone"),
+  isWaitlistBus: boolean("is_waitlist_bus").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
