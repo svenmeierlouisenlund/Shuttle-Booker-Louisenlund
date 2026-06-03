@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ChevronLeft, Save, Trash2, Pencil, X, MapPin } from "lucide-react";
+import { ChevronLeft, Save, Trash2, Pencil, X, MapPin, Navigation } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -123,6 +123,9 @@ interface EditFields {
   bookingType: string;
   outboundRoute: string;
   returnRoute: string;
+  pickupAddress: string;
+  pickupPostalCode: string;
+  pickupCity: string;
 }
 
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -152,6 +155,7 @@ export default function AdminBookingDetail() {
     childPostalCode: "", childCity: "",
     parentName: "", parentEmail: "", parentPhone: "",
     tariffZone: "", bookingType: "", outboundRoute: "", returnRoute: "",
+    pickupAddress: "", pickupPostalCode: "", pickupCity: "",
   });
   const [pricingConfig, setPricingConfig] = useState<PricingConfigFlat | null>(null);
 
@@ -188,6 +192,9 @@ export default function AdminBookingDetail() {
         bookingType: booking.bookingType,
         outboundRoute: booking.outboundRoute,
         returnRoute: booking.returnRoute,
+        pickupAddress: (booking as any).pickupAddress || "",
+        pickupPostalCode: (booking as any).pickupPostalCode || "",
+        pickupCity: (booking as any).pickupCity || "",
       });
     }
   }, [booking]);
@@ -208,6 +215,9 @@ export default function AdminBookingDetail() {
         bookingType: booking.bookingType,
         outboundRoute: booking.outboundRoute,
         returnRoute: booking.returnRoute,
+        pickupAddress: (booking as any).pickupAddress || "",
+        pickupPostalCode: (booking as any).pickupPostalCode || "",
+        pickupCity: (booking as any).pickupCity || "",
       });
     }
     setEditMode(false);
@@ -262,6 +272,9 @@ export default function AdminBookingDetail() {
         bookingType: editFields.bookingType as any,
         outboundRoute: editFields.outboundRoute as any,
         returnRoute: editFields.returnRoute as any,
+        pickupAddress: editFields.pickupAddress || null,
+        pickupPostalCode: editFields.pickupPostalCode || null,
+        pickupCity: editFields.pickupCity || null,
       }
     }, {
       onSuccess: () => {
@@ -456,6 +469,66 @@ export default function AdminBookingDetail() {
                       )}
                     </FieldRow>
                   </div>
+                </div>
+
+                {/* Sammelpunkt */}
+                <div className="pt-4 border-t">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Navigation className="w-4 h-4 text-primary" />
+                    <h3 className="font-semibold text-primary">Sammelpunkt</h3>
+                    {!editMode && (booking as any).pickupAddress && (
+                      <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Abweichende Abholadresse</span>
+                    )}
+                  </div>
+                  {!editMode ? (
+                    (booking as any).pickupAddress ? (
+                      <div className="text-sm space-y-1">
+                        <p className="font-medium text-gray-800">{(booking as any).pickupAddress}</p>
+                        <p className="text-gray-600">{(booking as any).pickupPostalCode} {(booking as any).pickupCity}</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">Kein Sammelpunkt — Schüler wird an der Heimatadresse abgeholt.</p>
+                    )
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-xs text-muted-foreground">Nur ausfüllen, wenn der Schüler nicht an der Heimatadresse abgeholt wird.</p>
+                      <div className="grid grid-cols-2 gap-y-3 gap-x-8">
+                        <div className="col-span-2">
+                          <FieldRow label="Straße / Sammelpunkt">
+                            <Input
+                              value={editFields.pickupAddress}
+                              onChange={e => setField("pickupAddress")(e.target.value)}
+                              placeholder="z.B. Bahnhofstraße 1"
+                            />
+                          </FieldRow>
+                        </div>
+                        <FieldRow label="PLZ">
+                          <Input
+                            value={editFields.pickupPostalCode}
+                            onChange={e => setField("pickupPostalCode")(e.target.value)}
+                            placeholder="z.B. 24357"
+                          />
+                        </FieldRow>
+                        <FieldRow label="Ort">
+                          <Input
+                            value={editFields.pickupCity}
+                            onChange={e => setField("pickupCity")(e.target.value)}
+                            placeholder="z.B. Schleswig"
+                          />
+                        </FieldRow>
+                      </div>
+                      {editFields.pickupAddress && (
+                        <button
+                          type="button"
+                          onClick={() => setEditFields(p => ({ ...p, pickupAddress: "", pickupPostalCode: "", pickupCity: "" }))}
+                          className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
+                        >
+                          <X className="w-3 h-3" />
+                          Sammelpunkt entfernen
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-4 border-t">

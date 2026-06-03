@@ -174,6 +174,15 @@ export interface AdminBookingDetail {
      * @nullable
      */
   durationMinutes?: number | null;
+  /**
+     * Alternative pickup location (if different from home address)
+     * @nullable
+     */
+  pickupAddress?: string | null;
+  /** @nullable */
+  pickupPostalCode?: string | null;
+  /** @nullable */
+  pickupCity?: string | null;
   siblings: Sibling[];
 }
 
@@ -242,6 +251,12 @@ export interface BookingStatusUpdate {
   bookingType?: BookingStatusUpdateBookingType;
   outboundRoute?: BookingStatusUpdateOutboundRoute;
   returnRoute?: BookingStatusUpdateReturnRoute;
+  /** @nullable */
+  pickupAddress?: string | null;
+  /** @nullable */
+  pickupPostalCode?: string | null;
+  /** @nullable */
+  pickupCity?: string | null;
 }
 
 export type AdminStatsByStatus = {[key: string]: number};

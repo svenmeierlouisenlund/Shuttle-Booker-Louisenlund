@@ -710,6 +710,13 @@ components:
         durationMinutes:
           type: ["integer", "null"]
           description: Estimated driving duration in minutes
+        pickupAddress:
+          type: ["string", "null"]
+          description: Alternative pickup location (if different from home address)
+        pickupPostalCode:
+          type: ["string", "null"]
+        pickupCity:
+          type: ["string", "null"]
         siblings:
           type: array
           items:
@@ -776,6 +783,12 @@ components:
         returnRoute:
           type: string
           enum: [zone1, zone2, zone3, none]
+        pickupAddress:
+          type: ["string", "null"]
+        pickupPostalCode:
+          type: ["string", "null"]
+        pickupCity:
+          type: ["string", "null"]
 
     AdminStats:
       type: object

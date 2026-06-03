@@ -30,4 +30,10 @@ export interface BookingStatusUpdate {
   bookingType?: BookingStatusUpdateBookingType;
   outboundRoute?: BookingStatusUpdateOutboundRoute;
   returnRoute?: BookingStatusUpdateReturnRoute;
+  /** @nullable */
+  pickupAddress?: string | null;
+  /** @nullable */
+  pickupPostalCode?: string | null;
+  /** @nullable */
+  pickupCity?: string | null;
 }

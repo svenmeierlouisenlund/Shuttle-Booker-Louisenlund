@@ -177,6 +177,9 @@ export const GetAdminBookingResponse = zod.object({
   "priceCents": zod.number().nullish(),
   "distanceKm": zod.number().nullish().describe('Driving distance from home to school in km'),
   "durationMinutes": zod.number().nullish().describe('Estimated driving duration in minutes'),
+  "pickupAddress": zod.string().nullish().describe('Alternative pickup location (if different from home address)'),
+  "pickupPostalCode": zod.string().nullish(),
+  "pickupCity": zod.string().nullish(),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
   "childName": zod.string(),
@@ -223,7 +226,10 @@ export const UpdateAdminBookingBody = zod.object({
   "tariffZone": zod.enum(['zone1', 'zone2', 'zone3']).optional(),
   "bookingType": zod.enum(['full_year', 'first_half']).optional(),
   "outboundRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']).optional(),
-  "returnRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']).optional()
+  "returnRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']).optional(),
+  "pickupAddress": zod.string().nullish(),
+  "pickupPostalCode": zod.string().nullish(),
+  "pickupCity": zod.string().nullish()
 })
 
 export const UpdateAdminBookingResponse = zod.object({
@@ -250,6 +256,9 @@ export const UpdateAdminBookingResponse = zod.object({
   "priceCents": zod.number().nullish(),
   "distanceKm": zod.number().nullish().describe('Driving distance from home to school in km'),
   "durationMinutes": zod.number().nullish().describe('Estimated driving duration in minutes'),
+  "pickupAddress": zod.string().nullish().describe('Alternative pickup location (if different from home address)'),
+  "pickupPostalCode": zod.string().nullish(),
+  "pickupCity": zod.string().nullish(),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
   "childName": zod.string(),
