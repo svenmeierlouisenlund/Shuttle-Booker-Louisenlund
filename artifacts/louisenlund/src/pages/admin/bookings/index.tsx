@@ -54,7 +54,7 @@ type ImportResult = {
   errors: string[];
 };
 
-const COL_WIDTHS = [130, 100, 200, 100, 180, 110, 220, 160, 90, 80];
+const COL_WIDTHS = [100, 88, 170, 95, 150, 90, 165, 140, 82, 70];
 
 type RouteCalcResult = { processed: number; failed: number; skipped: number; errors: string[] };
 
@@ -364,8 +364,8 @@ export default function AdminBookingsList() {
                 Keine Buchungen gefunden.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table style={{ tableLayout: "fixed", width: COL_WIDTHS.reduce((a, b) => a + b, 0) }}>
+              <div>
+                <Table style={{ tableLayout: "fixed", width: "100%" }}>
                   <colgroup>
                     {COL_WIDTHS.map((w, i) => <col key={i} style={{ width: w }} />)}
                   </colgroup>
