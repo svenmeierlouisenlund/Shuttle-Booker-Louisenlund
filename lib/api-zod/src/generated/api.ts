@@ -229,7 +229,12 @@ export const UpdateAdminBookingBody = zod.object({
   "returnRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']).optional(),
   "pickupAddress": zod.string().nullish(),
   "pickupPostalCode": zod.string().nullish(),
-  "pickupCity": zod.string().nullish()
+  "pickupCity": zod.string().nullish(),
+  "siblingUpdates": zod.array(zod.object({
+  "id": zod.number(),
+  "outboundRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']),
+  "returnRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none'])
+})).optional().describe('Per-sibling route overrides (by sibling id)')
 })
 
 export const UpdateAdminBookingResponse = zod.object({

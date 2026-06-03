@@ -150,6 +150,7 @@ export default function AdminBookingDetail() {
   const [status, setStatus] = useState<string>("");
   const [adminNotes, setAdminNotes] = useState<string>("");
   const [editMode, setEditMode] = useState(false);
+  const [editSiblings, setEditSiblings] = useState<Record<number, { outboundRoute: string; returnRoute: string }>>({});
   const [editFields, setEditFields] = useState<EditFields>({
     childName: "", studentNumber: "", gradeYear: "", childAddress: "",
     childPostalCode: "", childCity: "",
@@ -196,6 +197,11 @@ export default function AdminBookingDetail() {
         pickupPostalCode: (booking as any).pickupPostalCode || "",
         pickupCity: (booking as any).pickupCity || "",
       });
+      const sibMap: Record<number, { outboundRoute: string; returnRoute: string }> = {};
+      for (const s of booking.siblings ?? []) {
+        sibMap[s.id] = { outboundRoute: s.outboundRoute, returnRoute: s.returnRoute };
+      }
+      setEditSiblings(sibMap);
     }
   }, [booking]);
 
@@ -219,6 +225,11 @@ export default function AdminBookingDetail() {
         pickupPostalCode: (booking as any).pickupPostalCode || "",
         pickupCity: (booking as any).pickupCity || "",
       });
+      const sibMap: Record<number, { outboundRoute: string; returnRoute: string }> = {};
+      for (const s of booking.siblings ?? []) {
+        sibMap[s.id] = { outboundRoute: s.outboundRoute, returnRoute: s.returnRoute };
+      }
+      setEditSiblings(sibMap);
     }
     setEditMode(false);
   }
@@ -275,6 +286,11 @@ export default function AdminBookingDetail() {
         pickupAddress: editFields.pickupAddress || null,
         pickupPostalCode: editFields.pickupPostalCode || null,
         pickupCity: editFields.pickupCity || null,
+        siblingUpdates: Object.entries(editSiblings).map(([idStr, v]) => ({
+          id: Number(idStr),
+          outboundRoute: v.outboundRoute as any,
+          returnRoute: v.returnRoute as any,
+        })),
       }
     }, {
       onSuccess: () => {
@@ -589,8 +605,48 @@ export default function AdminBookingDetail() {
                           <div className="grid grid-cols-2 gap-2 text-sm">
                             <div><span className="text-muted-foreground">Klasse:</span> {sibling.gradeYear}</div>
                             <div><span className="text-muted-foreground">Schülernummer:</span> {sibling.studentNumber || "–"}</div>
-                            <div><span className="text-muted-foreground">Hinfahrt:</span> {routeOptionMap[sibling.outboundRoute]}</div>
-                            <div><span className="text-muted-foreground">Rückfahrt:</span> {routeOptionMap[sibling.returnRoute]}</div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-muted-foreground shrink-0">Hinfahrt:</span>
+                              {editMode ? (
+                                <Select
+                                  value={editSiblings[sibling.id]?.outboundRoute ?? sibling.outboundRoute}
+                                  onValueChange={v => setEditSiblings(p => ({ ...p, [sibling.id]: { ...p[sibling.id], outboundRoute: v } }))}
+                                >
+                                  <SelectTrigger className="h-7 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="zone1">Tarifzone 1</SelectItem>
+                                    <SelectItem value="zone2">Tarifzone 2</SelectItem>
+                                    <SelectItem value="zone3">Tarifzone 3</SelectItem>
+                                    <SelectItem value="none">Keine</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <span>{routeOptionMap[sibling.outboundRoute]}</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-muted-foreground shrink-0">Rückfahrt:</span>
+                              {editMode ? (
+                                <Select
+                                  value={editSiblings[sibling.id]?.returnRoute ?? sibling.returnRoute}
+                                  onValueChange={v => setEditSiblings(p => ({ ...p, [sibling.id]: { ...p[sibling.id], returnRoute: v } }))}
+                                >
+                                  <SelectTrigger className="h-7 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="zone1">Tarifzone 1</SelectItem>
+                                    <SelectItem value="zone2">Tarifzone 2</SelectItem>
+                                    <SelectItem value="zone3">Tarifzone 3</SelectItem>
+                                    <SelectItem value="none">Keine</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <span>{routeOptionMap[sibling.returnRoute]}</span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}

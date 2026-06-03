@@ -24,6 +24,7 @@ export * from './bookingStatusUpdate';
 export * from './bookingStatusUpdateBookingType';
 export * from './bookingStatusUpdateOutboundRoute';
 export * from './bookingStatusUpdateReturnRoute';
+export * from './bookingStatusUpdateSiblingUpdatesItem';
 export * from './bookingStatusUpdateTariffZone';
 export * from './bookingType';
 export * from './calculateRoutes200';
