@@ -90,7 +90,7 @@ export default function AdminBookingsList() {
 
   const queryParams = {
     page,
-    limit: 50,
+    limit: 30,
     ...(view === "waitlisted" ? { status: "waitlisted" } : status !== "all" ? { status } : {}),
     ...(tariffZone !== "all" ? { tariffZone } : {}),
     ...(gradeYear !== "all" ? { gradeYear } : {}),
