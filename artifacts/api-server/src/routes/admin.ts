@@ -8,7 +8,7 @@ import {
   ExportBookingsQueryParams,
   AddNotificationEmailBody,
 } from "@workspace/api-zod";
-import { eq, and, count, sum, desc, sql, inArray, or } from "drizzle-orm";
+import { eq, and, count, sum, desc, sql, inArray, or, ne } from "drizzle-orm";
 import ExcelJS from "exceljs";
 import multer from "multer";
 import { calcBookingPriceFromConfig, calcSiblingPriceFromConfig, gradeRank } from "../pricing.js";
@@ -1321,7 +1321,7 @@ router.get("/admin/buses", requireAuth, async (req, res) => {
     .select({ id: siblingsTable.id, childName: siblingsTable.childName, gradeYear: siblingsTable.gradeYear, outboundRoute: siblingsTable.outboundRoute, returnRoute: siblingsTable.returnRoute, bookingId: siblingsTable.bookingId, referenceNumber: bookingsTable.referenceNumber, tariffZone: bookingsTable.tariffZone, parentName: bookingsTable.parentName, status: bookingsTable.status })
     .from(siblingsTable)
     .innerJoin(bookingsTable, eq(siblingsTable.bookingId, bookingsTable.id))
-    .where(and(sql`${bookingsTable.status} != 'waitlisted'`, sql`${siblingsTable.outbound_route} != 'none' OR ${siblingsTable.return_route} != 'none'`))
+    .where(and(ne(bookingsTable.status, "waitlisted"), or(ne(siblingsTable.outboundRoute, "none"), ne(siblingsTable.returnRoute, "none"))))
     .orderBy(siblingsTable.createdAt);
 
   const unassignedSiblings: Passenger[] = allSiblings
