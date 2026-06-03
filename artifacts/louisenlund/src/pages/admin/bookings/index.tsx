@@ -372,8 +372,14 @@ export default function AdminBookingsList() {
                       const isWaitlisted = booking.status === "waitlisted";
                       const hasWaitlistedSibling = (booking.siblings ?? []).some((s) => (s as any).status === "waitlisted");
                       const anyWaitlisted = isWaitlisted || hasWaitlistedSibling;
+                      // In Warteliste-Tab: only show rows that are actually waitlisted
+                      const showMain = view !== "waitlisted" || isWaitlisted;
+                      const visibleSiblings = view === "waitlisted"
+                        ? (booking.siblings ?? []).filter((s) => (s as any).status === "waitlisted")
+                        : (booking.siblings ?? []);
+                      if (!showMain && visibleSiblings.length === 0) return [];
                       return [
-                      <TableRow key={booking.id} className={anyWaitlisted ? "bg-orange-50/70 hover:bg-orange-50 border-l-4 border-l-orange-400" : undefined}>
+                      ...(showMain ? [<TableRow key={booking.id} className={anyWaitlisted ? "bg-orange-50/70 hover:bg-orange-50 border-l-4 border-l-orange-400" : undefined}>
                         <TableCell className="font-mono text-xs truncate">{booking.referenceNumber}</TableCell>
                         <TableCell className="truncate">{format(new Date(booking.createdAt), "dd.MM.yyyy")}</TableCell>
                         <TableCell className="font-medium truncate">
@@ -399,13 +405,13 @@ export default function AdminBookingsList() {
                             <Button variant="ghost" size="sm">Details</Button>
                           </Link>
                         </TableCell>
-                      </TableRow>,
-                      ...(booking.siblings ?? []).map((sibling) => {
+                      </TableRow>] : []),
+                      ...visibleSiblings.map((sibling) => {
                         const sibWaitlisted = (sibling as any).status === "waitlisted";
                         const sibHighlight = sibWaitlisted || isWaitlisted;
                         return (
                         <TableRow key={`sib-${sibling.id}`} className={sibHighlight ? "bg-orange-50/40 hover:bg-orange-50 border-l-4 border-l-orange-300" : "bg-blue-50/60 hover:bg-blue-50"}>
-                          <TableCell className="font-mono text-xs truncate text-muted-foreground pl-6">↳ {booking.referenceNumber}</TableCell>
+                          <TableCell className="font-mono text-xs truncate text-muted-foreground pl-6">{(sibling as any).referenceNumber || `↳ ${booking.referenceNumber}`}</TableCell>
                           <TableCell className="truncate text-muted-foreground">{format(new Date(booking.createdAt), "dd.MM.yyyy")}</TableCell>
                           <TableCell className="font-medium truncate">
                             <span className={`mr-1.5 inline-flex items-center rounded-sm border px-1 py-0 text-[10px] font-semibold ${sibHighlight ? "border-orange-300 bg-orange-100 text-orange-700" : "border-blue-300 bg-blue-100 text-blue-700"}`}>Geschwister</span>

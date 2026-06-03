@@ -73,6 +73,7 @@ export const siblingsTable = pgTable("siblings", {
   bookingId: integer("booking_id")
     .notNull()
     .references(() => bookingsTable.id, { onDelete: "cascade" }),
+  referenceNumber: text("reference_number"),
   childName: text("child_name").notNull(),
   studentNumber: text("student_number"),
   gradeYear: text("grade_year").notNull(),

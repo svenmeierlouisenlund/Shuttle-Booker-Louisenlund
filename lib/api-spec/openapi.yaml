@@ -562,6 +562,8 @@ components:
       properties:
         id:
           type: integer
+        referenceNumber:
+          type: ["string", "null"]
         childName:
           type: string
         studentNumber:

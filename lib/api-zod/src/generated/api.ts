@@ -131,6 +131,7 @@ export const ListAdminBookingsResponse = zod.object({
   "durationMinutes": zod.number().nullish().describe('Estimated driving duration in minutes'),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
+  "referenceNumber": zod.string().nullish(),
   "childName": zod.string(),
   "studentNumber": zod.string().nullish(),
   "gradeYear": zod.string(),
@@ -183,6 +184,7 @@ export const GetAdminBookingResponse = zod.object({
   "pickupCity": zod.string().nullish(),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
+  "referenceNumber": zod.string().nullish(),
   "childName": zod.string(),
   "studentNumber": zod.string().nullish(),
   "gradeYear": zod.string(),
@@ -270,6 +272,7 @@ export const UpdateAdminBookingResponse = zod.object({
   "pickupCity": zod.string().nullish(),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
+  "referenceNumber": zod.string().nullish(),
   "childName": zod.string(),
   "studentNumber": zod.string().nullish(),
   "gradeYear": zod.string(),
@@ -324,6 +327,7 @@ export const GetAdminStatsResponse = zod.object({
   "durationMinutes": zod.number().nullish().describe('Estimated driving duration in minutes'),
   "siblings": zod.array(zod.object({
   "id": zod.number(),
+  "referenceNumber": zod.string().nullish(),
   "childName": zod.string(),
   "studentNumber": zod.string().nullish(),
   "gradeYear": zod.string(),
