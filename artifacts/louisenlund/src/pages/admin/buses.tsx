@@ -3,10 +3,31 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Bus, UserPlus, X, Clock, AlertCircle, Pencil, Check, Users } from "lucide-react";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  useDraggable,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  Loader2,
+  Bus,
+  X,
+  Clock,
+  AlertCircle,
+  Pencil,
+  Check,
+  Users,
+  GripVertical,
+} from "lucide-react";
 import { useState } from "react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -51,6 +72,23 @@ interface BusesResponse {
   unassigned: Passenger[];
 }
 
+// ── Drag ID helpers ────────────────────────────────────────────────────────────
+// Format: "{type}:{id}:{source}"  where source = "pool" | "waitlist" | bus-id
+
+function makeDragId(p: Passenger, source: string) {
+  return `${p.type}:${p.id}:${source}`;
+}
+
+function parseDragId(id: string): { type: "booking" | "sibling"; passengerId: number; source: string } | null {
+  const parts = id.split(":");
+  if (parts.length < 3) return null;
+  return {
+    type: parts[0] as "booking" | "sibling",
+    passengerId: Number(parts[1]),
+    source: parts.slice(2).join(":"),
+  };
+}
+
 // ── API helpers ────────────────────────────────────────────────────────────────
 
 async function fetchBuses(): Promise<BusesResponse> {
@@ -59,7 +97,7 @@ async function fetchBuses(): Promise<BusesResponse> {
   return res.json();
 }
 
-async function assignPassenger(busId: number, type: "booking" | "sibling", id: number): Promise<void> {
+async function assignPassenger(busId: number, type: "booking" | "sibling", id: number) {
   const res = await fetch(`/api/admin/buses/${busId}/assign`, {
     method: "POST",
     credentials: "include",
@@ -72,7 +110,7 @@ async function assignPassenger(busId: number, type: "booking" | "sibling", id: n
   }
 }
 
-async function removePassenger(busId: number, type: "booking" | "sibling", id: number): Promise<void> {
+async function removePassenger(busId: number, type: "booking" | "sibling", id: number) {
   const segment = type === "booking" ? `booking/${id}` : `sibling/${id}`;
   const res = await fetch(`/api/admin/buses/${busId}/assign/${segment}`, {
     method: "DELETE",
@@ -84,7 +122,7 @@ async function removePassenger(busId: number, type: "booking" | "sibling", id: n
   }
 }
 
-async function updateBus(busId: number, data: { name?: string; capacity?: number; notes?: string }): Promise<void> {
+async function updateBus(busId: number, data: { name?: string }) {
   const res = await fetch(`/api/admin/buses/${busId}`, {
     method: "PUT",
     credentials: "include",
@@ -104,52 +142,150 @@ const zoneLabel: Record<string, string> = { zone1: "Zone 1", zone2: "Zone 2", zo
 function routeSummary(p: { outboundRoute: string; returnRoute: string }) {
   const out = zoneLabel[p.outboundRoute] ?? p.outboundRoute;
   const ret = zoneLabel[p.returnRoute] ?? p.returnRoute;
-  if (p.outboundRoute === p.returnRoute) return out;
-  return `Hin: ${out} / Rück: ${ret}`;
+  return p.outboundRoute === p.returnRoute ? out : `${out} / ${ret}`;
 }
 
-// ── Passenger Row ───────────────────────────────────────────────────────────────
+// ── Draggable Passenger Card ────────────────────────────────────────────────────
 
-function PassengerRow({ passenger, onRemove, removing }: {
+function DraggablePassenger({
+  passenger,
+  source,
+  onRemove,
+  removing,
+  compact = false,
+}: {
   passenger: Passenger;
+  source: string;
   onRemove?: () => void;
   removing?: boolean;
+  compact?: boolean;
 }) {
+  const dragId = makeDragId(passenger, source);
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: dragId });
+
+  const style = transform
+    ? { transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.35 : 1 }
+    : undefined;
+
   return (
-    <div className={`flex items-center justify-between gap-2 py-2 px-3 rounded border transition-colors ${passenger.type === "sibling" ? "bg-blue-50 border-blue-100 hover:border-blue-200" : "bg-white border-gray-100 hover:border-gray-200"}`}>
-      <div className="min-w-0">
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-1.5 rounded border transition-colors select-none
+        ${compact ? "py-1.5 px-2" : "py-2 px-3"}
+        ${passenger.type === "sibling"
+          ? "bg-blue-50 border-blue-100 hover:border-blue-300"
+          : "bg-white border-gray-100 hover:border-gray-300"}
+        ${isDragging ? "shadow-lg z-50" : ""}
+      `}
+    >
+      {/* Drag handle */}
+      <button
+        {...listeners}
+        {...attributes}
+        className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 shrink-0 touch-none"
+        tabIndex={-1}
+      >
+        <GripVertical className="w-3.5 h-3.5" />
+      </button>
+
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <p className="text-sm font-medium text-gray-900 truncate">{passenger.childName}</p>
           {passenger.type === "sibling" && (
-            <Badge variant="secondary" className="text-[10px] h-4 px-1 bg-blue-100 text-blue-700 shrink-0">Geschwister</Badge>
+            <Badge variant="secondary" className="text-[10px] h-4 px-1 bg-blue-100 text-blue-700 shrink-0">
+              Geschwister
+            </Badge>
+          )}
+          {passenger.status === "waitlisted" && (
+            <Badge variant="secondary" className="text-[10px] h-4 px-1 bg-amber-100 text-amber-700 shrink-0">
+              Warteliste
+            </Badge>
           )}
         </div>
-        <p className="text-xs text-gray-500">{passenger.gradeYear} · {routeSummary(passenger)}</p>
-        <p className="text-xs text-gray-400">{passenger.referenceNumber}</p>
+        <p className="text-xs text-gray-500 truncate">
+          {passenger.gradeYear} · {routeSummary(passenger)}
+        </p>
+        {!compact && <p className="text-xs text-gray-400">{passenger.referenceNumber}</p>}
       </div>
+
       {onRemove && (
         <Button
           variant="ghost"
           size="sm"
           onClick={onRemove}
           disabled={removing}
-          className="shrink-0 h-7 w-7 p-0 text-gray-400 hover:text-red-600 hover:bg-red-50"
+          className="shrink-0 h-6 w-6 p-0 text-gray-300 hover:text-red-600 hover:bg-red-50"
         >
-          {removing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+          {removing ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
         </Button>
       )}
     </div>
   );
 }
 
+// ── Passenger ghost for DragOverlay ───────────────────────────────────────────
+
+function PassengerGhost({ passenger }: { passenger: Passenger }) {
+  return (
+    <div
+      className={`flex items-center gap-2 py-2 px-3 rounded border shadow-xl cursor-grabbing
+        ${passenger.type === "sibling" ? "bg-blue-50 border-blue-300" : "bg-white border-gray-300"}`}
+    >
+      <GripVertical className="w-3.5 h-3.5 text-gray-400" />
+      <div>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm font-semibold text-gray-900">{passenger.childName}</p>
+          {passenger.type === "sibling" && (
+            <Badge className="text-[10px] h-4 px-1 bg-blue-100 text-blue-700 border-0">Geschwister</Badge>
+          )}
+        </div>
+        <p className="text-xs text-gray-500">{passenger.gradeYear} · {routeSummary(passenger)}</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Bus Drop Zone ───────────────────────────────────────────────────────────────
+
+function BusDropZone({
+  bus,
+  children,
+  isOver,
+  isFull,
+}: {
+  bus: BusWithAssignments;
+  children: React.ReactNode;
+  isOver: boolean;
+  isFull: boolean;
+}) {
+  const { setNodeRef } = useDroppable({ id: `bus:${bus.id}` });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`flex-1 min-h-16 rounded transition-all duration-150
+        ${isOver && !isFull ? "ring-2 ring-[#004289] ring-offset-1 bg-blue-50/60" : ""}
+        ${isOver && isFull ? "ring-2 ring-red-400 ring-offset-1 bg-red-50/60" : ""}
+      `}
+    >
+      {children}
+    </div>
+  );
+}
+
 // ── Bus Card ────────────────────────────────────────────────────────────────────
 
-function BusCard({ bus, onAssign, onRemove, removingKey, updating }: {
+function BusCard({
+  bus,
+  overBusId,
+  onRemove,
+  removingKey,
+}: {
   bus: BusWithAssignments;
-  onAssign: () => void;
+  overBusId: number | null;
   onRemove: (passenger: Passenger) => void;
   removingKey: string | null;
-  updating: boolean;
 }) {
   const [editingName, setEditingName] = useState(false);
   const [nameVal, setNameVal] = useState(bus.name);
@@ -158,15 +294,19 @@ function BusCard({ bus, onAssign, onRemove, removingKey, updating }: {
 
   const renameMutation = useMutation({
     mutationFn: (name: string) => updateBus(bus.id, { name }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["admin-buses"] }); setEditingName(false); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-buses"] });
+      setEditingName(false);
+    },
     onError: (err: Error) => toast({ title: "Fehler", description: err.message, variant: "destructive" }),
   });
 
+  const isOver = overBusId === bus.id;
   const full = bus.assignments.length >= bus.capacity;
   const pct = Math.min(100, Math.round((bus.assignments.length / bus.capacity) * 100));
 
   return (
-    <Card className={`flex flex-col ${full ? "border-orange-200" : "border-gray-200"}`}>
+    <Card className={`flex flex-col transition-all duration-150 ${full ? "border-orange-200" : "border-gray-200"} ${isOver && !full ? "border-[#004289]" : ""} ${isOver && full ? "border-red-400" : ""}`}>
       <CardHeader className="pb-2 pt-4 px-4">
         <div className="flex items-center justify-between gap-2">
           {editingName ? (
@@ -192,7 +332,10 @@ function BusCard({ bus, onAssign, onRemove, removingKey, updating }: {
             <CardTitle className="text-sm font-semibold text-[#004289] flex items-center gap-1.5">
               <Bus className="w-4 h-4 shrink-0" />
               {bus.name}
-              <button onClick={() => { setNameVal(bus.name); setEditingName(true); }} className="ml-1 text-gray-300 hover:text-gray-500 transition-colors">
+              <button
+                onClick={() => { setNameVal(bus.name); setEditingName(true); }}
+                className="ml-1 text-gray-300 hover:text-gray-500 transition-colors"
+              >
                 <Pencil className="w-3 h-3" />
               </button>
             </CardTitle>
@@ -202,53 +345,89 @@ function BusCard({ bus, onAssign, onRemove, removingKey, updating }: {
           </Badge>
         </div>
         <div className="h-1.5 rounded-full bg-gray-100 mt-2">
-          <div className={`h-1.5 rounded-full transition-all ${full ? "bg-orange-500" : "bg-[#004289]"}`} style={{ width: `${pct}%` }} />
+          <div
+            className={`h-1.5 rounded-full transition-all ${full ? "bg-orange-500" : "bg-[#004289]"}`}
+            style={{ width: `${pct}%` }}
+          />
         </div>
       </CardHeader>
-      <CardContent className="px-4 pb-4 flex-1 flex flex-col gap-2">
-        {bus.assignments.length === 0 ? (
-          <p className="text-xs text-gray-400 italic py-1">Keine Schüler zugeordnet</p>
-        ) : (
-          <div className="space-y-1.5">
-            {bus.assignments.map(p => (
-              <PassengerRow
-                key={`${p.type}-${p.id}`}
-                passenger={p}
-                onRemove={() => onRemove(p)}
-                removing={removingKey === `${p.type}-${p.id}`}
-              />
-            ))}
-          </div>
-        )}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onAssign}
-          disabled={full || updating}
-          className="mt-auto w-full text-xs border-dashed border-gray-300 text-gray-500 hover:border-[#004289] hover:text-[#004289]"
-        >
-          <UserPlus className="w-3.5 h-3.5 mr-1" />
-          Schüler zuordnen
-        </Button>
+      <CardContent className="px-4 pb-4 flex-1 flex flex-col">
+        <BusDropZone bus={bus} isOver={isOver} isFull={full}>
+          {bus.assignments.length === 0 ? (
+            <div className={`flex items-center justify-center min-h-16 rounded border-2 border-dashed transition-colors
+              ${isOver && !full ? "border-[#004289] bg-blue-50" : "border-gray-200"}
+            `}>
+              <p className="text-xs text-gray-400 italic">Hierher ziehen</p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              {bus.assignments.map(p => (
+                <DraggablePassenger
+                  key={`${p.type}-${p.id}`}
+                  passenger={p}
+                  source={String(bus.id)}
+                  onRemove={() => onRemove(p)}
+                  removing={removingKey === `${p.type}-${p.id}`}
+                />
+              ))}
+              {/* Ghost drop target when bus has items */}
+              {isOver && !full && (
+                <div className="h-8 rounded border-2 border-dashed border-[#004289] bg-blue-50 flex items-center justify-center">
+                  <p className="text-xs text-[#004289]">Hier ablegen</p>
+                </div>
+              )}
+              {isOver && full && (
+                <div className="h-8 rounded border-2 border-dashed border-red-400 bg-red-50 flex items-center justify-center">
+                  <p className="text-xs text-red-500">Bus ist voll</p>
+                </div>
+              )}
+            </div>
+          )}
+        </BusDropZone>
       </CardContent>
     </Card>
   );
 }
 
-// ── Assign Dialog ───────────────────────────────────────────────────────────────
+// ── Unassigned Pool ─────────────────────────────────────────────────────────────
 
-function AssignDialog({ bus, unassigned, waitlisted, open, onClose, onAssign, assigningKey }: {
-  bus: BusWithAssignments | null;
-  unassigned: Passenger[];
-  waitlisted: WaitlistedBooking[];
-  open: boolean;
-  onClose: () => void;
-  onAssign: (type: "booking" | "sibling", id: number) => void;
-  assigningKey: string | null;
-}) {
-  const [search, setSearch] = useState("");
+function UnassignedPool({ passengers }: { passengers: Passenger[] }) {
+  const { setNodeRef, isOver } = useDroppable({ id: "pool" });
 
-  const waitlistedAsPassengers: Passenger[] = waitlisted.map(b => ({
+  if (passengers.length === 0) return null;
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <AlertCircle className="w-4 h-4 text-gray-400" />
+        <h2 className="font-semibold text-gray-800">Nicht zugeordnet ({passengers.length})</h2>
+        <span className="text-xs text-gray-400">— Drag & Drop auf einen Bus zum Zuordnen</span>
+      </div>
+      <div
+        ref={setNodeRef}
+        className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 min-h-12 rounded-lg p-2 border-2 border-dashed transition-colors
+          ${isOver ? "border-[#004289] bg-blue-50/40" : "border-transparent"}`}
+      >
+        {passengers.map(p => (
+          <DraggablePassenger
+            key={`${p.type}-${p.id}`}
+            passenger={p}
+            source="pool"
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Waitlist Section ────────────────────────────────────────────────────────────
+
+function WaitlistSection({ waitlisted }: { waitlisted: WaitlistedBooking[] }) {
+  const { setNodeRef, isOver } = useDroppable({ id: "waitlist" });
+
+  if (waitlisted.length === 0) return null;
+
+  const passengers: Passenger[] = waitlisted.map(b => ({
     type: "booking" as const,
     id: b.id,
     bookingId: b.id,
@@ -262,86 +441,48 @@ function AssignDialog({ bus, unassigned, waitlisted, open, onClose, onAssign, as
     status: b.status,
   }));
 
-  const candidates = [...unassigned, ...waitlistedAsPassengers].filter(p =>
-    p.childName.toLowerCase().includes(search.toLowerCase()) ||
-    p.referenceNumber.toLowerCase().includes(search.toLowerCase()) ||
-    p.parentName.toLowerCase().includes(search.toLowerCase())
-  );
-
   return (
-    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Schüler zuordnen — {bus?.name}</DialogTitle>
-          <DialogDescription>
-            Wählen Sie einen Schüler oder ein Geschwisterkind aus dem Pool.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3 py-2">
-          <Input
-            placeholder="Suchen nach Name, Referenznummer oder Elternteil…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="text-sm"
-            autoFocus
+    <div>
+      <div className="flex items-center gap-2 mb-3">
+        <Clock className="w-4 h-4 text-amber-600" />
+        <h2 className="font-semibold text-gray-800">Warteliste ({waitlisted.length})</h2>
+        <span className="text-xs text-gray-400">— Drag & Drop auf einen Bus zum manuellen Zuordnen</span>
+      </div>
+      <div
+        ref={setNodeRef}
+        className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 min-h-12 rounded-lg p-2 border-2 border-dashed transition-colors
+          ${isOver ? "border-amber-400 bg-amber-50/40" : "border-transparent"}`}
+      >
+        {passengers.map(p => (
+          <DraggablePassenger
+            key={`${p.type}-${p.id}`}
+            passenger={p}
+            source="waitlist"
           />
-          <div className="max-h-80 overflow-y-auto space-y-1.5 pr-1">
-            {candidates.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-4">Keine verfügbaren Schüler</p>
-            ) : (
-              candidates.map(p => {
-                const key = `${p.type}-${p.id}`;
-                return (
-                  <div
-                    key={key}
-                    className="flex items-center justify-between gap-2 p-2.5 rounded border border-gray-100 hover:border-[#004289] hover:bg-blue-50 transition-colors"
-                  >
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="text-sm font-medium text-gray-900">{p.childName}</p>
-                        {p.type === "sibling" && (
-                          <Badge variant="secondary" className="text-[10px] h-4 px-1 bg-blue-100 text-blue-700">Geschwister</Badge>
-                        )}
-                        {p.status === "waitlisted" && (
-                          <Badge variant="secondary" className="text-[10px] h-4 px-1 bg-amber-100 text-amber-700">Warteliste</Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500">{p.gradeYear} · {routeSummary(p)}</p>
-                      <p className="text-xs text-gray-400">{p.referenceNumber} · {p.parentName}</p>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => onAssign(p.type, p.id)}
-                      disabled={assigningKey === key}
-                      className="shrink-0 bg-[#004289] hover:bg-[#003070] text-xs h-7"
-                    >
-                      {assigningKey === key ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Zuordnen"}
-                    </Button>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} size="sm">Schließen</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        ))}
+      </div>
+    </div>
   );
 }
 
-// ── Main page ───────────────────────────────────────────────────────────────────
+// ── Main Page ───────────────────────────────────────────────────────────────────
 
 export default function AdminBuses() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [assigningBus, setAssigningBus] = useState<BusWithAssignments | null>(null);
+  const [activePassenger, setActivePassenger] = useState<Passenger | null>(null);
+  const [overBusId, setOverBusId] = useState<number | null>(null);
   const [removingKey, setRemovingKey] = useState<string | null>(null);
-  const [assigningKey, setAssigningKey] = useState<string | null>(null);
 
-  const { data, isLoading, error } = useQuery({ queryKey: ["admin-buses"], queryFn: fetchBuses });
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["admin-buses"],
+    queryFn: fetchBuses,
+  });
 
   const assignMutation = useMutation({
     mutationFn: ({ busId, type, id }: { busId: number; type: "booking" | "sibling"; id: number }) =>
@@ -349,12 +490,10 @@ export default function AdminBuses() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-buses"] });
       queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
-      setAssigningKey(null);
-      setAssigningBus(null);
     },
     onError: (err: Error) => {
-      toast({ title: "Fehler", description: err.message, variant: "destructive" });
-      setAssigningKey(null);
+      toast({ title: "Fehler beim Zuordnen", description: err.message, variant: "destructive" });
+      queryClient.invalidateQueries({ queryKey: ["admin-buses"] });
     },
   });
 
@@ -371,6 +510,105 @@ export default function AdminBuses() {
       setRemovingKey(null);
     },
   });
+
+  const handleRemove = (bus: BusWithAssignments, passenger: Passenger) => {
+    const key = `${passenger.type}-${passenger.id}`;
+    setRemovingKey(key);
+    removeMutation.mutate({ busId: bus.id, type: passenger.type, id: passenger.id });
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    if (!data) return;
+    const parsed = parseDragId(String(event.active.id));
+    if (!parsed) return;
+
+    // Find the actual passenger object
+    const { type, passengerId, source } = parsed;
+
+    if (source === "pool" || source === "waitlist") {
+      const allPassengers: Passenger[] = [
+        ...data.unassigned,
+        ...data.waitlisted.map(b => ({
+          type: "booking" as const,
+          id: b.id,
+          bookingId: b.id,
+          childName: b.childName,
+          gradeYear: b.gradeYear,
+          tariffZone: b.tariffZone,
+          outboundRoute: b.outboundRoute,
+          returnRoute: b.returnRoute,
+          referenceNumber: b.referenceNumber,
+          parentName: b.parentName,
+          status: b.status,
+        })),
+      ];
+      const found = allPassengers.find(p => p.type === type && p.id === passengerId);
+      setActivePassenger(found ?? null);
+    } else {
+      // From a bus
+      const sourceBusId = Number(source);
+      const bus = data.buses.find(b => b.id === sourceBusId);
+      const found = bus?.assignments.find(p => p.type === type && p.id === passengerId);
+      setActivePassenger(found ?? null);
+    }
+  };
+
+  const handleDragOver = (event: { over: { id: string | number } | null }) => {
+    if (!event.over) { setOverBusId(null); return; }
+    const overId = String(event.over.id);
+    if (overId.startsWith("bus:")) {
+      setOverBusId(Number(overId.replace("bus:", "")));
+    } else {
+      setOverBusId(null);
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActivePassenger(null);
+    setOverBusId(null);
+
+    const { active, over } = event;
+    if (!over || !data) return;
+
+    const overId = String(over.id);
+    if (!overId.startsWith("bus:")) return; // dropped back to pool or nowhere
+
+    const targetBusId = Number(overId.replace("bus:", ""));
+    const parsed = parseDragId(String(active.id));
+    if (!parsed) return;
+
+    const { type, passengerId, source } = parsed;
+    const sourceBusId = source === "pool" || source === "waitlist" ? null : Number(source);
+
+    // No-op if same bus
+    if (sourceBusId === targetBusId) return;
+
+    // Check target bus isn't full
+    const targetBus = data.buses.find(b => b.id === targetBusId);
+    if (!targetBus) return;
+    if (targetBus.assignments.length >= targetBus.capacity) {
+      toast({ title: "Bus ist voll", description: `${targetBus.name} hat keine freien Plätze mehr.`, variant: "destructive" });
+      return;
+    }
+
+    // If moving from another bus, remove first then assign
+    if (sourceBusId !== null) {
+      removePassenger(sourceBusId, type, passengerId)
+        .then(() => assignPassenger(targetBusId, type, passengerId))
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["admin-buses"] });
+          queryClient.invalidateQueries({ queryKey: ["admin-bookings"] });
+        })
+        .catch((err: Error) => {
+          toast({ title: "Fehler", description: err.message, variant: "destructive" });
+          queryClient.invalidateQueries({ queryKey: ["admin-buses"] });
+        });
+    } else {
+      assignMutation.mutate({ busId: targetBusId, type, id: passengerId });
+    }
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
@@ -392,127 +630,73 @@ export default function AdminBuses() {
 
   const totalCapacity = data.buses.reduce((s, b) => s + b.capacity, 0);
   const totalAssigned = data.buses.reduce((s, b) => s + b.assignments.length, 0);
-  const totalSiblings = data.buses.reduce((s, b) => s + b.assignments.filter(p => p.type === "sibling").length, 0);
-
-  const handleRemove = (bus: BusWithAssignments, passenger: Passenger) => {
-    const key = `${passenger.type}-${passenger.id}`;
-    setRemovingKey(key);
-    removeMutation.mutate({ busId: bus.id, type: passenger.type, id: passenger.id });
-  };
-
-  const handleAssign = (type: "booking" | "sibling", id: number) => {
-    if (!assigningBus) return;
-    const key = `${type}-${id}`;
-    setAssigningKey(key);
-    assignMutation.mutate({ busId: assigningBus.id, type, id });
-  };
+  const totalSiblings = data.buses.reduce(
+    (s, b) => s + b.assignments.filter(p => p.type === "sibling").length,
+    0
+  );
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-bold text-[#004289]">Busverwaltung</h1>
-            <p className="text-gray-500 text-sm mt-1">
-              Schüler und Geschwisterkinder manuell den Shuttlebussen zuordnen.
-            </p>
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h1 className="text-2xl font-bold text-[#004289]">Busverwaltung</h1>
+              <p className="text-gray-500 text-sm mt-1">
+                Schüler per <strong>Drag & Drop</strong> auf Busse ziehen. Umzug zwischen Bussen direkt möglich.
+              </p>
+            </div>
+            <div className="flex gap-3 text-sm">
+              <div className="bg-white border border-gray-200 rounded px-3 py-2 text-center">
+                <div className="text-lg font-bold text-[#004289]">{totalAssigned}</div>
+                <div className="text-xs text-gray-500">Belegt</div>
+              </div>
+              <div className="bg-white border border-gray-200 rounded px-3 py-2 text-center">
+                <div className="text-lg font-bold text-blue-500">{totalSiblings}</div>
+                <div className="text-xs text-gray-500 flex items-center gap-1"><Users className="w-3 h-3" /> Geschwister</div>
+              </div>
+              <div className="bg-white border border-gray-200 rounded px-3 py-2 text-center">
+                <div className="text-lg font-bold text-gray-400">{totalCapacity - totalAssigned}</div>
+                <div className="text-xs text-gray-500">Frei</div>
+              </div>
+              <div className="bg-white border border-gray-200 rounded px-3 py-2 text-center">
+                <div className="text-lg font-bold text-amber-600">{data.waitlisted.length}</div>
+                <div className="text-xs text-gray-500">Warteliste</div>
+              </div>
+            </div>
           </div>
-          <div className="flex gap-3 text-sm">
-            <div className="bg-white border border-gray-200 rounded px-3 py-2 text-center">
-              <div className="text-lg font-bold text-[#004289]">{totalAssigned}</div>
-              <div className="text-xs text-gray-500">Belegt</div>
-            </div>
-            <div className="bg-white border border-gray-200 rounded px-3 py-2 text-center">
-              <div className="text-lg font-bold text-blue-500">{totalSiblings}</div>
-              <div className="text-xs text-gray-500">davon Geschwister</div>
-            </div>
-            <div className="bg-white border border-gray-200 rounded px-3 py-2 text-center">
-              <div className="text-lg font-bold text-gray-400">{totalCapacity - totalAssigned}</div>
-              <div className="text-xs text-gray-500">Frei</div>
-            </div>
-            <div className="bg-white border border-gray-200 rounded px-3 py-2 text-center">
-              <div className="text-lg font-bold text-amber-600">{data.waitlisted.length}</div>
-              <div className="text-xs text-gray-500">Warteliste</div>
-            </div>
+
+          {/* Bus grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {data.buses.map(bus => (
+              <BusCard
+                key={bus.id}
+                bus={bus}
+                overBusId={overBusId}
+                onRemove={(passenger) => handleRemove(bus, passenger)}
+                removingKey={removingKey}
+              />
+            ))}
           </div>
+
+          {/* Waitlist */}
+          <WaitlistSection waitlisted={data.waitlisted} />
+
+          {/* Unassigned pool */}
+          <UnassignedPool passengers={data.unassigned} />
         </div>
 
-        {/* Bus grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {data.buses.map(bus => (
-            <BusCard
-              key={bus.id}
-              bus={bus}
-              onAssign={() => setAssigningBus(bus)}
-              onRemove={(passenger) => handleRemove(bus, passenger)}
-              removingKey={removingKey}
-              updating={assignMutation.isPending}
-            />
-          ))}
-        </div>
-
-        {/* Waitlist */}
-        {data.waitlisted.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Clock className="w-4 h-4 text-amber-600" />
-              <h2 className="font-semibold text-gray-800">Warteliste ({data.waitlisted.length})</h2>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {data.waitlisted.map(b => (
-                <div key={b.id} className="flex items-center justify-between gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{b.childName}</p>
-                    <p className="text-xs text-gray-500">{b.gradeYear} · {routeSummary(b)}</p>
-                    <p className="text-xs text-gray-400">{b.referenceNumber}</p>
-                  </div>
-                  <Badge className="shrink-0 bg-amber-100 text-amber-700 border-0 text-xs">Warteliste</Badge>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Unassigned pool */}
-        {data.unassigned.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <AlertCircle className="w-4 h-4 text-gray-400" />
-              <h2 className="font-semibold text-gray-800">Nicht zugeordnet ({data.unassigned.length})</h2>
-              <span className="text-xs text-gray-400">— Buchungen und Geschwisterkinder ohne Buszuweisung</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {data.unassigned.map(p => (
-                <div key={`${p.type}-${p.id}`} className={`flex items-center justify-between gap-2 p-3 rounded-lg border ${p.type === "sibling" ? "bg-blue-50 border-blue-200" : "bg-white border-gray-200"}`}>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-medium text-gray-900 truncate">{p.childName}</p>
-                      {p.type === "sibling" && (
-                        <Badge variant="secondary" className="text-[10px] h-4 px-1 bg-blue-100 text-blue-700 shrink-0">Geschwister</Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-gray-500">{p.gradeYear} · {routeSummary(p)}</p>
-                    <p className="text-xs text-gray-400">{p.referenceNumber}</p>
-                  </div>
-                  {p.type === "sibling" && <Users className="w-3.5 h-3.5 text-blue-400 shrink-0" />}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Assign dialog */}
-      <AssignDialog
-        bus={assigningBus}
-        unassigned={data.unassigned}
-        waitlisted={data.waitlisted}
-        open={assigningBus !== null}
-        onClose={() => setAssigningBus(null)}
-        onAssign={handleAssign}
-        assigningKey={assigningKey}
-      />
+        {/* Drag overlay */}
+        <DragOverlay dropAnimation={null}>
+          {activePassenger && <PassengerGhost passenger={activePassenger} />}
+        </DragOverlay>
+      </DndContext>
     </AdminLayout>
   );
 }
