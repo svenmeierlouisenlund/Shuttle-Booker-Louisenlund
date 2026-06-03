@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Lock } from "lucide-react";
 
 const loginSchema = z.object({
+  username: z.string().min(1, "Bitte geben Sie einen Benutzernamen ein."),
   password: z.string().min(1, "Bitte geben Sie ein Passwort ein."),
 });
 
@@ -22,7 +23,7 @@ export default function AdminLogin() {
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { password: "" },
+    defaultValues: { username: "", password: "" },
   });
 
   const onSubmit = (data: LoginFormValues) => {
@@ -33,7 +34,7 @@ export default function AdminLogin() {
       onError: () => {
         toast({
           title: "Fehler beim Anmelden",
-          description: "Das Passwort ist falsch.",
+          description: "Benutzername oder Passwort ist falsch.",
           variant: "destructive",
         });
       }
@@ -42,7 +43,6 @@ export default function AdminLogin() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col bg-white">
-      {/* Louisenlund blue header */}
       <header className="ll-header">
         <div className="max-w-5xl mx-auto px-6 py-4">
           <div className="text-white font-semibold text-base tracking-wide">
@@ -70,7 +70,29 @@ export default function AdminLogin() {
             </div>
 
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-sm font-medium text-[#333333]">
+                        Benutzername
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          type="text"
+                          placeholder="Benutzername eingeben"
+                          autoComplete="username"
+                          {...field}
+                          data-testid="input-username"
+                          className="border-gray-300 focus:border-[#004289] focus:ring-[#004289]"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <FormField
                   control={form.control}
                   name="password"
@@ -83,6 +105,7 @@ export default function AdminLogin() {
                         <Input
                           type="password"
                           placeholder="Passwort eingeben"
+                          autoComplete="current-password"
                           {...field}
                           data-testid="input-password"
                           className="border-gray-300 focus:border-[#004289] focus:ring-[#004289]"

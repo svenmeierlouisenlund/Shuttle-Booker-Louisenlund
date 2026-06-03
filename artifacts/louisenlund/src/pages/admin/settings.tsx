@@ -8,17 +8,399 @@ import {
   useUpdateSmtpConfig,
   useTestSmtpConfig,
   getGetSmtpConfigQueryKey,
+  useGetAdminMe,
+  useListAdminUsers,
+  useCreateAdminUser,
+  useUpdateAdminUser,
+  useDeleteAdminUser,
+  getListAdminUsersQueryKey,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Trash2, Plus, Mail, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff, Send, Server } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Trash2, Plus, Mail, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff,
+  Send, Server, Users, Pencil, ShieldCheck, Key,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { getListNotificationEmailsQueryKey } from "@workspace/api-client-react";
 import { Badge } from "@/components/ui/badge";
+
+// ── Role helpers ───────────────────────────────────────────────────────────────
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  buchhaltung: "Buchhaltung",
+  schulbuero: "Schulbüro",
+  fahrer: "Fahrer",
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  admin: "bg-[#004289]/10 text-[#004289] border-[#004289]/20",
+  buchhaltung: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  schulbuero: "bg-violet-50 text-violet-700 border-violet-200",
+  fahrer: "bg-amber-50 text-amber-700 border-amber-200",
+};
+
+function RoleBadge({ role }: { role: string }) {
+  return (
+    <Badge variant="outline" className={`text-xs font-medium ${ROLE_COLORS[role] ?? "bg-gray-50 text-gray-600 border-gray-200"}`}>
+      {ROLE_LABELS[role] ?? role}
+    </Badge>
+  );
+}
+
+type Role = "admin" | "buchhaltung" | "schulbuero" | "fahrer";
+
+// ── User management card ───────────────────────────────────────────────────────
+
+function UserManagement({ currentUserId }: { currentUserId?: number }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: usersData, isLoading: usersLoading } = useListAdminUsers();
+  const createUser = useCreateAdminUser();
+  const updateUser = useUpdateAdminUser();
+  const deleteUser = useDeleteAdminUser();
+
+  const [showAdd, setShowAdd] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newRole, setNewRole] = useState<Role>("schulbuero");
+  const [showNewPass, setShowNewPass] = useState(false);
+
+  const [editingUser, setEditingUser] = useState<{ id: number; username: string; role: Role } | null>(null);
+  const [editRole, setEditRole] = useState<Role>("schulbuero");
+  const [editPassword, setEditPassword] = useState("");
+  const [showEditPass, setShowEditPass] = useState(false);
+
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: getListAdminUsersQueryKey() });
+
+  const handleCreate = async () => {
+    if (!newUsername.trim() || !newPassword.trim()) return;
+    try {
+      await createUser.mutateAsync({ data: { username: newUsername.trim(), password: newPassword.trim(), role: newRole } });
+      await invalidate();
+      setShowAdd(false);
+      setNewUsername(""); setNewPassword(""); setNewRole("schulbuero");
+      toast({ title: "Benutzer erstellt", description: newUsername.trim() });
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Fehler beim Erstellen";
+      toast({ title: "Fehler", description: msg, variant: "destructive" });
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!editingUser) return;
+    try {
+      const payload: { role?: Role; password?: string } = { role: editRole };
+      if (editPassword.trim()) payload.password = editPassword.trim();
+      await updateUser.mutateAsync({ userId: editingUser.id, data: payload });
+      await invalidate();
+      setEditingUser(null); setEditPassword("");
+      toast({ title: "Benutzer aktualisiert" });
+    } catch {
+      toast({ title: "Fehler", description: "Aktualisierung fehlgeschlagen", variant: "destructive" });
+    }
+  };
+
+  const handleToggleActive = async (id: number, isActive: boolean) => {
+    try {
+      await updateUser.mutateAsync({ userId: id, data: { isActive: !isActive } });
+      await invalidate();
+    } catch {
+      toast({ title: "Fehler", description: "Status konnte nicht geändert werden", variant: "destructive" });
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      await deleteUser.mutateAsync({ userId: id });
+      await invalidate();
+      setConfirmDeleteId(null);
+      toast({ title: "Benutzer gelöscht" });
+    } catch {
+      toast({ title: "Fehler", description: "Löschen fehlgeschlagen", variant: "destructive" });
+    }
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Users className="w-4 h-4 text-primary" />
+              Benutzerverwaltung
+            </CardTitle>
+            <Button
+              size="sm"
+              onClick={() => setShowAdd(true)}
+              className="bg-[#004289] hover:bg-[#003070] gap-1.5 h-8 text-xs"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Benutzer hinzufügen
+            </Button>
+          </div>
+          <CardDescription>
+            Verwalten Sie den Zugang zum Administrationsbereich. Nur Admins können Benutzer anlegen, bearbeiten und löschen.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {usersLoading ? (
+            <div className="flex items-center gap-2 text-muted-foreground text-sm py-4">
+              <Loader2 className="w-4 h-4 animate-spin" />Wird geladen…
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {usersData?.users.map(u => (
+                <div
+                  key={u.id}
+                  className={`flex items-center justify-between gap-3 rounded-lg border px-4 py-3 transition-colors
+                    ${u.isActive ? "bg-white" : "bg-gray-50 opacity-60"}`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-[#004289]/10 flex items-center justify-center shrink-0">
+                      <ShieldCheck className="w-4 h-4 text-[#004289]" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-gray-900">{u.username}</span>
+                        {u.id === currentUserId && (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-blue-50 text-blue-600 border-blue-200">
+                            Ich
+                          </Badge>
+                        )}
+                        {!u.isActive && (
+                          <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-gray-100 text-gray-500">
+                            Deaktiviert
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="mt-0.5">
+                        <RoleBadge role={u.role} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-gray-400 hover:text-[#004289]"
+                      title="Bearbeiten"
+                      onClick={() => {
+                        setEditingUser({ id: u.id, username: u.username, role: u.role as Role });
+                        setEditRole(u.role as Role);
+                        setEditPassword("");
+                      }}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <button
+                      onClick={() => handleToggleActive(u.id, u.isActive)}
+                      title={u.isActive ? "Deaktivieren" : "Aktivieren"}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors
+                        ${u.isActive ? "bg-[#004289]" : "bg-gray-300"}
+                        ${u.id === currentUserId ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                      disabled={u.id === currentUserId}
+                    >
+                      <span
+                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform
+                          ${u.isActive ? "translate-x-4" : "translate-x-0.5"}`}
+                      />
+                    </button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-gray-300 hover:text-red-500 hover:bg-red-50"
+                      title="Löschen"
+                      onClick={() => setConfirmDeleteId(u.id)}
+                      disabled={u.id === currentUserId}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              {usersData?.users.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">Keine Benutzer vorhanden.</p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add user dialog */}
+      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-4 h-4" />
+              Neuen Benutzer anlegen
+            </DialogTitle>
+            <DialogDescription>
+              Legen Sie einen neuen Benutzer für den Administrationsbereich an.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="new-username">Benutzername</Label>
+              <Input
+                id="new-username"
+                placeholder="z. B. max.mustermann"
+                value={newUsername}
+                onChange={e => setNewUsername(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-password">Passwort</Label>
+              <div className="relative">
+                <Input
+                  id="new-password"
+                  type={showNewPass ? "text" : "password"}
+                  placeholder="Sicheres Passwort eingeben"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  className="pr-10"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPass(v => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="new-role">Rolle</Label>
+              <Select value={newRole} onValueChange={v => setNewRole(v as Role)}>
+                <SelectTrigger id="new-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAdd(false)}>Abbrechen</Button>
+            <Button
+              onClick={handleCreate}
+              disabled={!newUsername.trim() || !newPassword.trim() || createUser.isPending}
+              className="bg-[#004289] hover:bg-[#003070]"
+            >
+              {createUser.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Benutzer anlegen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit user dialog */}
+      <Dialog open={!!editingUser} onOpenChange={open => { if (!open) setEditingUser(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="w-4 h-4" />
+              Benutzer bearbeiten — {editingUser?.username}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-role">Rolle</Label>
+              <Select value={editRole} onValueChange={v => setEditRole(v as Role)}>
+                <SelectTrigger id="edit-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-password" className="flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5" />
+                Neues Passwort
+                <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <div className="relative">
+                <Input
+                  id="edit-password"
+                  type={showEditPass ? "text" : "password"}
+                  placeholder="Leer lassen = Passwort unverändert"
+                  value={editPassword}
+                  onChange={e => setEditPassword(e.target.value)}
+                  className="pr-10"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowEditPass(v => !v)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showEditPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingUser(null)}>Abbrechen</Button>
+            <Button
+              onClick={handleUpdate}
+              disabled={updateUser.isPending}
+              className="bg-[#004289] hover:bg-[#003070]"
+            >
+              {updateUser.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={confirmDeleteId !== null} onOpenChange={open => { if (!open) setConfirmDeleteId(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Benutzer löschen?</DialogTitle>
+            <DialogDescription>
+              Dieser Vorgang kann nicht rückgängig gemacht werden. Der Benutzer verliert sofort den Zugang.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDeleteId(null)}>Abbrechen</Button>
+            <Button
+              variant="destructive"
+              onClick={() => confirmDeleteId !== null && handleDelete(confirmDeleteId)}
+              disabled={deleteUser.isPending}
+            >
+              {deleteUser.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Löschen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ── Main settings page ─────────────────────────────────────────────────────────
 
 export default function AdminSettings() {
   const { data, isLoading } = useListNotificationEmails();
@@ -27,6 +409,7 @@ export default function AdminSettings() {
   const { data: smtpData, isLoading: smtpLoading } = useGetSmtpConfig();
   const updateSmtp = useUpdateSmtpConfig();
   const testSmtp = useTestSmtpConfig();
+  const { data: me } = useGetAdminMe();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -60,8 +443,8 @@ export default function AdminSettings() {
       setNewEmail("");
       setNewLabel("");
       toast({ title: "E-Mail-Adresse hinzugefügt", description: newEmail.trim() });
-    } catch (err: any) {
-      const msg = err?.response?.data?.error ?? "Fehler beim Hinzufügen";
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? "Fehler beim Hinzufügen";
       toast({ title: "Fehler", description: msg, variant: "destructive" });
     }
   };
@@ -110,10 +493,15 @@ export default function AdminSettings() {
     }
   };
 
+  const isAdmin = me?.role === "admin";
+
   return (
     <AdminLayout>
       <div className="space-y-8 max-w-2xl">
         <h1 className="text-2xl font-serif font-semibold text-primary">Einstellungen</h1>
+
+        {/* User Management — admin only */}
+        {isAdmin && <UserManagement currentUserId={undefined} />}
 
         {/* SMTP Config */}
         <Card>
