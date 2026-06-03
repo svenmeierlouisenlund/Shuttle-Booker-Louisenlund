@@ -16,6 +16,12 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+// ── Destination helper ─────────────────────────────────────────────────────────
+const GRADES_HOF = new Set(["Jahrgang 1","Jahrgang 2","Jahrgang 3","Jahrgang 4","Jahrgang 5","Jahrgang 6","Jahrgang 7"]);
+function destination(gradeYear: string): string {
+  return GRADES_HOF.has(gradeYear) ? "Hof Louisenlund" : "Schloss Louisenlund";
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface BusDetail {
@@ -308,7 +314,7 @@ function RouteMap({ passengers }: { passengers: PassengerDetail[] }) {
                       <p key={`${c.type}-${c.id}`} className="text-gray-800 text-xs">
                         {c.type === "sibling" ? "↳ " : ""}
                         <span className="font-medium">{c.childName}</span>
-                        <span className="text-gray-400"> · {c.gradeYear}</span>
+                        <span className="text-gray-400"> · {c.gradeYear} · {destination(c.gradeYear)}</span>
                       </p>
                     ))}
                   </div>
@@ -661,6 +667,8 @@ export default function BusDetail() {
                                         </Badge>
                                       )}
                                       <span className="text-xs text-gray-400">{p.gradeYear}</span>
+                                      <span className="text-xs text-gray-400">·</span>
+                                      <span className="text-xs text-gray-400">{destination(p.gradeYear)}</span>
                                       <span className="text-xs text-gray-400">·</span>
                                       <span className="text-xs text-gray-400">{p.referenceNumber}</span>
                                     </div>

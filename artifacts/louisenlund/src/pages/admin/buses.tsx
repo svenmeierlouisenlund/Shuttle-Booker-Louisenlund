@@ -36,6 +36,12 @@ import {
 import { useLocation } from "wouter";
 import { useState } from "react";
 
+// ── Destination helper ─────────────────────────────────────────────────────────
+const GRADES_HOF = new Set(["Jahrgang 1","Jahrgang 2","Jahrgang 3","Jahrgang 4","Jahrgang 5","Jahrgang 6","Jahrgang 7"]);
+function destination(gradeYear: string): string {
+  return GRADES_HOF.has(gradeYear) ? "Hof Louisenlund" : "Schloss Louisenlund";
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface Passenger {
@@ -238,7 +244,7 @@ function DraggablePassenger({
           )}
         </div>
         <p className="text-xs text-gray-500 truncate">
-          {passenger.gradeYear} · {routeSummary(passenger)}
+          {passenger.gradeYear} · {destination(passenger.gradeYear)} · {routeSummary(passenger)}
         </p>
         {!compact && <p className="text-xs text-gray-400">{passenger.referenceNumber}</p>}
       </div>
@@ -274,7 +280,7 @@ function PassengerGhost({ passenger }: { passenger: Passenger }) {
             <Badge className="text-[10px] h-4 px-1 bg-blue-100 text-blue-700 border-0">Geschwister</Badge>
           )}
         </div>
-        <p className="text-xs text-gray-500">{passenger.gradeYear} · {routeSummary(passenger)}</p>
+        <p className="text-xs text-gray-500">{passenger.gradeYear} · {destination(passenger.gradeYear)} · {routeSummary(passenger)}</p>
       </div>
     </div>
   );
@@ -544,7 +550,7 @@ function WaitlistBusCard({ bus }: { bus: BusWithAssignments }) {
                       </Badge>
                     )}
                   </div>
-                  <p className="text-xs text-gray-500 truncate">{p.gradeYear} · {routeSummary(p)}</p>
+                  <p className="text-xs text-gray-500 truncate">{p.gradeYear} · {destination(p.gradeYear)} · {routeSummary(p)}</p>
                   <p className="text-xs text-gray-400">{p.referenceNumber}</p>
                 </div>
               </div>
