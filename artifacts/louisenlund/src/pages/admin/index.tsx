@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Users, Euro, BusFront, Clock, MapPin } from "lucide-react";
+import { useIsFahrer } from "@/hooks/use-read-only";
 
 function formatEuro(cents: number) {
   return new Intl.NumberFormat("de-DE", {
@@ -16,6 +17,7 @@ function formatEuro(cents: number) {
 
 export default function AdminDashboard() {
   const { data: stats, isLoading } = useGetAdminStats();
+  const isFahrer = useIsFahrer();
 
   const topCities = stats?.byCity
     ? Object.entries(stats.byCity)
@@ -37,7 +39,7 @@ export default function AdminDashboard() {
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {Array.from({ length: 4 }).map((_, i) => (
+            {Array.from({ length: isFahrer ? 3 : 4 }).map((_, i) => (
               <Skeleton key={i} className="h-32" />
             ))}
           </div>
@@ -58,20 +60,22 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Euro className="h-4 w-4" />
-                  Gesamtumsatz
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold text-primary">
-                  {formatEuro(stats?.totalRevenueCents ?? 0)}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">alle Buchungen inkl. Geschwister</p>
-              </CardContent>
-            </Card>
+            {!isFahrer && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                    <Euro className="h-4 w-4" />
+                    Gesamtumsatz
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold text-primary">
+                    {formatEuro(stats?.totalRevenueCents ?? 0)}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">alle Buchungen inkl. Geschwister</p>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader className="pb-2">
