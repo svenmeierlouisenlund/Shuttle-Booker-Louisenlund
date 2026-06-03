@@ -79,6 +79,7 @@ export const siblingsTable = pgTable("siblings", {
   outboundRoute: routeOptionEnum("outbound_route").notNull(),
   returnRoute: routeOptionEnum("return_route").notNull(),
   priceCents: integer("price_cents"),
+  status: bookingStatusEnum("status").notNull().default("received"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

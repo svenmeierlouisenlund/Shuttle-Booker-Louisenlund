@@ -103,6 +103,7 @@ export interface Sibling {
   gradeYear: string;
   outboundRoute: string;
   returnRoute: string;
+  status: BookingStatus;
   /** @nullable */
   priceCents?: number | null;
 }
@@ -239,6 +240,7 @@ export type BookingStatusUpdateSiblingUpdatesItem = {
   returnRoute: RouteOption;
   /** @nullable */
   studentNumber?: string | null;
+  status?: BookingStatus;
 };
 
 export interface BookingStatusUpdate {
