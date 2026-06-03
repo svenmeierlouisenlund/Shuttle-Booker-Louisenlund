@@ -977,9 +977,12 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
       for (const su of d.siblingUpdates) {
         const sib = currentSiblings.find((s) => s.id === su.id);
         if (sib) {
-          await db.update(siblingsTable)
-            .set({ outboundRoute: su.outboundRoute as any, returnRoute: su.returnRoute as any })
-            .where(eq(siblingsTable.id, su.id));
+          const sibSet: Record<string, unknown> = {
+            outboundRoute: su.outboundRoute as any,
+            returnRoute: su.returnRoute as any,
+          };
+          if (su.studentNumber !== undefined) sibSet.studentNumber = su.studentNumber ?? null;
+          await db.update(siblingsTable).set(sibSet).where(eq(siblingsTable.id, su.id));
           sib.outboundRoute = su.outboundRoute as any;
           sib.returnRoute = su.returnRoute as any;
         }
@@ -1005,9 +1008,12 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
     for (const su of d.siblingUpdates) {
       const sib = currentSiblings.find((s) => s.id === su.id);
       if (sib) {
-        await db.update(siblingsTable)
-          .set({ outboundRoute: su.outboundRoute as any, returnRoute: su.returnRoute as any })
-          .where(eq(siblingsTable.id, su.id));
+        const sibSet: Record<string, unknown> = {
+          outboundRoute: su.outboundRoute as any,
+          returnRoute: su.returnRoute as any,
+        };
+        if (su.studentNumber !== undefined) sibSet.studentNumber = su.studentNumber ?? null;
+        await db.update(siblingsTable).set(sibSet).where(eq(siblingsTable.id, su.id));
         sib.outboundRoute = su.outboundRoute as any;
         sib.returnRoute = su.returnRoute as any;
       }
