@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
+import { useIsReadOnly } from "@/hooks/use-read-only";
 
 // ── Destination helper ─────────────────────────────────────────────────────────
 const GRADES_HOF = new Set(["Jahrgang 1","Jahrgang 2","Jahrgang 3","Jahrgang 4","Jahrgang 5","Jahrgang 6","Jahrgang 7"]);
@@ -196,15 +197,17 @@ function DraggablePassenger({
   onRemove,
   removing,
   compact = false,
+  isReadOnly = false,
 }: {
   passenger: Passenger;
   source: string;
   onRemove?: () => void;
   removing?: boolean;
   compact?: boolean;
+  isReadOnly?: boolean;
 }) {
   const dragId = makeDragId(passenger, source);
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: dragId });
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: dragId, disabled: isReadOnly });
 
   const style = transform
     ? { transform: CSS.Translate.toString(transform), opacity: isDragging ? 0.35 : 1 }
@@ -223,14 +226,16 @@ function DraggablePassenger({
       `}
     >
       {/* Drag handle */}
-      <button
-        {...listeners}
-        {...attributes}
-        className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 shrink-0 touch-none"
-        tabIndex={-1}
-      >
-        <GripVertical className="w-3.5 h-3.5" />
-      </button>
+      {!isReadOnly && (
+        <button
+          {...listeners}
+          {...attributes}
+          className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 shrink-0 touch-none"
+          tabIndex={-1}
+        >
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
+      )}
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
@@ -252,7 +257,7 @@ function DraggablePassenger({
         {!compact && <p className="text-xs text-gray-400">{passenger.referenceNumber}</p>}
       </div>
 
-      {onRemove && (
+      {onRemove && !isReadOnly && (
         <Button
           variant="ghost"
           size="sm"
@@ -325,12 +330,14 @@ function BusCard({
   onRemove,
   onDelete,
   removingKey,
+  isReadOnly = false,
 }: {
   bus: BusWithAssignments;
   overBusId: number | null;
   onRemove: (passenger: Passenger) => void;
   onDelete: () => void;
   removingKey: string | null;
+  isReadOnly?: boolean;
 }) {
   const [editingName, setEditingName] = useState(false);
   const [nameVal, setNameVal] = useState(bus.name);
@@ -379,19 +386,21 @@ function BusCard({
             <CardTitle className="text-sm font-semibold text-[#004289] flex items-center gap-1.5 min-w-0">
               <Bus className="w-4 h-4 shrink-0" />
               <span className="truncate">{bus.name}</span>
-              <button
-                onClick={() => { setNameVal(bus.name); setEditingName(true); }}
-                className="ml-1 text-gray-300 hover:text-gray-500 transition-colors shrink-0"
-              >
-                <Pencil className="w-3 h-3" />
-              </button>
+              {!isReadOnly && (
+                <button
+                  onClick={() => { setNameVal(bus.name); setEditingName(true); }}
+                  className="ml-1 text-gray-300 hover:text-gray-500 transition-colors shrink-0"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+              )}
             </CardTitle>
           )}
           <div className="flex items-center gap-1 shrink-0">
             <Badge variant={full ? "destructive" : "secondary"} className="text-xs">
               {bus.assignments.length}/{bus.capacity}
             </Badge>
-            {confirmDelete ? (
+            {!isReadOnly && (confirmDelete ? (
               <>
                 <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-red-600 hover:bg-red-50" onClick={onDelete} title="Löschen bestätigen">
                   <Check className="w-3 h-3" />
@@ -404,7 +413,7 @@ function BusCard({
               <Button variant="ghost" size="sm" className="h-6 w-6 p-0 text-gray-200 hover:text-red-500 hover:bg-red-50" onClick={() => setConfirmDelete(true)} title="Bus löschen">
                 <Trash2 className="w-3 h-3" />
               </Button>
-            )}
+            ))}
           </div>
         </div>
         <div className="h-1.5 rounded-full bg-gray-100 mt-2">
@@ -449,8 +458,9 @@ function BusCard({
                   key={`${p.type}-${p.id}`}
                   passenger={p}
                   source={String(bus.id)}
-                  onRemove={() => onRemove(p)}
+                  onRemove={isReadOnly ? undefined : () => onRemove(p)}
                   removing={removingKey === `${p.type}-${p.id}`}
+                  isReadOnly={isReadOnly}
                 />
               ))}
               {/* Ghost drop target when bus has items */}
@@ -483,7 +493,7 @@ function BusCard({
 
 // ── Unassigned Pool ─────────────────────────────────────────────────────────────
 
-function UnassignedPool({ passengers }: { passengers: Passenger[] }) {
+function UnassignedPool({ passengers, isReadOnly = false }: { passengers: Passenger[]; isReadOnly?: boolean }) {
   const { setNodeRef, isOver } = useDroppable({ id: "pool" });
 
   if (passengers.length === 0) return null;
@@ -493,7 +503,7 @@ function UnassignedPool({ passengers }: { passengers: Passenger[] }) {
       <div className="flex items-center gap-2 mb-3">
         <AlertCircle className="w-4 h-4 text-gray-400" />
         <h2 className="font-semibold text-gray-800">Nicht zugeordnet ({passengers.length})</h2>
-        <span className="text-xs text-gray-400">— Drag & Drop auf einen Bus zum Zuordnen</span>
+        {!isReadOnly && <span className="text-xs text-gray-400">— Drag & Drop auf einen Bus zum Zuordnen</span>}
       </div>
       <div
         ref={setNodeRef}
@@ -505,6 +515,7 @@ function UnassignedPool({ passengers }: { passengers: Passenger[] }) {
             key={`${p.type}-${p.id}`}
             passenger={p}
             source="pool"
+            isReadOnly={isReadOnly}
           />
         ))}
       </div>
@@ -577,6 +588,7 @@ function WaitlistBusCard({ bus }: { bus: BusWithAssignments }) {
 // ── Main Page ───────────────────────────────────────────────────────────────────
 
 export default function AdminBuses() {
+  const isReadOnly = useIsReadOnly();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -774,14 +786,16 @@ export default function AdminBuses() {
                 Schüler per <strong>Drag & Drop</strong> auf Busse ziehen. Umzug zwischen Bussen direkt möglich.
               </p>
             </div>
-            <Button
-              onClick={() => createMutation.mutate()}
-              disabled={createMutation.isPending}
-              className="bg-[#004289] hover:bg-[#003070] gap-2 shrink-0"
-            >
-              {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-              Bus anlegen
-            </Button>
+            {!isReadOnly && (
+              <Button
+                onClick={() => createMutation.mutate()}
+                disabled={createMutation.isPending}
+                className="bg-[#004289] hover:bg-[#003070] gap-2 shrink-0"
+              >
+                {createMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                Bus anlegen
+              </Button>
+            )}
             <div className="flex gap-3 text-sm">
               <div className="bg-white border border-gray-200 rounded px-3 py-2 text-center">
                 <div className="text-lg font-bold text-[#004289]">{totalAssigned}</div>
@@ -819,12 +833,13 @@ export default function AdminBuses() {
                 onRemove={(passenger) => handleRemove(bus, passenger)}
                 onDelete={() => deleteMutation.mutate(bus.id)}
                 removingKey={removingKey}
+                isReadOnly={isReadOnly}
               />
             ))}
           </div>
 
           {/* Unassigned pool */}
-          <UnassignedPool passengers={data.unassigned} />
+          <UnassignedPool passengers={data.unassigned} isReadOnly={isReadOnly} />
         </div>
 
         {/* Drag overlay */}

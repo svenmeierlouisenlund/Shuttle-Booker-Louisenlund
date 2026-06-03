@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { AdminLayout } from "@/components/admin-layout";
 import { useListAdminBookings } from "@workspace/api-client-react";
+import { useIsReadOnly } from "@/hooks/use-read-only";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -59,6 +60,7 @@ const COL_WIDTHS = [100, 88, 170, 95, 150, 90, 165, 140, 82, 70];
 type RouteCalcResult = { processed: number; failed: number; skipped: number; errors: string[] };
 
 export default function AdminBookingsList() {
+  const isReadOnly = useIsReadOnly();
   const [view, setView] = useState<"all" | "waitlisted">("all");
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState<string>("all");
@@ -240,20 +242,24 @@ export default function AdminBookingsList() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="outline" onClick={handleOpenImport}>
-              <Upload className="w-4 h-4 mr-2" />
-              Excel importieren
-            </Button>
+            {!isReadOnly && (
+              <Button variant="outline" onClick={handleOpenImport}>
+                <Upload className="w-4 h-4 mr-2" />
+                Excel importieren
+              </Button>
+            )}
             <Button variant="outline" onClick={() => window.open("/api/admin/bookings/export?format=xlsx", "_blank")}>
               Excel Export
             </Button>
             <Button variant="outline" onClick={() => window.open("/api/admin/bookings/export", "_blank")}>
               CSV Export
             </Button>
-            <Button variant="outline" onClick={handleOpenRouteCalc}>
-              <Route className="w-4 h-4 mr-2" />
-              Routen berechnen
-            </Button>
+            {!isReadOnly && (
+              <Button variant="outline" onClick={handleOpenRouteCalc}>
+                <Route className="w-4 h-4 mr-2" />
+                Routen berechnen
+              </Button>
+            )}
           </div>
         </div>
 

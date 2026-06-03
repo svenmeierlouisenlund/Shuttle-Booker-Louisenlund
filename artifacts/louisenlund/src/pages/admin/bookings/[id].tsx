@@ -1,6 +1,7 @@
 import { AdminLayout } from "@/components/admin-layout";
 import { useParams, Link, useLocation } from "wouter";
 import { useGetAdminBooking, useUpdateAdminBooking, useDeleteAdminBooking, getGetAdminBookingQueryKey } from "@workspace/api-client-react";
+import { useIsReadOnly } from "@/hooks/use-read-only";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -149,6 +150,7 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 }
 
 export default function AdminBookingDetail() {
+  const isReadOnly = useIsReadOnly();
   const params = useParams();
   const id = Number(params.id);
   const [, navigate] = useLocation();
@@ -368,7 +370,7 @@ export default function AdminBookingDetail() {
             {statusMap[booking.status]}
           </Badge>
           <div className="ml-auto flex items-center gap-2">
-            <AlertDialog>
+            {!isReadOnly && (<AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700">
                   <Trash2 className="w-4 h-4 mr-2" />
@@ -392,7 +394,7 @@ export default function AdminBookingDetail() {
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
-            </AlertDialog>
+            </AlertDialog>)}
           </div>
         </div>
 
@@ -404,10 +406,12 @@ export default function AdminBookingDetail() {
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg">Buchungsdaten</CardTitle>
                 {!editMode ? (
-                  <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
-                    <Pencil className="w-4 h-4 mr-2" />
-                    Bearbeiten
-                  </Button>
+                  !isReadOnly && (
+                    <Button variant="outline" size="sm" onClick={() => setEditMode(true)}>
+                      <Pencil className="w-4 h-4 mr-2" />
+                      Bearbeiten
+                    </Button>
+                  )
                 ) : (
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" onClick={handleCancelEdit}>
@@ -910,7 +914,7 @@ export default function AdminBookingDetail() {
               <CardContent className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Status</label>
-                  <Select value={status} onValueChange={setStatus}>
+                  <Select value={status} onValueChange={setStatus} disabled={isReadOnly}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -931,17 +935,20 @@ export default function AdminBookingDetail() {
                     onChange={e => setAdminNotes(e.target.value)}
                     placeholder="Notizen zur Bearbeitung..."
                     className="min-h-[150px]"
+                    readOnly={isReadOnly}
                   />
                 </div>
 
-                <Button
-                  className="w-full"
-                  onClick={handleSaveStatus}
-                  disabled={updateMutation.isPending}
-                >
-                  <Save className="w-4 h-4 mr-2" />
-                  Status speichern
-                </Button>
+                {!isReadOnly && (
+                  <Button
+                    className="w-full"
+                    onClick={handleSaveStatus}
+                    disabled={updateMutation.isPending}
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    Status speichern
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </div>
