@@ -61,7 +61,8 @@ const bookingTypeMap: Record<string, string> = {
 
 const gradeYearOptions = [
   "Jahrgang 1","Jahrgang 2","Jahrgang 3","Jahrgang 4","Jahrgang 5",
-  "Jahrgang 6","Jahrgang 7","Jahrgang 8","Jahrgang 9","MYP5","DP1","DP2"
+  "Jahrgang 6","Jahrgang 7","Jahrgang 8","Jahrgang 9","Jahrgang 10",
+  "E-Jahrgang","Q1-Jahrgang","Q2-Jahrgang","MYP3","MYP4","MYP5","DP1","DP2"
 ];
 
 function fmtPrice(cents: number | null | undefined): string {
