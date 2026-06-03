@@ -126,8 +126,21 @@ export const busAssignmentsTable = pgTable("bus_assignments", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const siblingBusAssignmentsTable = pgTable("sibling_bus_assignments", {
+  id: serial("id").primaryKey(),
+  busId: integer("bus_id")
+    .notNull()
+    .references(() => busesTable.id, { onDelete: "cascade" }),
+  siblingId: integer("sibling_id")
+    .notNull()
+    .unique()
+    .references(() => siblingsTable.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export type Bus = typeof busesTable.$inferSelect;
 export type BusAssignment = typeof busAssignmentsTable.$inferSelect;
+export type SiblingBusAssignment = typeof siblingBusAssignmentsTable.$inferSelect;
 
 export const smtpConfigTable = pgTable("smtp_config", {
   id: integer("id").primaryKey().default(1),

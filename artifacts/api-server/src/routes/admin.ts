@@ -1,6 +1,6 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
-import { bookingsTable, siblingsTable, notificationEmailsTable, smtpConfigTable, pricingConfigTable, busesTable, busAssignmentsTable } from "@workspace/db";
+import { bookingsTable, siblingsTable, notificationEmailsTable, smtpConfigTable, pricingConfigTable, busesTable, busAssignmentsTable, siblingBusAssignmentsTable } from "@workspace/db";
 import {
   ListAdminBookingsQueryParams,
   UpdateAdminBookingBody,
@@ -1233,10 +1233,9 @@ router.get("/admin/buses", requireAuth, async (req, res) => {
 
   const buses = await db.select().from(busesTable).orderBy(busesTable.id);
 
-  // All assignments with booking info
-  const assignments = await db
+  // Booking assignments
+  const bookingAssignments = await db
     .select({
-      assignmentId: busAssignmentsTable.id,
       busId: busAssignmentsTable.busId,
       bookingId: busAssignmentsTable.bookingId,
       childName: bookingsTable.childName,
@@ -1251,69 +1250,86 @@ router.get("/admin/buses", requireAuth, async (req, res) => {
     .from(busAssignmentsTable)
     .innerJoin(bookingsTable, eq(busAssignmentsTable.bookingId, bookingsTable.id));
 
-  const assignedBookingIds = new Set(assignments.map(a => a.bookingId));
+  // Sibling assignments
+  const siblingAssignments = await db
+    .select({
+      busId: siblingBusAssignmentsTable.busId,
+      siblingId: siblingBusAssignmentsTable.siblingId,
+      childName: siblingsTable.childName,
+      gradeYear: siblingsTable.gradeYear,
+      outboundRoute: siblingsTable.outboundRoute,
+      returnRoute: siblingsTable.returnRoute,
+      referenceNumber: bookingsTable.referenceNumber,
+      tariffZone: bookingsTable.tariffZone,
+      parentName: bookingsTable.parentName,
+      status: bookingsTable.status,
+      bookingId: siblingsTable.bookingId,
+    })
+    .from(siblingBusAssignmentsTable)
+    .innerJoin(siblingsTable, eq(siblingBusAssignmentsTable.siblingId, siblingsTable.id))
+    .innerJoin(bookingsTable, eq(siblingsTable.bookingId, bookingsTable.id));
 
-  const assignmentsByBus: Record<number, typeof assignments> = {};
-  for (const a of assignments) {
-    if (!assignmentsByBus[a.busId]) assignmentsByBus[a.busId] = [];
-    assignmentsByBus[a.busId].push(a);
+  const assignedBookingIds = new Set(bookingAssignments.map(a => a.bookingId));
+  const assignedSiblingIds = new Set(siblingAssignments.map(a => a.siblingId));
+
+  // Build passengers per bus
+  type Passenger = {
+    type: "booking" | "sibling";
+    id: number;
+    bookingId: number;
+    childName: string;
+    gradeYear: string;
+    tariffZone: string;
+    outboundRoute: string;
+    returnRoute: string;
+    referenceNumber: string;
+    parentName: string;
+    status: string;
+  };
+  const passengersByBus: Record<number, Passenger[]> = {};
+  for (const a of bookingAssignments) {
+    if (!passengersByBus[a.busId]) passengersByBus[a.busId] = [];
+    passengersByBus[a.busId].push({ type: "booking", id: a.bookingId, bookingId: a.bookingId, childName: a.childName, gradeYear: a.gradeYear, tariffZone: a.tariffZone, outboundRoute: a.outboundRoute, returnRoute: a.returnRoute, referenceNumber: a.referenceNumber, parentName: a.parentName, status: a.status });
+  }
+  for (const a of siblingAssignments) {
+    if (!passengersByBus[a.busId]) passengersByBus[a.busId] = [];
+    passengersByBus[a.busId].push({ type: "sibling", id: a.siblingId, bookingId: a.bookingId, childName: a.childName, gradeYear: a.gradeYear, tariffZone: a.tariffZone, outboundRoute: a.outboundRoute, returnRoute: a.returnRoute, referenceNumber: a.referenceNumber, parentName: a.parentName, status: a.status });
   }
 
-  const busesWithAssignments = buses.map(b => ({
-    ...b,
-    assignments: (assignmentsByBus[b.id] ?? []).map(a => ({
-      id: a.bookingId,
-      referenceNumber: a.referenceNumber,
-      childName: a.childName,
-      gradeYear: a.gradeYear,
-      tariffZone: a.tariffZone,
-      outboundRoute: a.outboundRoute,
-      returnRoute: a.returnRoute,
-      parentName: a.parentName,
-      status: a.status,
-    })),
-  }));
+  const busesWithAssignments = buses.map(b => ({ ...b, assignments: passengersByBus[b.id] ?? [] }));
 
   // Waitlisted bookings
   const waitlisted = await db
-    .select({
-      id: bookingsTable.id,
-      referenceNumber: bookingsTable.referenceNumber,
-      childName: bookingsTable.childName,
-      gradeYear: bookingsTable.gradeYear,
-      tariffZone: bookingsTable.tariffZone,
-      outboundRoute: bookingsTable.outboundRoute,
-      returnRoute: bookingsTable.returnRoute,
-      parentName: bookingsTable.parentName,
-      status: bookingsTable.status,
-    })
+    .select({ id: bookingsTable.id, referenceNumber: bookingsTable.referenceNumber, childName: bookingsTable.childName, gradeYear: bookingsTable.gradeYear, tariffZone: bookingsTable.tariffZone, outboundRoute: bookingsTable.outboundRoute, returnRoute: bookingsTable.returnRoute, parentName: bookingsTable.parentName, status: bookingsTable.status })
     .from(bookingsTable)
     .where(eq(bookingsTable.status, "waitlisted"))
     .orderBy(bookingsTable.createdAt);
 
-  // Unassigned (non-waitlisted bookings without a bus assignment)
+  // Unassigned bookings (non-waitlisted, without bus assignment)
   const allNonWaitlisted = await db
-    .select({
-      id: bookingsTable.id,
-      referenceNumber: bookingsTable.referenceNumber,
-      childName: bookingsTable.childName,
-      gradeYear: bookingsTable.gradeYear,
-      tariffZone: bookingsTable.tariffZone,
-      outboundRoute: bookingsTable.outboundRoute,
-      returnRoute: bookingsTable.returnRoute,
-      parentName: bookingsTable.parentName,
-      status: bookingsTable.status,
-    })
+    .select({ id: bookingsTable.id, referenceNumber: bookingsTable.referenceNumber, childName: bookingsTable.childName, gradeYear: bookingsTable.gradeYear, tariffZone: bookingsTable.tariffZone, outboundRoute: bookingsTable.outboundRoute, returnRoute: bookingsTable.returnRoute, parentName: bookingsTable.parentName, status: bookingsTable.status })
     .from(bookingsTable)
-    .where(
-      and(
-        sql`${bookingsTable.status} != 'waitlisted'`,
-        sql`${bookingsTable.outboundRoute} != 'none' OR ${bookingsTable.returnRoute} != 'none'`
-      )
-    )
+    .where(and(sql`${bookingsTable.status} != 'waitlisted'`, sql`${bookingsTable.outboundRoute} != 'none' OR ${bookingsTable.returnRoute} != 'none'`))
     .orderBy(bookingsTable.createdAt);
 
-  const unassigned = allNonWaitlisted.filter(b => !assignedBookingIds.has(b.id));
+  const unassignedBookings: Passenger[] = allNonWaitlisted
+    .filter(b => !assignedBookingIds.has(b.id))
+    .map(b => ({ type: "booking" as const, id: b.id, bookingId: b.id, ...b }));
+
+  // Unassigned siblings (whose parent booking is not waitlisted)
+  const allSiblings = await db
+    .select({ id: siblingsTable.id, childName: siblingsTable.childName, gradeYear: siblingsTable.gradeYear, outboundRoute: siblingsTable.outboundRoute, returnRoute: siblingsTable.returnRoute, bookingId: siblingsTable.bookingId, referenceNumber: bookingsTable.referenceNumber, tariffZone: bookingsTable.tariffZone, parentName: bookingsTable.parentName, status: bookingsTable.status })
+    .from(siblingsTable)
+    .innerJoin(bookingsTable, eq(siblingsTable.bookingId, bookingsTable.id))
+    .where(and(sql`${bookingsTable.status} != 'waitlisted'`, sql`${siblingsTable.outbound_route} != 'none' OR ${siblingsTable.return_route} != 'none'`))
+    .orderBy(siblingsTable.createdAt);
+
+  const unassignedSiblings: Passenger[] = allSiblings
+    .filter(s => !assignedSiblingIds.has(s.id))
+    .map(s => ({ type: "sibling" as const, id: s.id, bookingId: s.bookingId, childName: s.childName, gradeYear: s.gradeYear, tariffZone: s.tariffZone, outboundRoute: s.outboundRoute, returnRoute: s.returnRoute, referenceNumber: s.referenceNumber, parentName: s.parentName, status: s.status }));
+
+  const unassigned: Passenger[] = [...unassignedBookings, ...unassignedSiblings]
+    .sort((a, b) => a.referenceNumber.localeCompare(b.referenceNumber));
 
   res.json({ buses: busesWithAssignments, waitlisted, unassigned });
 });
@@ -1341,48 +1357,58 @@ router.put("/admin/buses/:busId", requireAuth, async (req, res) => {
 
 router.post("/admin/buses/:busId/assign", requireAuth, async (req, res) => {
   const busId = parseInt(req.params.busId, 10);
-  const bookingId = parseInt(String(req.body?.bookingId), 10);
-  if (isNaN(busId) || isNaN(bookingId)) { res.status(400).json({ error: "Ungültige Parameter" }); return; }
+  const { type, id } = req.body as { type?: string; id?: unknown };
+  const passengerId = parseInt(String(id), 10);
+  if (isNaN(busId) || isNaN(passengerId) || (type !== "booking" && type !== "sibling")) {
+    res.status(400).json({ error: "Ungültige Parameter (type: booking|sibling, id: number)" }); return;
+  }
 
   const [bus] = await db.select().from(busesTable).where(eq(busesTable.id, busId)).limit(1);
   if (!bus) { res.status(404).json({ error: "Bus nicht gefunden" }); return; }
 
-  const currentCount = await db
-    .select({ count: count() })
-    .from(busAssignmentsTable)
-    .where(eq(busAssignmentsTable.busId, busId));
-  if ((currentCount[0]?.count ?? 0) >= bus.capacity) {
+  // Check combined capacity
+  const [bCount] = await db.select({ c: count() }).from(busAssignmentsTable).where(eq(busAssignmentsTable.busId, busId));
+  const [sCount] = await db.select({ c: count() }).from(siblingBusAssignmentsTable).where(eq(siblingBusAssignmentsTable.busId, busId));
+  const currentTotal = Number(bCount?.c ?? 0) + Number(sCount?.c ?? 0);
+  if (currentTotal >= bus.capacity) {
     res.status(409).json({ error: "Bus ist bereits voll" }); return;
   }
 
-  const [booking] = await db.select().from(bookingsTable).where(eq(bookingsTable.id, bookingId)).limit(1);
-  if (!booking) { res.status(404).json({ error: "Buchung nicht gefunden" }); return; }
-
-  // Remove any existing assignment
-  await db.delete(busAssignmentsTable).where(eq(busAssignmentsTable.bookingId, bookingId));
-
-  await db.insert(busAssignmentsTable).values({ busId, bookingId });
-
-  // If the booking was on the waitlist, promote it to "confirmed"
-  if (booking.status === "waitlisted") {
-    await db.update(bookingsTable)
-      .set({ status: "confirmed", updatedAt: new Date() })
-      .where(eq(bookingsTable.id, bookingId));
+  if (type === "booking") {
+    const [booking] = await db.select().from(bookingsTable).where(eq(bookingsTable.id, passengerId)).limit(1);
+    if (!booking) { res.status(404).json({ error: "Buchung nicht gefunden" }); return; }
+    await db.delete(busAssignmentsTable).where(eq(busAssignmentsTable.bookingId, passengerId));
+    await db.insert(busAssignmentsTable).values({ busId, bookingId: passengerId });
+    if (booking.status === "waitlisted") {
+      await db.update(bookingsTable).set({ status: "confirmed", updatedAt: new Date() }).where(eq(bookingsTable.id, passengerId));
+    }
+    req.log.info({ busId, bookingId: passengerId }, "Booking assigned to bus");
+  } else {
+    const [sibling] = await db.select().from(siblingsTable).where(eq(siblingsTable.id, passengerId)).limit(1);
+    if (!sibling) { res.status(404).json({ error: "Geschwisterkind nicht gefunden" }); return; }
+    await db.delete(siblingBusAssignmentsTable).where(eq(siblingBusAssignmentsTable.siblingId, passengerId));
+    await db.insert(siblingBusAssignmentsTable).values({ busId, siblingId: passengerId });
+    req.log.info({ busId, siblingId: passengerId }, "Sibling assigned to bus");
   }
 
-  req.log.info({ busId, bookingId }, "Booking assigned to bus");
   res.json({ success: true });
 });
 
-router.delete("/admin/buses/:busId/assign/:bookingId", requireAuth, async (req, res) => {
+router.delete("/admin/buses/:busId/assign/booking/:bookingId", requireAuth, async (req, res) => {
   const busId = parseInt(req.params.busId, 10);
   const bookingId = parseInt(req.params.bookingId, 10);
   if (isNaN(busId) || isNaN(bookingId)) { res.status(400).json({ error: "Ungültige Parameter" }); return; }
-
-  await db.delete(busAssignmentsTable)
-    .where(and(eq(busAssignmentsTable.busId, busId), eq(busAssignmentsTable.bookingId, bookingId)));
-
+  await db.delete(busAssignmentsTable).where(and(eq(busAssignmentsTable.busId, busId), eq(busAssignmentsTable.bookingId, bookingId)));
   req.log.info({ busId, bookingId }, "Booking removed from bus");
+  res.json({ success: true });
+});
+
+router.delete("/admin/buses/:busId/assign/sibling/:siblingId", requireAuth, async (req, res) => {
+  const busId = parseInt(req.params.busId, 10);
+  const siblingId = parseInt(req.params.siblingId, 10);
+  if (isNaN(busId) || isNaN(siblingId)) { res.status(400).json({ error: "Ungültige Parameter" }); return; }
+  await db.delete(siblingBusAssignmentsTable).where(and(eq(siblingBusAssignmentsTable.busId, busId), eq(siblingBusAssignmentsTable.siblingId, siblingId)));
+  req.log.info({ busId, siblingId }, "Sibling removed from bus");
   res.json({ success: true });
 });
 
