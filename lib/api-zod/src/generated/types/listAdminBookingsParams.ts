@@ -10,6 +10,10 @@ export type ListAdminBookingsParams = {
 /**
  * @nullable
  */
+search?: string | null;
+/**
+ * @nullable
+ */
 tariffZone?: string | null;
 /**
  * @nullable

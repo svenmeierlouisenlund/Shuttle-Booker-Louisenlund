@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { AdminLayout } from "@/components/admin-layout";
 import { useListAdminBookings } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -11,8 +11,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
-import { Upload, CheckCircle2, AlertCircle, Loader2, Route, ClipboardList, BookOpen } from "lucide-react";
+import { Upload, CheckCircle2, AlertCircle, Loader2, Route, ClipboardList, BookOpen, Search, X } from "lucide-react";
 
 const statusMap: Record<string, string> = {
   received: "Eingegangen",
@@ -63,6 +64,9 @@ export default function AdminBookingsList() {
   const [status, setStatus] = useState<string>("all");
   const [tariffZone, setTariffZone] = useState<string>("all");
   const [gradeYear, setGradeYear] = useState<string>("all");
+  const [bookingType, setBookingType] = useState<string>("all");
+  const [searchInput, setSearchInput] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
 
   const [importOpen, setImportOpen] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -79,12 +83,19 @@ export default function AdminBookingsList() {
 
   const queryClient = useQueryClient();
 
+  useEffect(() => {
+    const t = setTimeout(() => { setSearch(searchInput); setPage(1); }, 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
   const queryParams = {
     page,
     limit: 50,
     ...(view === "waitlisted" ? { status: "waitlisted" } : status !== "all" ? { status } : {}),
     ...(tariffZone !== "all" ? { tariffZone } : {}),
     ...(gradeYear !== "all" ? { gradeYear } : {}),
+    ...(bookingType !== "all" ? { bookingType } : {}),
+    ...(search.trim() ? { search: search.trim() } : {}),
   };
 
   const { data, isLoading } = useListAdminBookings(queryParams);
@@ -243,29 +254,46 @@ export default function AdminBookingsList() {
               <span>Nur Kinder auf der <strong>Warteliste</strong> werden angezeigt. Status ändern Sie in der Buchungsdetailseite.</span>
             </div>
           )}
-          <CardHeader className="flex flex-row items-center gap-4 py-4 bg-muted/50 border-b">
-            {view !== "waitlisted" && (
+          <CardHeader className="flex flex-col gap-3 py-4 bg-muted/50 border-b">
+            {/* Row 1: Search */}
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Status:</span>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="w-[180px] bg-background">
-                  <SelectValue placeholder="Alle Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Alle Status</SelectItem>
-                  <SelectItem value="received">Eingegangen</SelectItem>
-                  <SelectItem value="reviewed">Geprüft</SelectItem>
-                  <SelectItem value="confirmed">Bestätigt</SelectItem>
-                  <SelectItem value="query_open">Rückfrage offen</SelectItem>
-                  <SelectItem value="waitlisted">Warteliste</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder="Suche nach Name, Ref, Elternteil, Ort …"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  className="pl-8 bg-background h-9"
+                />
+                {searchInput && (
+                  <button
+                    onClick={() => setSearchInput("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
-            )}
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Tarifzone:</span>
-              <Select value={tariffZone} onValueChange={setTariffZone}>
-                <SelectTrigger className="w-[180px] bg-background">
+            {/* Row 2: Dropdowns */}
+            <div className="flex items-center gap-3 flex-wrap">
+              {view !== "waitlisted" && (
+                <Select value={status} onValueChange={(v) => { setStatus(v); setPage(1); }}>
+                  <SelectTrigger className="w-[170px] bg-background h-9">
+                    <SelectValue placeholder="Alle Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle Status</SelectItem>
+                    <SelectItem value="received">Eingegangen</SelectItem>
+                    <SelectItem value="reviewed">Geprüft</SelectItem>
+                    <SelectItem value="confirmed">Bestätigt</SelectItem>
+                    <SelectItem value="query_open">Rückfrage offen</SelectItem>
+                    <SelectItem value="waitlisted">Warteliste</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              <Select value={tariffZone} onValueChange={(v) => { setTariffZone(v); setPage(1); }}>
+                <SelectTrigger className="w-[150px] bg-background h-9">
                   <SelectValue placeholder="Alle Zonen" />
                 </SelectTrigger>
                 <SelectContent>
@@ -275,10 +303,18 @@ export default function AdminBookingsList() {
                   <SelectItem value="zone3">Tarifzone 3</SelectItem>
                 </SelectContent>
               </Select>
-
-              <span className="text-sm font-medium">Klasse:</span>
+              <Select value={bookingType} onValueChange={(v) => { setBookingType(v); setPage(1); }}>
+                <SelectTrigger className="w-[220px] bg-background h-9">
+                  <SelectValue placeholder="Alle Buchungsarten" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle Buchungsarten</SelectItem>
+                  <SelectItem value="full_year">Gesamtes Schuljahr 2026/27</SelectItem>
+                  <SelectItem value="first_half">Erstes Halbjahr 2026/27</SelectItem>
+                </SelectContent>
+              </Select>
               <Select value={gradeYear} onValueChange={(v) => { setGradeYear(v); setPage(1); }}>
-                <SelectTrigger className="w-[160px] bg-background">
+                <SelectTrigger className="w-[150px] bg-background h-9">
                   <SelectValue placeholder="Alle Klassen" />
                 </SelectTrigger>
                 <SelectContent>
@@ -288,6 +324,20 @@ export default function AdminBookingsList() {
                   ))}
                 </SelectContent>
               </Select>
+              {(search || status !== "all" || tariffZone !== "all" || bookingType !== "all" || gradeYear !== "all") && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 text-muted-foreground"
+                  onClick={() => {
+                    setSearchInput(""); setSearch(""); setStatus("all");
+                    setTariffZone("all"); setBookingType("all"); setGradeYear("all"); setPage(1);
+                  }}
+                >
+                  <X className="h-3.5 w-3.5 mr-1" />
+                  Filter zurücksetzen
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent className="p-0">

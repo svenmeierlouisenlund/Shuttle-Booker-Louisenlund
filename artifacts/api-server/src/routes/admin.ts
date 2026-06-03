@@ -762,6 +762,17 @@ router.get("/admin/bookings", requireAuth, async (req, res) => {
   const offset = (page - 1) * limit;
 
   const conditions = [];
+  if (params.search) {
+    const term = `%${params.search.toLowerCase()}%`;
+    conditions.push(
+      or(
+        sql`LOWER(${bookingsTable.childName}) LIKE ${term}`,
+        sql`LOWER(${bookingsTable.parentName}) LIKE ${term}`,
+        sql`LOWER(${bookingsTable.referenceNumber}) LIKE ${term}`,
+        sql`LOWER(${bookingsTable.childCity}) LIKE ${term}`,
+      )!,
+    );
+  }
   if (params.tariffZone) conditions.push(eq(bookingsTable.tariffZone, params.tariffZone as any));
   if (params.bookingType) conditions.push(eq(bookingsTable.bookingType, params.bookingType as any));
   if (params.status) {
