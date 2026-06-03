@@ -108,6 +108,11 @@ export interface Sibling {
   status: BookingStatus;
   /** @nullable */
   priceCents?: number | null;
+  /**
+     * Name of the assigned bus (if any)
+     * @nullable
+     */
+  busName?: string | null;
 }
 
 export interface AdminBooking {
@@ -207,6 +212,11 @@ export interface AdminBookingDetail {
      * @nullable
      */
   pickupTariffZone?: AdminBookingDetailPickupTariffZone;
+  /**
+     * Name of the assigned bus for the main child (if any)
+     * @nullable
+     */
+  busName?: string | null;
   siblings: Sibling[];
 }
 

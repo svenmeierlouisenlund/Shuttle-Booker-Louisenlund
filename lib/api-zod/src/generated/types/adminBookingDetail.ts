@@ -57,5 +57,10 @@ export interface AdminBookingDetail {
      * @nullable
      */
   pickupTariffZone?: AdminBookingDetailPickupTariffZone;
+  /**
+     * Name of the assigned bus for the main child (if any)
+     * @nullable
+     */
+  busName?: string | null;
   siblings: Sibling[];
 }
