@@ -1526,6 +1526,33 @@ router.get("/admin/buses/:busId", requireAuth, async (req, res) => {
   res.json({ bus, passengers });
 });
 
+router.post("/admin/buses", requireAuth, async (req, res) => {
+  await ensureBusesSeeded();
+  const { name, capacity } = req.body as { name?: string; capacity?: unknown };
+  const busName = (typeof name === "string" && name.trim()) ? name.trim() : null;
+  const cap = capacity !== undefined ? parseInt(String(capacity), 10) : 8;
+  if (cap !== null && (isNaN(cap) || cap < 1 || cap > 200)) {
+    res.status(400).json({ error: "Ungültige Kapazität (1–200)" }); return;
+  }
+  const existing = await db.select({ id: busesTable.id }).from(busesTable).where(eq(busesTable.isWaitlistBus, false)).orderBy(busesTable.id);
+  const nextNum = existing.length + 1;
+  const [created] = await db.insert(busesTable).values({
+    name: busName ?? `Bus ${nextNum}`,
+    capacity: cap,
+  }).returning();
+  res.status(201).json(created);
+});
+
+router.delete("/admin/buses/:busId", requireAuth, async (req, res) => {
+  const busId = parseInt(req.params.busId, 10);
+  if (isNaN(busId)) { res.status(400).json({ error: "Ungültige Bus-ID" }); return; }
+  const [bus] = await db.select().from(busesTable).where(eq(busesTable.id, busId)).limit(1);
+  if (!bus) { res.status(404).json({ error: "Bus nicht gefunden" }); return; }
+  if (bus.isWaitlistBus) { res.status(400).json({ error: "Der Warteliste-Bus kann nicht gelöscht werden" }); return; }
+  await db.delete(busesTable).where(eq(busesTable.id, busId));
+  res.json({ success: true });
+});
+
 router.put("/admin/buses/:busId", requireAuth, async (req, res) => {
   const busId = parseInt(req.params.busId, 10);
   if (isNaN(busId)) { res.status(400).json({ error: "Ungültige Bus-ID" }); return; }
