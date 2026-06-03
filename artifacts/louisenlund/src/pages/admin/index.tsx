@@ -22,7 +22,6 @@ export default function AdminDashboard() {
   const topCities = stats?.byCity
     ? Object.entries(stats.byCity)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
     : [];
 
   const maxCityCount = topCities[0]?.[1] ?? 1;
