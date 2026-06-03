@@ -27,7 +27,11 @@ import {
   Check,
   Users,
   GripVertical,
+  Phone,
+  User,
+  ExternalLink,
 } from "lucide-react";
+import { useLocation } from "wouter";
 import { useState } from "react";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -63,6 +67,8 @@ interface BusWithAssignments {
   name: string;
   capacity: number;
   notes: string | null;
+  driverName: string | null;
+  driverPhone: string | null;
   assignments: Passenger[];
 }
 
@@ -291,6 +297,7 @@ function BusCard({
   const [nameVal, setNameVal] = useState(bus.name);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
 
   const renameMutation = useMutation({
     mutationFn: (name: string) => updateBus(bus.id, { name }),
@@ -350,6 +357,26 @@ function BusCard({
             style={{ width: `${pct}%` }}
           />
         </div>
+        {/* Driver info */}
+        <div className="mt-2 space-y-0.5">
+          {bus.driverName ? (
+            <p className="text-xs text-gray-600 flex items-center gap-1.5">
+              <User className="w-3 h-3 text-gray-400 shrink-0" />
+              {bus.driverName}
+            </p>
+          ) : (
+            <p className="text-xs text-gray-400 italic flex items-center gap-1.5">
+              <User className="w-3 h-3 shrink-0" />
+              Kein Fahrer hinterlegt
+            </p>
+          )}
+          {bus.driverPhone && (
+            <p className="text-xs text-gray-600 flex items-center gap-1.5">
+              <Phone className="w-3 h-3 text-gray-400 shrink-0" />
+              {bus.driverPhone}
+            </p>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="px-4 pb-4 flex-1 flex flex-col">
         <BusDropZone bus={bus} isOver={isOver} isFull={full}>
@@ -384,6 +411,15 @@ function BusCard({
             </div>
           )}
         </BusDropZone>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate(`/admin/buses/${bus.id}`)}
+          className="mt-2 w-full text-xs text-[#004289] hover:bg-[#004289]/5 gap-1.5"
+        >
+          <ExternalLink className="w-3 h-3" />
+          Details & Routenplanung
+        </Button>
       </CardContent>
     </Card>
   );
