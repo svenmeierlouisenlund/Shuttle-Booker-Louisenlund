@@ -311,13 +311,15 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
   const [siblingCount] = await db.select({ total: count() }).from(siblingsTable);
   const totalChildren = total + Number(siblingCount?.total ?? 0);
 
-  // Total revenue: sum priceCents from bookings + siblings
+  // Total revenue: sum priceCents from bookings + siblings, excluding waitlisted
   const [revenueBookings] = await db
     .select({ total: sql<number>`COALESCE(SUM(price_cents), 0)` })
-    .from(bookingsTable);
+    .from(bookingsTable)
+    .where(ne(bookingsTable.status, "waitlisted"));
   const [revenueSiblings] = await db
     .select({ total: sql<number>`COALESCE(SUM(price_cents), 0)` })
-    .from(siblingsTable);
+    .from(siblingsTable)
+    .where(ne(siblingsTable.status, "waitlisted"));
   const totalRevenueCents =
     Number(revenueBookings?.total ?? 0) + Number(revenueSiblings?.total ?? 0);
 
