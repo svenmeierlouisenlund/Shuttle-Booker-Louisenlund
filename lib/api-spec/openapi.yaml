@@ -1008,6 +1008,12 @@ components:
           type: ["string", "null"]
           enum: [zone1, zone2, zone3, null]
           description: Tariff zone of the pickup location (if cheaper than home zone, used for pricing)
+        pickupLat:
+          type: ["number", "null"]
+          description: Latitude of the pickup pin (set via map picker, alternative to address)
+        pickupLng:
+          type: ["number", "null"]
+          description: Longitude of the pickup pin (set via map picker, alternative to address)
         busName:
           type: ["string", "null"]
           description: Name of the assigned bus for the main child (if any)
@@ -1090,6 +1096,10 @@ components:
           type: ["string", "null"]
           enum: [zone1, zone2, zone3, null]
           description: Tariff zone of the pickup location (overrides home zone for pricing if cheaper)
+        pickupLat:
+          type: ["number", "null"]
+        pickupLng:
+          type: ["number", "null"]
         siblingUpdates:
           type: array
           description: Per-sibling route overrides (by sibling id)

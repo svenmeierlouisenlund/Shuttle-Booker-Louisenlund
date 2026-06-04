@@ -251,6 +251,16 @@ export interface AdminBookingDetail {
      */
   pickupTariffZone?: AdminBookingDetailPickupTariffZone;
   /**
+     * Latitude of the pickup pin (set via map picker, alternative to address)
+     * @nullable
+     */
+  pickupLat?: number | null;
+  /**
+     * Longitude of the pickup pin (set via map picker, alternative to address)
+     * @nullable
+     */
+  pickupLng?: number | null;
+  /**
      * Name of the assigned bus for the main child (if any)
      * @nullable
      */
@@ -361,6 +371,10 @@ export interface BookingStatusUpdate {
      * @nullable
      */
   pickupTariffZone?: BookingStatusUpdatePickupTariffZone;
+  /** @nullable */
+  pickupLat?: number | null;
+  /** @nullable */
+  pickupLng?: number | null;
   /** Per-sibling route overrides (by sibling id) */
   siblingUpdates?: BookingStatusUpdateSiblingUpdatesItem[];
 }

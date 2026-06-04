@@ -15,6 +15,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ChevronLeft, Save, Trash2, Pencil, X, MapPin, Navigation, Bus, Camera, Upload } from "lucide-react";
 import { useUpload } from "@workspace/object-storage-web";
+import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -111,6 +114,104 @@ function calcLivePrice(cfg: PricingConfigFlat, zone: string, bType: string, out:
   return zone === "zone1" ? cfg.firstHalfOneWayZone1 : zone === "zone2" ? cfg.firstHalfOneWayZone2 : cfg.firstHalfOneWayZone3;
 }
 
+// ── Kartenpin für Sammelpunkt ──────────────────────────────────────────────────
+
+const pickupPinIcon = L.divIcon({
+  className: "",
+  iconSize: [32, 40],
+  iconAnchor: [16, 40],
+  popupAnchor: [0, -40],
+  html: `<div style="display:flex;flex-direction:column;align-items:center"><div style="background:#b45309;color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:14px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)">📍</div><div style="width:2px;height:10px;background:#b45309;margin-top:1px"></div></div>`,
+});
+
+function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void }) {
+  useMapEvents({ click(e) { onClick(e.latlng.lat, e.latlng.lng); } });
+  return null;
+}
+
+function PickupMapPicker({
+  lat, lng, onChange,
+}: {
+  lat: number | null;
+  lng: number | null;
+  onChange: (lat: number | null, lng: number | null) => void;
+}) {
+  const DEFAULT_CENTER: [number, number] = [54.52, 9.86];
+  const center: [number, number] = lat !== null && lng !== null ? [lat, lng] : DEFAULT_CENTER;
+  return (
+    <div>
+      <div style={{ height: 240 }} className="rounded-lg overflow-hidden border border-gray-200 cursor-crosshair">
+        <MapContainer
+          key={`picker-${lat ?? "null"}-${lng ?? "null"}`}
+          center={center}
+          zoom={lat !== null ? 13 : 9}
+          style={{ height: "100%", width: "100%" }}
+        >
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          />
+          <MapClickHandler onClick={onChange} />
+          {lat !== null && lng !== null && (
+            <Marker
+              position={[lat, lng]}
+              icon={pickupPinIcon}
+              draggable
+              eventHandlers={{
+                dragend(e) {
+                  const pos = (e.target as L.Marker).getLatLng();
+                  onChange(pos.lat, pos.lng);
+                },
+              }}
+            />
+          )}
+        </MapContainer>
+      </div>
+      {lat !== null && lng !== null ? (
+        <div className="flex items-center justify-between mt-1.5 px-0.5">
+          <span className="text-xs text-gray-500">
+            📍 {lat.toFixed(5)}, {lng.toFixed(5)}
+          </span>
+          <button
+            type="button"
+            onClick={() => onChange(null, null)}
+            className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
+          >
+            <X className="w-3 h-3" />
+            Pin entfernen
+          </button>
+        </div>
+      ) : (
+        <p className="text-xs text-gray-400 mt-1.5 px-0.5">
+          Auf die Karte klicken, um einen Sammelpunkt zu markieren. Marker lässt sich verschieben.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function PickupMapPreview({ lat, lng }: { lat: number; lng: number }) {
+  return (
+    <div style={{ height: 160 }} className="rounded-lg overflow-hidden border border-gray-200 mt-2">
+      <MapContainer
+        center={[lat, lng]}
+        zoom={14}
+        style={{ height: "100%", width: "100%" }}
+        zoomControl={false}
+        scrollWheelZoom={false}
+        dragging={false}
+        doubleClickZoom={false}
+        attributionControl={false}
+      >
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <Marker position={[lat, lng]} icon={pickupPinIcon} />
+      </MapContainer>
+    </div>
+  );
+}
+
+// ── EditFields ─────────────────────────────────────────────────────────────────
+
 interface EditFields {
   childName: string;
   studentNumber: string;
@@ -129,6 +230,8 @@ interface EditFields {
   pickupPostalCode: string;
   pickupCity: string;
   pickupTariffZone: string;
+  pickupLat: number | null;
+  pickupLng: number | null;
 }
 
 function photoDisplayUrl(objectPath: string | null | undefined): string | null {
@@ -284,6 +387,7 @@ export default function AdminBookingDetail() {
     parentName: "", parentEmail: "", parentPhone: "",
     tariffZone: "", bookingType: "", outboundRoute: "", returnRoute: "",
     pickupAddress: "", pickupPostalCode: "", pickupCity: "", pickupTariffZone: "",
+    pickupLat: null, pickupLng: null,
   });
   const [pricingConfig, setPricingConfig] = useState<PricingConfigFlat | null>(null);
 
@@ -324,6 +428,8 @@ export default function AdminBookingDetail() {
         pickupPostalCode: (booking as any).pickupPostalCode || "",
         pickupCity: (booking as any).pickupCity || "",
         pickupTariffZone: (booking as any).pickupTariffZone || "",
+        pickupLat: (booking as any).pickupLat ?? null,
+        pickupLng: (booking as any).pickupLng ?? null,
       });
       const sibMap: Record<number, { outboundRoute: string; returnRoute: string; studentNumber: string; status: string }> = {};
       for (const s of booking.siblings ?? []) {
@@ -353,6 +459,8 @@ export default function AdminBookingDetail() {
         pickupPostalCode: (booking as any).pickupPostalCode || "",
         pickupCity: (booking as any).pickupCity || "",
         pickupTariffZone: (booking as any).pickupTariffZone || "",
+        pickupLat: (booking as any).pickupLat ?? null,
+        pickupLng: (booking as any).pickupLng ?? null,
       });
       const sibMap: Record<number, { outboundRoute: string; returnRoute: string; studentNumber: string; status: string }> = {};
       for (const s of booking.siblings ?? []) {
@@ -423,6 +531,8 @@ export default function AdminBookingDetail() {
         pickupPostalCode: editFields.pickupPostalCode || null,
         pickupCity: editFields.pickupCity || null,
         pickupTariffZone: (editFields.pickupTariffZone as any) || null,
+        pickupLat: editFields.pickupLat,
+        pickupLng: editFields.pickupLng,
         siblingUpdates: Object.entries(editSiblings).map(([idStr, v]) => ({
           id: Number(idStr),
           outboundRoute: v.outboundRoute as any,
@@ -675,34 +785,62 @@ export default function AdminBookingDetail() {
                   <div className="flex items-center gap-2 mb-4">
                     <Navigation className="w-4 h-4 text-primary" />
                     <h3 className="font-semibold text-primary">Sammelpunkt</h3>
-                    {!editMode && (booking as any).pickupAddress && (
+                    {!editMode && ((booking as any).pickupAddress || (booking as any).pickupLat) && (
                       <span className="text-xs bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">Abweichende Abholadresse</span>
                     )}
                   </div>
                   {!editMode ? (
-                    (booking as any).pickupAddress ? (
+                    ((booking as any).pickupAddress || (booking as any).pickupLat) ? (
                       <div className="text-sm space-y-1">
-                        <p className="font-medium text-gray-800">{(booking as any).pickupAddress}</p>
-                        <p className="text-gray-600">{(booking as any).pickupPostalCode} {(booking as any).pickupCity}</p>
+                        {(booking as any).pickupAddress && (
+                          <p className="font-medium text-gray-800">{(booking as any).pickupAddress}</p>
+                        )}
+                        {((booking as any).pickupPostalCode || (booking as any).pickupCity) && (
+                          <p className="text-gray-600">{(booking as any).pickupPostalCode} {(booking as any).pickupCity}</p>
+                        )}
+                        {(booking as any).pickupLat && (booking as any).pickupLng && !(booking as any).pickupAddress && (
+                          <p className="text-gray-500 text-xs flex items-center gap-1">
+                            <MapPin className="w-3 h-3" />
+                            Kartenpin: {((booking as any).pickupLat as number).toFixed(5)}, {((booking as any).pickupLng as number).toFixed(5)}
+                          </p>
+                        )}
                         {(booking as any).pickupTariffZone && (
                           <p className="text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded px-2 py-0.5 inline-block">
                             Günstigere Preiszone: {tariffZoneMap[(booking as any).pickupTariffZone]}
                           </p>
+                        )}
+                        {(booking as any).pickupLat && (booking as any).pickupLng && (
+                          <PickupMapPreview lat={(booking as any).pickupLat} lng={(booking as any).pickupLng} />
                         )}
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground italic">Kein Sammelpunkt — Schüler wird an der Heimatadresse abgeholt.</p>
                     )
                   ) : (
-                    <div className="space-y-3">
-                      <p className="text-xs text-muted-foreground">Nur ausfüllen, wenn der Schüler nicht an der Heimatadresse abgeholt wird.</p>
+                    <div className="space-y-4">
+                      <p className="text-xs text-muted-foreground">Nur ausfüllen, wenn der Schüler nicht an der Heimatadresse abgeholt wird. Adresse oder Kartenpin — beides ist möglich.</p>
+
+                      {/* Karte */}
+                      <div>
+                        <p className="text-xs font-medium text-gray-600 mb-1.5 flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5" />
+                          Lage auf der Karte markieren
+                        </p>
+                        <PickupMapPicker
+                          lat={editFields.pickupLat}
+                          lng={editFields.pickupLng}
+                          onChange={(lat, lng) => setEditFields(p => ({ ...p, pickupLat: lat, pickupLng: lng }))}
+                        />
+                      </div>
+
+                      {/* Adressfelder */}
                       <div className="grid grid-cols-2 gap-y-3 gap-x-8">
                         <div className="col-span-2">
-                          <FieldRow label="Straße / Sammelpunkt">
+                          <FieldRow label="Straße / Beschreibung (optional)">
                             <Input
                               value={editFields.pickupAddress}
                               onChange={e => setField("pickupAddress")(e.target.value)}
-                              placeholder="z.B. Bahnhofstraße 1"
+                              placeholder="z.B. Bahnhofstraße 1 oder Parkplatz Rewe"
                             />
                           </FieldRow>
                         </div>
@@ -746,10 +884,10 @@ export default function AdminBookingDetail() {
                           </FieldRow>
                         </div>
                       </div>
-                      {editFields.pickupAddress && (
+                      {(editFields.pickupAddress || editFields.pickupLat) && (
                         <button
                           type="button"
-                          onClick={() => setEditFields(p => ({ ...p, pickupAddress: "", pickupPostalCode: "", pickupCity: "", pickupTariffZone: "" }))}
+                          onClick={() => setEditFields(p => ({ ...p, pickupAddress: "", pickupPostalCode: "", pickupCity: "", pickupTariffZone: "", pickupLat: null, pickupLng: null }))}
                           className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
                         >
                           <X className="w-3 h-3" />

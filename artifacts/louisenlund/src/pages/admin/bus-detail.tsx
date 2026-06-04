@@ -177,6 +177,8 @@ interface PassengerDetail {
   pickupAddress: string | null;
   pickupPostalCode: string | null;
   pickupCity: string | null;
+  pickupLat: number | null;
+  pickupLng: number | null;
   tariffZone: string;
   outboundRoute: string;
   returnRoute: string;
@@ -198,6 +200,7 @@ interface PickupStop {
   address: string;
   postalCode: string;
   city: string;
+  coords?: [number, number];
   children: PassengerDetail[];
   parentName: string;
   parentPhone: string;
@@ -206,17 +209,21 @@ interface PickupStop {
   referenceNumber: string;
 }
 
-/** Effective pickup address: uses Sammelpunkt if set, otherwise Heimadresse */
+/** Effective pickup address: uses Sammelpunkt/Pin if set, otherwise Heimadresse */
 function effectiveAddress(p: PassengerDetail) {
-  if (p.pickupAddress) {
+  const hasPin = p.pickupLat !== null && p.pickupLng !== null;
+  const hasAddr = !!p.pickupAddress;
+  if (hasAddr || hasPin) {
     return {
-      address: p.pickupAddress,
+      address: p.pickupAddress ?? (hasPin ? "Kartenmarkierung" : ""),
       postalCode: p.pickupPostalCode ?? p.childPostalCode,
       city: p.pickupCity ?? p.childCity,
       isPickup: true,
+      lat: p.pickupLat,
+      lng: p.pickupLng,
     };
   }
-  return { address: p.childAddress, postalCode: p.childPostalCode, city: p.childCity, isPickup: false };
+  return { address: p.childAddress, postalCode: p.childPostalCode, city: p.childCity, isPickup: false, lat: null as null, lng: null as null };
 }
 
 function buildStops(passengers: PassengerDetail[]): PickupStop[] {
@@ -230,6 +237,7 @@ function buildStops(passengers: PassengerDetail[]): PickupStop[] {
         address: ea.address,
         postalCode: ea.postalCode,
         city: ea.city,
+        coords: ea.lat !== null && ea.lng !== null ? [ea.lat, ea.lng] : undefined,
         children: [p],
         parentName: p.parentName,
         parentPhone: p.parentPhone,
@@ -251,6 +259,7 @@ function buildStops(passengers: PassengerDetail[]): PickupStop[] {
           address: ea.address,
           postalCode: ea.postalCode,
           city: ea.city,
+          coords: ea.lat !== null && ea.lng !== null ? [ea.lat, ea.lng] : undefined,
           children: [p],
           parentName: p.parentName,
           parentPhone: p.parentPhone,
@@ -377,22 +386,30 @@ function RouteMap({ passengers }: { passengers: PassengerDetail[] }) {
 
       if (rawStops.length === 0) { if (!cancelled) setLoading(false); return; }
 
-      // 2. Alle Haltepunkte geocodieren
+      // 2. Alle Haltepunkte geocodieren (oder direkte Koordinaten nutzen)
       const withCoords: { stop: PickupStop; coords: [number, number]; distKm: number }[] = [];
       let counter = 0;
       for (const stop of rawStops) {
         if (cancelled) break;
-        const cacheKey = `${stop.address}, ${stop.postalCode} ${stop.city}, Deutschland`;
-        let coords: [number, number] | null = cache.current[cacheKey] ?? null;
-        if (!coords) {
-          // Geocodiere mit Fallback (nur Straße+PLZ falls Ortsname nicht erkannt)
-          coords = await geocodeAddress(stop.address, stop.postalCode, stop.city);
-          if (coords) {
-            cache.current[cacheKey] = coords;
-            saveCache(cache.current);
+
+        let coords: [number, number] | null = null;
+
+        if (stop.coords) {
+          // Gespeicherte Koordinaten aus dem Kartenpin — kein Geocoding nötig
+          coords = stop.coords;
+        } else if (stop.address && stop.address !== "Kartenmarkierung") {
+          const cacheKey = `${stop.address}, ${stop.postalCode} ${stop.city}, Deutschland`;
+          coords = cache.current[cacheKey] ?? null;
+          if (!coords) {
+            coords = await geocodeAddress(stop.address, stop.postalCode, stop.city);
+            if (coords) {
+              cache.current[cacheKey] = coords;
+              saveCache(cache.current);
+            }
+            await new Promise(r => setTimeout(r, 1100));
           }
-          await new Promise(r => setTimeout(r, 1100));
         }
+
         counter++;
         if (!cancelled) setDone(counter);
         if (coords) {

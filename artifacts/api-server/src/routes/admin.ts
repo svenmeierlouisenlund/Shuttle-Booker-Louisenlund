@@ -1347,6 +1347,8 @@ router.get("/admin/bookings/:id", requireAuth, async (req, res) => {
     pickupPostalCode: booking.pickupPostalCode ?? null,
     pickupCity: booking.pickupCity ?? null,
     pickupTariffZone: booking.pickupTariffZone ?? null,
+    pickupLat: booking.pickupLat ?? null,
+    pickupLng: booking.pickupLng ?? null,
     photoPath: booking.photoPath ?? null,
     busId: mainBusRow?.busId ?? null,
     busName: mainBusRow?.busName ?? null,
@@ -1434,6 +1436,8 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
   if (d.pickupPostalCode !== undefined) updates.pickupPostalCode = d.pickupPostalCode ?? null;
   if (d.pickupCity !== undefined) updates.pickupCity = d.pickupCity ?? null;
   if (d.pickupTariffZone !== undefined) updates.pickupTariffZone = d.pickupTariffZone ?? null;
+  if (d.pickupLat !== undefined) updates.pickupLat = (d.pickupLat as number | null) ?? null;
+  if (d.pickupLng !== undefined) updates.pickupLng = (d.pickupLng as number | null) ?? null;
 
   // Recalculate own price if any price-affecting field changes
   const priceFieldsChanged =
@@ -1957,6 +1961,8 @@ router.get("/admin/buses/:busId", requireAuth, async (req, res) => {
       pickupAddress: bookingsTable.pickupAddress,
       pickupPostalCode: bookingsTable.pickupPostalCode,
       pickupCity: bookingsTable.pickupCity,
+      pickupLat: bookingsTable.pickupLat,
+      pickupLng: bookingsTable.pickupLng,
       tariffZone: bookingsTable.tariffZone,
       outboundRoute: bookingsTable.outboundRoute,
       returnRoute: bookingsTable.returnRoute,
@@ -1982,6 +1988,8 @@ router.get("/admin/buses/:busId", requireAuth, async (req, res) => {
       pickupAddress: bookingsTable.pickupAddress,
       pickupPostalCode: bookingsTable.pickupPostalCode,
       pickupCity: bookingsTable.pickupCity,
+      pickupLat: bookingsTable.pickupLat,
+      pickupLng: bookingsTable.pickupLng,
       tariffZone: bookingsTable.tariffZone,
       outboundRoute: siblingsTable.outboundRoute,
       returnRoute: siblingsTable.returnRoute,
