@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AdminBookingCreate,
   AdminBookingDetail,
   AdminBookingList,
   AdminCredentials,
@@ -354,6 +355,77 @@ export const useCalculateRoutes = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getCalculateRoutesMutationOptions(options));
+    }
+
+export const getCreateAdminBookingUrl = () => {
+
+
+
+
+  return `/api/admin/bookings`
+}
+
+/**
+ * @summary Manually create a booking (admin)
+ */
+export const createAdminBooking = async (adminBookingCreate: AdminBookingCreate, options?: RequestInit): Promise<AdminBookingDetail> => {
+
+  return customFetch<AdminBookingDetail>(getCreateAdminBookingUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      adminBookingCreate,)
+  }
+);}
+
+
+
+
+export const getCreateAdminBookingMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminBooking>>, TError,{data: BodyType<AdminBookingCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createAdminBooking>>, TError,{data: BodyType<AdminBookingCreate>}, TContext> => {
+
+const mutationKey = ['createAdminBooking'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAdminBooking>>, {data: BodyType<AdminBookingCreate>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createAdminBooking(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateAdminBookingMutationResult = NonNullable<Awaited<ReturnType<typeof createAdminBooking>>>
+    export type CreateAdminBookingMutationBody = BodyType<AdminBookingCreate>
+    export type CreateAdminBookingMutationError = ErrorType<void>
+
+    /**
+ * @summary Manually create a booking (admin)
+ */
+export const useCreateAdminBooking = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAdminBooking>>, TError,{data: BodyType<AdminBookingCreate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createAdminBooking>>,
+        TError,
+        {data: BodyType<AdminBookingCreate>},
+        TContext
+      > => {
+      return useMutation(getCreateAdminBookingMutationOptions(options));
     }
 
 export const getListAdminBookingsUrl = (params?: ListAdminBookingsParams,) => {

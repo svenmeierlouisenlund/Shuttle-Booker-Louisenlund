@@ -91,6 +91,36 @@ export const CalculateRoutesResponse = zod.object({
 
 
 /**
+ * @summary Manually create a booking (admin)
+ */
+
+
+export const createAdminBookingBodyChildPostalCodeMin = 4;
+
+
+
+
+
+export const CreateAdminBookingBody = zod.object({
+  "childName": zod.string().min(1),
+  "childAddress": zod.string().min(1),
+  "childPostalCode": zod.string().min(createAdminBookingBodyChildPostalCodeMin),
+  "childCity": zod.string().min(1),
+  "studentNumber": zod.string().nullish(),
+  "gradeYear": zod.string(),
+  "parentName": zod.string().min(1),
+  "parentEmail": zod.string().email(),
+  "parentPhone": zod.string().nullish(),
+  "tariffZone": zod.enum(['zone1', 'zone2', 'zone3']),
+  "bookingType": zod.enum(['full_year', 'first_half']),
+  "outboundRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']),
+  "returnRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']),
+  "adminNotes": zod.string().nullish(),
+  "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']).optional()
+})
+
+
+/**
  * @summary List all bookings (admin)
  */
 export const listAdminBookingsQueryPageDefault = 1;

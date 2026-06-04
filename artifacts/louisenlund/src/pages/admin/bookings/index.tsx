@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { AdminLayout } from "@/components/admin-layout";
-import { useListAdminBookings } from "@workspace/api-client-react";
+import { useListAdminBookings, useCreateAdminBooking } from "@workspace/api-client-react";
 import { useIsReadOnly, useIsFahrer } from "@/hooks/use-read-only";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,8 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Upload, CheckCircle2, AlertCircle, Loader2, Route, ClipboardList, BookOpen, Search, X, ChevronRight, ChevronDown } from "lucide-react";
+import { Upload, CheckCircle2, AlertCircle, Loader2, Route, ClipboardList, BookOpen, Search, X, ChevronRight, ChevronDown, Plus } from "lucide-react";
 
 const statusMap: Record<string, string> = {
   received: "Eingegangen",
@@ -93,6 +95,19 @@ export default function AdminBookingsList() {
   const [routeCalcResult, setRouteCalcResult] = useState<RouteCalcResult | null>(null);
   const [routeCalcError, setRouteCalcError] = useState<string | null>(null);
 
+  const [newBookingOpen, setNewBookingOpen] = useState(false);
+  const [newBookingError, setNewBookingError] = useState<string | null>(null);
+  const emptyNewBooking = () => ({
+    childName: "", childAddress: "", childPostalCode: "", childCity: "",
+    studentNumber: "", gradeYear: "", parentName: "", parentEmail: "", parentPhone: "",
+    tariffZone: "zone1", bookingType: "full_year", outboundRoute: "zone1", returnRoute: "zone1",
+    adminNotes: "", status: "received",
+  });
+  const [newBookingFields, setNewBookingFields] = useState(emptyNewBooking());
+
+  const createBookingMutation = useCreateAdminBooking();
+  const [, navigate] = useLocation();
+  const { toast } = useToast();
 
   const queryClient = useQueryClient();
 
@@ -243,6 +258,12 @@ export default function AdminBookingsList() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
+            {!isReadOnly && (
+              <Button onClick={() => { setNewBookingFields(emptyNewBooking()); setNewBookingError(null); setNewBookingOpen(true); }}>
+                <Plus className="w-4 h-4 mr-2" />
+                Neue Buchung
+              </Button>
+            )}
             {!isReadOnly && (
               <Button variant="outline" onClick={handleOpenImport}>
                 <Upload className="w-4 h-4 mr-2" />
@@ -652,6 +673,203 @@ export default function AdminBookingsList() {
                 )}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Neue Buchung Dialog */}
+      <Dialog open={newBookingOpen} onOpenChange={setNewBookingOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Neue Buchung erstellen</DialogTitle>
+            <DialogDescription>
+              Legt manuell eine neue Buchung an. Alle Pflichtfelder müssen ausgefüllt sein.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-1">
+            {newBookingError && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{newBookingError}</AlertDescription>
+              </Alert>
+            )}
+
+            {/* Kind */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Kind</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1 col-span-2">
+                  <Label htmlFor="nb-childName">Name des Kindes *</Label>
+                  <Input id="nb-childName" value={newBookingFields.childName} onChange={e => setNewBookingFields(f => ({ ...f, childName: e.target.value }))} placeholder="Vorname Nachname" />
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <Label htmlFor="nb-childAddress">Straße und Hausnummer *</Label>
+                  <Input id="nb-childAddress" value={newBookingFields.childAddress} onChange={e => setNewBookingFields(f => ({ ...f, childAddress: e.target.value }))} placeholder="Musterstraße 1" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="nb-childPostalCode">Postleitzahl *</Label>
+                  <Input id="nb-childPostalCode" value={newBookingFields.childPostalCode} onChange={e => setNewBookingFields(f => ({ ...f, childPostalCode: e.target.value }))} placeholder="24340" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="nb-childCity">Ort *</Label>
+                  <Input id="nb-childCity" value={newBookingFields.childCity} onChange={e => setNewBookingFields(f => ({ ...f, childCity: e.target.value }))} placeholder="Eckernförde" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="nb-gradeYear">Jahrgang *</Label>
+                  <Input id="nb-gradeYear" value={newBookingFields.gradeYear} onChange={e => setNewBookingFields(f => ({ ...f, gradeYear: e.target.value }))} placeholder="z.B. 9" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="nb-studentNumber">Schülernummer</Label>
+                  <Input id="nb-studentNumber" value={newBookingFields.studentNumber} onChange={e => setNewBookingFields(f => ({ ...f, studentNumber: e.target.value }))} placeholder="optional" />
+                </div>
+              </div>
+            </div>
+
+            {/* Elternteil */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Erziehungsberechtigte/r</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1 col-span-2">
+                  <Label htmlFor="nb-parentName">Name *</Label>
+                  <Input id="nb-parentName" value={newBookingFields.parentName} onChange={e => setNewBookingFields(f => ({ ...f, parentName: e.target.value }))} placeholder="Vorname Nachname" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="nb-parentEmail">E-Mail *</Label>
+                  <Input id="nb-parentEmail" type="email" value={newBookingFields.parentEmail} onChange={e => setNewBookingFields(f => ({ ...f, parentEmail: e.target.value }))} placeholder="email@example.com" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="nb-parentPhone">Telefon</Label>
+                  <Input id="nb-parentPhone" value={newBookingFields.parentPhone} onChange={e => setNewBookingFields(f => ({ ...f, parentPhone: e.target.value }))} placeholder="optional" />
+                </div>
+              </div>
+            </div>
+
+            {/* Buchungsdetails */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Buchungsdetails</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="nb-tariffZone">Tarifzone *</Label>
+                  <Select value={newBookingFields.tariffZone} onValueChange={v => setNewBookingFields(f => ({ ...f, tariffZone: v }))}>
+                    <SelectTrigger id="nb-tariffZone"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="zone1">Zone 1</SelectItem>
+                      <SelectItem value="zone2">Zone 2</SelectItem>
+                      <SelectItem value="zone3">Zone 3</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="nb-bookingType">Buchungsart *</Label>
+                  <Select value={newBookingFields.bookingType} onValueChange={v => setNewBookingFields(f => ({ ...f, bookingType: v }))}>
+                    <SelectTrigger id="nb-bookingType"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full_year">Ganzes Schuljahr</SelectItem>
+                      <SelectItem value="half_year_1">1. Halbjahr</SelectItem>
+                      <SelectItem value="half_year_2">2. Halbjahr</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="nb-outboundRoute">Hinfahrt *</Label>
+                  <Select value={newBookingFields.outboundRoute} onValueChange={v => setNewBookingFields(f => ({ ...f, outboundRoute: v }))}>
+                    <SelectTrigger id="nb-outboundRoute"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Keine</SelectItem>
+                      <SelectItem value="zone1">Zone 1</SelectItem>
+                      <SelectItem value="zone2">Zone 2</SelectItem>
+                      <SelectItem value="zone3">Zone 3</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="nb-returnRoute">Rückfahrt *</Label>
+                  <Select value={newBookingFields.returnRoute} onValueChange={v => setNewBookingFields(f => ({ ...f, returnRoute: v }))}>
+                    <SelectTrigger id="nb-returnRoute"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Keine</SelectItem>
+                      <SelectItem value="zone1">Zone 1</SelectItem>
+                      <SelectItem value="zone2">Zone 2</SelectItem>
+                      <SelectItem value="zone3">Zone 3</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="nb-status">Status</Label>
+                  <Select value={newBookingFields.status} onValueChange={v => setNewBookingFields(f => ({ ...f, status: v }))}>
+                    <SelectTrigger id="nb-status"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="received">Eingegangen</SelectItem>
+                      <SelectItem value="reviewed">Geprüft</SelectItem>
+                      <SelectItem value="confirmed">Bestätigt</SelectItem>
+                      <SelectItem value="query">Rückfrage offen</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="nb-adminNotes">Interne Notiz</Label>
+                <Input id="nb-adminNotes" value={newBookingFields.adminNotes} onChange={e => setNewBookingFields(f => ({ ...f, adminNotes: e.target.value }))} placeholder="optional" />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 pt-2">
+            <Button variant="outline" onClick={() => setNewBookingOpen(false)} disabled={createBookingMutation.isPending}>
+              Abbrechen
+            </Button>
+            <Button
+              onClick={async () => {
+                setNewBookingError(null);
+                const f = newBookingFields;
+                const required = ["childName", "childAddress", "childPostalCode", "childCity", "gradeYear", "parentName", "parentEmail"] as const;
+                const missing = required.filter(k => !f[k].trim());
+                if (missing.length > 0) {
+                  setNewBookingError("Bitte alle Pflichtfelder ausfüllen.");
+                  return;
+                }
+                if (f.outboundRoute === "none" && f.returnRoute === "none") {
+                  setNewBookingError("Mindestens eine Hin- oder Rückfahrt muss gewählt werden.");
+                  return;
+                }
+                try {
+                  const result = await createBookingMutation.mutateAsync({
+                    data: {
+                      childName: f.childName.trim(),
+                      childAddress: f.childAddress.trim(),
+                      childPostalCode: f.childPostalCode.trim(),
+                      childCity: f.childCity.trim(),
+                      studentNumber: f.studentNumber.trim() || undefined,
+                      gradeYear: f.gradeYear.trim(),
+                      parentName: f.parentName.trim(),
+                      parentEmail: f.parentEmail.trim(),
+                      parentPhone: f.parentPhone.trim() || undefined,
+                      tariffZone: f.tariffZone as any,
+                      bookingType: f.bookingType as any,
+                      outboundRoute: f.outboundRoute as any,
+                      returnRoute: f.returnRoute as any,
+                      adminNotes: f.adminNotes.trim() || undefined,
+                      status: f.status as any,
+                    },
+                  });
+                  await queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] });
+                  setNewBookingOpen(false);
+                  toast({ title: "Buchung erstellt", description: `Buchung ${result.referenceNumber} wurde erfolgreich angelegt.` });
+                  navigate(`/bookings/${result.id}`);
+                } catch (err: any) {
+                  const msg = err?.response?.data?.error ?? err?.message ?? "Unbekannter Fehler.";
+                  setNewBookingError(msg);
+                }
+              }}
+              disabled={createBookingMutation.isPending}
+            >
+              {createBookingMutation.isPending ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Wird erstellt…</>
+              ) : (
+                <><Plus className="w-4 h-4 mr-2" />Buchung erstellen</>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
