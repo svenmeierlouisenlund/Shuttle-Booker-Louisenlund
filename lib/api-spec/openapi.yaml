@@ -736,6 +736,11 @@ components:
           type: ["string", "null"]
         status:
           $ref: "#/components/schemas/BookingStatus"
+        siblings:
+          type: array
+          items:
+            $ref: "#/components/schemas/SiblingInput"
+          maxItems: 3
 
     BookingInput:
       type: object

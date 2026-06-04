@@ -103,7 +103,9 @@ export default function AdminBookingsList() {
     tariffZone: "zone1", bookingType: "full_year", outboundRoute: "zone1", returnRoute: "zone1",
     adminNotes: "", status: "received",
   });
+  const emptySibling = () => ({ childName: "", gradeYear: "", studentNumber: "", outboundRoute: "zone1", returnRoute: "zone1" });
   const [newBookingFields, setNewBookingFields] = useState(emptyNewBooking());
+  const [newBookingSiblings, setNewBookingSiblings] = useState<ReturnType<typeof emptySibling>[]>([]);
 
   const createBookingMutation = useCreateAdminBooking();
   const [, navigate] = useLocation();
@@ -259,7 +261,7 @@ export default function AdminBookingsList() {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {!isReadOnly && (
-              <Button onClick={() => { setNewBookingFields(emptyNewBooking()); setNewBookingError(null); setNewBookingOpen(true); }}>
+              <Button onClick={() => { setNewBookingFields(emptyNewBooking()); setNewBookingSiblings([]); setNewBookingError(null); setNewBookingOpen(true); }}>
                 <Plus className="w-4 h-4 mr-2" />
                 Neue Buchung
               </Button>
@@ -813,6 +815,72 @@ export default function AdminBookingsList() {
                 <Input id="nb-adminNotes" value={newBookingFields.adminNotes} onChange={e => setNewBookingFields(f => ({ ...f, adminNotes: e.target.value }))} placeholder="optional" />
               </div>
             </div>
+
+            {/* Geschwister */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Geschwisterkinder</h3>
+                {newBookingSiblings.length < 3 && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => setNewBookingSiblings(s => [...s, emptySibling()])}>
+                    <Plus className="w-3.5 h-3.5 mr-1.5" />
+                    Geschwisterkind hinzufügen
+                  </Button>
+                )}
+              </div>
+
+              {newBookingSiblings.length === 0 && (
+                <p className="text-sm text-muted-foreground">Keine Geschwisterkinder.</p>
+              )}
+
+              {newBookingSiblings.map((sib, idx) => (
+                <div key={idx} className="border rounded-md p-3 space-y-3 bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Geschwisterkind {idx + 1}</span>
+                    <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive" onClick={() => setNewBookingSiblings(s => s.filter((_, i) => i !== idx))}>
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1 col-span-2">
+                      <Label>Name des Kindes *</Label>
+                      <Input value={sib.childName} onChange={e => setNewBookingSiblings(s => s.map((x, i) => i === idx ? { ...x, childName: e.target.value } : x))} placeholder="Vorname Nachname" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Jahrgang *</Label>
+                      <Input value={sib.gradeYear} onChange={e => setNewBookingSiblings(s => s.map((x, i) => i === idx ? { ...x, gradeYear: e.target.value } : x))} placeholder="z.B. 7" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Schülernummer</Label>
+                      <Input value={sib.studentNumber} onChange={e => setNewBookingSiblings(s => s.map((x, i) => i === idx ? { ...x, studentNumber: e.target.value } : x))} placeholder="optional" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Hinfahrt *</Label>
+                      <Select value={sib.outboundRoute} onValueChange={v => setNewBookingSiblings(s => s.map((x, i) => i === idx ? { ...x, outboundRoute: v } : x))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Keine</SelectItem>
+                          <SelectItem value="zone1">Zone 1</SelectItem>
+                          <SelectItem value="zone2">Zone 2</SelectItem>
+                          <SelectItem value="zone3">Zone 3</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Rückfahrt *</Label>
+                      <Select value={sib.returnRoute} onValueChange={v => setNewBookingSiblings(s => s.map((x, i) => i === idx ? { ...x, returnRoute: v } : x))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Keine</SelectItem>
+                          <SelectItem value="zone1">Zone 1</SelectItem>
+                          <SelectItem value="zone2">Zone 2</SelectItem>
+                          <SelectItem value="zone3">Zone 3</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           <DialogFooter className="gap-2 pt-2">
@@ -833,6 +901,17 @@ export default function AdminBookingsList() {
                   setNewBookingError("Mindestens eine Hin- oder Rückfahrt muss gewählt werden.");
                   return;
                 }
+                for (let i = 0; i < newBookingSiblings.length; i++) {
+                  const s = newBookingSiblings[i];
+                  if (!s.childName.trim() || !s.gradeYear.trim()) {
+                    setNewBookingError(`Geschwisterkind ${i + 1}: Name und Jahrgang sind Pflichtfelder.`);
+                    return;
+                  }
+                  if (s.outboundRoute === "none" && s.returnRoute === "none") {
+                    setNewBookingError(`Geschwisterkind ${i + 1}: Mindestens eine Hin- oder Rückfahrt muss gewählt werden.`);
+                    return;
+                  }
+                }
                 try {
                   const result = await createBookingMutation.mutateAsync({
                     data: {
@@ -851,6 +930,13 @@ export default function AdminBookingsList() {
                       returnRoute: f.returnRoute as any,
                       adminNotes: f.adminNotes.trim() || undefined,
                       status: f.status as any,
+                      siblings: newBookingSiblings.map(s => ({
+                        childName: s.childName.trim(),
+                        gradeYear: s.gradeYear.trim(),
+                        studentNumber: s.studentNumber.trim() || undefined,
+                        outboundRoute: s.outboundRoute as any,
+                        returnRoute: s.returnRoute as any,
+                      })),
                     },
                   });
                   await queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] });

@@ -99,6 +99,8 @@ export const createAdminBookingBodyChildPostalCodeMin = 4;
 
 
 
+export const createAdminBookingBodySiblingsMax = 3;
+
 
 
 export const CreateAdminBookingBody = zod.object({
@@ -116,7 +118,14 @@ export const CreateAdminBookingBody = zod.object({
   "outboundRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']),
   "returnRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']),
   "adminNotes": zod.string().nullish(),
-  "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']).optional()
+  "status": zod.enum(['received', 'reviewed', 'confirmed', 'query_open', 'waitlisted']).optional(),
+  "siblings": zod.array(zod.object({
+  "childName": zod.string(),
+  "studentNumber": zod.string().nullish(),
+  "gradeYear": zod.string(),
+  "outboundRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']),
+  "returnRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none'])
+})).max(createAdminBookingBodySiblingsMax).optional()
 })
 
 

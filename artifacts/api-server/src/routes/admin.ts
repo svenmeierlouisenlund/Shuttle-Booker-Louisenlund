@@ -945,8 +945,17 @@ router.post("/admin/bookings", requireAuth, async (req, res) => {
   }
 
   const pricingConfig = await getPricingConfig();
+  const validSiblings = (data.siblings ?? []).filter(
+    s => s.outboundRoute !== "none" || s.returnRoute !== "none",
+  );
+  const allGrades = [data.gradeYear, ...validSiblings.map(s => s.gradeYear)];
+  const maxRank = Math.max(...allGrades.map(gradeRank));
+  const mainIsFullPayer = gradeRank(data.gradeYear) >= maxRank;
+
   const zone = effectiveZone(data.tariffZone);
-  const priceCents = calcBookingPriceFromConfig(pricingConfig, zone, data.bookingType, data.outboundRoute, data.returnRoute);
+  const priceCents = mainIsFullPayer
+    ? calcBookingPriceFromConfig(pricingConfig, zone, data.bookingType, data.outboundRoute, data.returnRoute)
+    : calcSiblingPriceFromConfig(pricingConfig, zone, data.bookingType, data.outboundRoute, data.returnRoute);
 
   const [booking] = await db.insert(bookingsTable).values({
     referenceNumber,
@@ -970,8 +979,36 @@ router.post("/admin/bookings", requireAuth, async (req, res) => {
     adminNotes: data.adminNotes ?? undefined,
   }).returning();
 
-  req.log.info({ bookingId: booking.id, referenceNumber }, "Manual booking created by admin");
+  let fullPayerSiblingFound = mainIsFullPayer;
+  for (const sibling of validSiblings) {
+    const isFullPayer = !fullPayerSiblingFound && gradeRank(sibling.gradeYear) === maxRank;
+    if (isFullPayer) fullPayerSiblingFound = true;
+    const siblingPriceCents = isFullPayer
+      ? calcBookingPriceFromConfig(pricingConfig, zone, data.bookingType, sibling.outboundRoute, sibling.returnRoute)
+      : calcSiblingPriceFromConfig(pricingConfig, zone, data.bookingType, sibling.outboundRoute, sibling.returnRoute);
+    let sibRef = generateRef();
+    while ((await db.select({ id: siblingsTable.id }).from(siblingsTable).where(eq(siblingsTable.referenceNumber, sibRef)).limit(1)).length > 0) {
+      sibRef = generateRef();
+    }
+    await db.insert(siblingsTable).values({
+      bookingId: booking.id,
+      referenceNumber: sibRef,
+      childName: sibling.childName,
+      studentNumber: sibling.studentNumber ?? undefined,
+      gradeYear: sibling.gradeYear,
+      outboundRoute: sibling.outboundRoute,
+      returnRoute: sibling.returnRoute,
+      priceCents: siblingPriceCents,
+      status: (data.status as any) ?? "received",
+    });
+  }
+
+  req.log.info({ bookingId: booking.id, referenceNumber, siblingCount: validSiblings.length }, "Manual booking created by admin");
   recalcFamilyPrices(data.parentName).catch(() => {});
+
+  const insertedSiblings = validSiblings.length > 0
+    ? await db.select().from(siblingsTable).where(eq(siblingsTable.bookingId, booking.id))
+    : [];
 
   res.status(201).json({
     id: booking.id,
@@ -1004,7 +1041,18 @@ router.post("/admin/bookings", requireAuth, async (req, res) => {
     pickupTariffZone: null,
     busId: null,
     busName: null,
-    siblings: [],
+    siblings: insertedSiblings.map(s => ({
+      id: s.id,
+      referenceNumber: s.referenceNumber,
+      childName: s.childName,
+      studentNumber: s.studentNumber,
+      gradeYear: s.gradeYear,
+      outboundRoute: s.outboundRoute,
+      returnRoute: s.returnRoute,
+      priceCents: s.priceCents,
+      status: s.status,
+      photoPath: null,
+    })),
   });
 });
 
