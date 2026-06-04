@@ -10,6 +10,7 @@ import {
   AddNotificationEmailBody,
   CreateAdminUserBody,
   UpdateAdminUserBody,
+  CreateAdminBookingBody,
 } from "@workspace/api-zod";
 import { eq, and, count, sum, desc, sql, inArray, or, ne } from "drizzle-orm";
 import ExcelJS from "exceljs";
@@ -920,6 +921,91 @@ router.delete("/admin/notification-emails/:id", requireAuth, async (req, res) =>
   }
 
   res.json({ success: true });
+});
+
+router.post("/admin/bookings", requireAuth, async (req, res) => {
+  const parsed = CreateAdminBookingBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Ungültige Eingabe: " + parsed.error.message });
+    return;
+  }
+  const data = parsed.data;
+
+  if (data.outboundRoute === "none" && data.returnRoute === "none") {
+    res.status(400).json({ error: "Mindestens eine Hin- oder Rückfahrt muss gewählt werden." });
+    return;
+  }
+
+  const generateRef = () => `LL-${new Date().getFullYear()}-${Math.floor(Math.random() * 90000) + 10000}`;
+  let referenceNumber = generateRef();
+  for (let i = 0; i < 5; i++) {
+    const existing = await db.select({ id: bookingsTable.id }).from(bookingsTable).where(eq(bookingsTable.referenceNumber, referenceNumber)).limit(1);
+    if (existing.length === 0) break;
+    referenceNumber = generateRef();
+  }
+
+  const pricingConfig = await getPricingConfig();
+  const zone = effectiveZone(data.tariffZone);
+  const priceCents = calcBookingPriceFromConfig(pricingConfig, zone, data.bookingType, data.outboundRoute, data.returnRoute);
+
+  const [booking] = await db.insert(bookingsTable).values({
+    referenceNumber,
+    childName: data.childName,
+    childAddress: data.childAddress,
+    childPostalCode: data.childPostalCode,
+    childCity: data.childCity,
+    studentNumber: data.studentNumber ?? undefined,
+    gradeYear: data.gradeYear,
+    parentName: data.parentName,
+    parentEmail: data.parentEmail,
+    parentPhone: data.parentPhone ?? "",
+    tariffZone: data.tariffZone,
+    bookingType: data.bookingType,
+    outboundRoute: data.outboundRoute,
+    returnRoute: data.returnRoute,
+    signatureName: data.parentName,
+    gdprConsent: true,
+    priceCents,
+    status: (data.status as any) ?? "received",
+    adminNotes: data.adminNotes ?? undefined,
+  }).returning();
+
+  req.log.info({ bookingId: booking.id, referenceNumber }, "Manual booking created by admin");
+  recalcFamilyPrices(data.parentName).catch(() => {});
+
+  res.status(201).json({
+    id: booking.id,
+    referenceNumber: booking.referenceNumber,
+    childName: booking.childName,
+    childAddress: booking.childAddress,
+    childPostalCode: booking.childPostalCode ?? "",
+    childCity: booking.childCity ?? "",
+    studentNumber: booking.studentNumber,
+    gradeYear: booking.gradeYear,
+    parentName: booking.parentName,
+    parentEmail: booking.parentEmail,
+    parentPhone: booking.parentPhone,
+    tariffZone: booking.tariffZone,
+    bookingType: booking.bookingType,
+    outboundRoute: booking.outboundRoute,
+    returnRoute: booking.returnRoute,
+    signatureName: booking.signatureName,
+    status: booking.status,
+    adminNotes: booking.adminNotes,
+    priceCents: booking.priceCents,
+    photoPath: null,
+    createdAt: booking.createdAt.toISOString(),
+    updatedAt: booking.updatedAt.toISOString(),
+    distanceKm: null,
+    durationMinutes: null,
+    pickupAddress: null,
+    pickupPostalCode: null,
+    pickupCity: null,
+    pickupTariffZone: null,
+    busId: null,
+    busName: null,
+    siblings: [],
+  });
 });
 
 router.get("/admin/bookings", requireAuth, async (req, res) => {

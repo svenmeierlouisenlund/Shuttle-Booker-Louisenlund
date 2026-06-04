@@ -7,6 +7,7 @@
  */
 
 export * from './adminBooking';
+export * from './adminBookingCreate';
 export * from './adminBookingDetail';
 export * from './adminBookingDetailPickupTariffZone';
 export * from './adminBookingList';

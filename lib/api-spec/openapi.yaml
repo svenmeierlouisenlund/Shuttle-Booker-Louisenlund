@@ -106,6 +106,27 @@ paths:
           description: Unauthorized
 
   /admin/bookings:
+    post:
+      operationId: createAdminBooking
+      tags: [admin]
+      summary: Manually create a booking (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminBookingCreate'
+      responses:
+        '201':
+          description: Booking created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminBookingDetail'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
     get:
       operationId: listAdminBookings
       tags: [admin]
@@ -663,6 +684,58 @@ components:
           $ref: "#/components/schemas/RouteOption"
         returnRoute:
           $ref: "#/components/schemas/RouteOption"
+
+    AdminBookingCreate:
+      type: object
+      required:
+        - childName
+        - childAddress
+        - childPostalCode
+        - childCity
+        - gradeYear
+        - parentName
+        - parentEmail
+        - tariffZone
+        - bookingType
+        - outboundRoute
+        - returnRoute
+      properties:
+        childName:
+          type: string
+          minLength: 1
+        childAddress:
+          type: string
+          minLength: 1
+        childPostalCode:
+          type: string
+          minLength: 4
+        childCity:
+          type: string
+          minLength: 1
+        studentNumber:
+          type: ["string", "null"]
+        gradeYear:
+          type: string
+        parentName:
+          type: string
+          minLength: 1
+        parentEmail:
+          type: string
+          format: email
+        parentPhone:
+          type: ["string", "null"]
+        tariffZone:
+          $ref: "#/components/schemas/TariffZone"
+        bookingType:
+          $ref: "#/components/schemas/BookingType"
+        outboundRoute:
+          $ref: "#/components/schemas/RouteOption"
+        returnRoute:
+          $ref: "#/components/schemas/RouteOption"
+        adminNotes:
+          type: ["string", "null"]
+        status:
+          $ref: "#/components/schemas/BookingStatus"
 
     BookingInput:
       type: object

@@ -60,6 +60,32 @@ export interface SiblingInput {
   returnRoute: RouteOption;
 }
 
+export interface AdminBookingCreate {
+  /** @minLength 1 */
+  childName: string;
+  /** @minLength 1 */
+  childAddress: string;
+  /** @minLength 4 */
+  childPostalCode: string;
+  /** @minLength 1 */
+  childCity: string;
+  /** @nullable */
+  studentNumber?: string | null;
+  gradeYear: string;
+  /** @minLength 1 */
+  parentName: string;
+  parentEmail: string;
+  /** @nullable */
+  parentPhone?: string | null;
+  tariffZone: TariffZone;
+  bookingType: BookingType;
+  outboundRoute: RouteOption;
+  returnRoute: RouteOption;
+  /** @nullable */
+  adminNotes?: string | null;
+  status?: BookingStatus;
+}
+
 export interface BookingInput {
   /** @minLength 2 */
   childName: string;
