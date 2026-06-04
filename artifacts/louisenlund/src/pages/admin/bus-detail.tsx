@@ -267,19 +267,19 @@ function buildStops(passengers: PassengerDetail[]): PickupStop[] {
 
 // ── Geocoding ──────────────────────────────────────────────────────────────────
 
-const GEOCACHE_KEY = "ll_geocode_cache_v3";
+const GEOCACHE_KEY = "ll_geocode_cache_v4";
 
 // Stiftung Louisenlund — fester Startpunkt des Shuttles
 const LOUISENLUND_ADDR = "Louisenlund 9, 24357 Güby, Deutschland";
 
-function getCache(): Record<string, [number, number] | null> {
+function getCache(): Record<string, [number, number]> {
   try { return JSON.parse(localStorage.getItem(GEOCACHE_KEY) ?? "{}"); } catch { return {}; }
 }
-function saveCache(c: Record<string, [number, number] | null>) {
+function saveCache(c: Record<string, [number, number]>) {
   try { localStorage.setItem(GEOCACHE_KEY, JSON.stringify(c)); } catch { /* ignore */ }
 }
 
-async function geocodeAddress(addr: string): Promise<[number, number] | null> {
+async function geocodeSingle(addr: string): Promise<[number, number] | null> {
   const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(addr)}&format=json&limit=1&countrycodes=de`;
   try {
     const res = await fetch(url, { headers: { "User-Agent": "Louisenlund-Shuttle/1.0" } });
@@ -287,6 +287,20 @@ async function geocodeAddress(addr: string): Promise<[number, number] | null> {
     if (data[0]) return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
   } catch { /* ignore */ }
   return null;
+}
+
+/** Geocodiert eine Adresse. Fällt auf Straße+PLZ zurück wenn Ort nicht erkannt wird. */
+async function geocodeAddress(
+  address: string,
+  postalCode: string,
+  city: string,
+): Promise<[number, number] | null> {
+  const full = `${address}, ${postalCode} ${city}, Deutschland`;
+  const result = await geocodeSingle(full);
+  if (result) return result;
+  // Fallback: nur Straße + PLZ (ohne Ortsname — hilft bei kleinen Ortsteilen)
+  await new Promise(r => setTimeout(r, 1100));
+  return geocodeSingle(`${address}, ${postalCode}, Deutschland`);
 }
 
 /** Haversine-Distanz in km zwischen zwei Koordinaten */
@@ -350,14 +364,16 @@ function RouteMap({ passengers }: { passengers: PassengerDetail[] }) {
       setDone(0);
 
       // 1. Louisenlund zuerst geocodieren (gecacht nach erstem Mal)
-      let llCoords = cache.current[LOUISENLUND_ADDR];
-      if (llCoords === undefined) {
-        llCoords = await geocodeAddress(LOUISENLUND_ADDR);
-        cache.current[LOUISENLUND_ADDR] = llCoords;
-        saveCache(cache.current);
+      let llCoords: [number, number] | null = cache.current[LOUISENLUND_ADDR] ?? null;
+      if (!llCoords) {
+        llCoords = await geocodeSingle(LOUISENLUND_ADDR);
+        if (llCoords) {
+          cache.current[LOUISENLUND_ADDR] = llCoords;
+          saveCache(cache.current);
+        }
         await new Promise(r => setTimeout(r, 1100));
       }
-      if (!cancelled) setLouisenlundCoords(llCoords ?? null);
+      if (!cancelled) setLouisenlundCoords(llCoords);
 
       if (rawStops.length === 0) { if (!cancelled) setLoading(false); return; }
 
@@ -366,12 +382,15 @@ function RouteMap({ passengers }: { passengers: PassengerDetail[] }) {
       let counter = 0;
       for (const stop of rawStops) {
         if (cancelled) break;
-        const fullAddr = `${stop.address}, ${stop.postalCode} ${stop.city}, Deutschland`;
-        let coords = cache.current[fullAddr];
-        if (coords === undefined) {
-          coords = await geocodeAddress(fullAddr);
-          cache.current[fullAddr] = coords;
-          saveCache(cache.current);
+        const cacheKey = `${stop.address}, ${stop.postalCode} ${stop.city}, Deutschland`;
+        let coords: [number, number] | null = cache.current[cacheKey] ?? null;
+        if (!coords) {
+          // Geocodiere mit Fallback (nur Straße+PLZ falls Ortsname nicht erkannt)
+          coords = await geocodeAddress(stop.address, stop.postalCode, stop.city);
+          if (coords) {
+            cache.current[cacheKey] = coords;
+            saveCache(cache.current);
+          }
           await new Promise(r => setTimeout(r, 1100));
         }
         counter++;
