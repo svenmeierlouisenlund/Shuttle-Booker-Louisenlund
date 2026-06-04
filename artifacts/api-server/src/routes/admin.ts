@@ -675,12 +675,18 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
         const f = parseRow(row);
         if (!f.childName) continue;
 
-        // Look up parent booking by reference number
+        // Look up parent booking by reference number (= parent booking ref in new exports)
         let mainId = refToBookingId.get(f.refNum) ?? null;
         if (mainId === null && f.refNum) {
-          // Fallback: look up in DB (booking may have existed before this import run)
+          // Fallback 1: look up by ref in DB (covers already-existing bookings)
           const found = await db.select({ id: bookingsTable.id }).from(bookingsTable)
             .where(eq(bookingsTable.referenceNumber, f.refNum)).limit(1);
+          if (found.length > 0) mainId = found[0].id;
+        }
+        if (mainId === null && f.parentEmail) {
+          // Fallback 2: match by parent email (handles old exports where sibling's own ref was in col 1)
+          const found = await db.select({ id: bookingsTable.id }).from(bookingsTable)
+            .where(eq(bookingsTable.parentEmail, f.parentEmail)).limit(1);
           if (found.length > 0) mainId = found[0].id;
         }
 
@@ -793,10 +799,10 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
       b.adminNotes ?? "",
       b.createdAt.toLocaleDateString("de-DE"),
     ]);
-    // Sibling rows
+    // Sibling rows — use parent booking's referenceNumber so re-import can resolve the link
     for (const s of siblingsByBooking[b.id] ?? []) {
       dataRows.push([
-        s.referenceNumber,
+        b.referenceNumber,
         "Geschwister",
         s.childName,
         b.childAddress,
