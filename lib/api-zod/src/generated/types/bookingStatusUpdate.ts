@@ -43,6 +43,10 @@ export interface BookingStatusUpdate {
      * @nullable
      */
   pickupTariffZone?: BookingStatusUpdatePickupTariffZone;
+  /** @nullable */
+  pickupLat?: number | null;
+  /** @nullable */
+  pickupLng?: number | null;
   /** Per-sibling route overrides (by sibling id) */
   siblingUpdates?: BookingStatusUpdateSiblingUpdatesItem[];
 }

@@ -58,6 +58,16 @@ export interface AdminBookingDetail {
      */
   pickupTariffZone?: AdminBookingDetailPickupTariffZone;
   /**
+     * Latitude of the pickup pin (set via map picker, alternative to address)
+     * @nullable
+     */
+  pickupLat?: number | null;
+  /**
+     * Longitude of the pickup pin (set via map picker, alternative to address)
+     * @nullable
+     */
+  pickupLng?: number | null;
+  /**
      * Name of the assigned bus for the main child (if any)
      * @nullable
      */

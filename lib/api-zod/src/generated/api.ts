@@ -227,6 +227,8 @@ export const GetAdminBookingResponse = zod.object({
   "pickupPostalCode": zod.string().nullish(),
   "pickupCity": zod.string().nullish(),
   "pickupTariffZone": zod.union([zod.literal('zone1'),zod.literal('zone2'),zod.literal('zone3'),zod.literal(null)]).nullish().describe('Tariff zone of the pickup location (if cheaper than home zone, used for pricing)'),
+  "pickupLat": zod.number().nullish().describe('Latitude of the pickup pin (set via map picker, alternative to address)'),
+  "pickupLng": zod.number().nullish().describe('Longitude of the pickup pin (set via map picker, alternative to address)'),
   "busName": zod.string().nullish().describe('Name of the assigned bus for the main child (if any)'),
   "photoPath": zod.string().nullish().describe('Object storage path of the child\'s photo'),
   "siblings": zod.array(zod.object({
@@ -284,6 +286,8 @@ export const UpdateAdminBookingBody = zod.object({
   "pickupPostalCode": zod.string().nullish(),
   "pickupCity": zod.string().nullish(),
   "pickupTariffZone": zod.union([zod.literal('zone1'),zod.literal('zone2'),zod.literal('zone3'),zod.literal(null)]).nullish().describe('Tariff zone of the pickup location (overrides home zone for pricing if cheaper)'),
+  "pickupLat": zod.number().nullish(),
+  "pickupLng": zod.number().nullish(),
   "siblingUpdates": zod.array(zod.object({
   "id": zod.number(),
   "outboundRoute": zod.enum(['zone1', 'zone2', 'zone3', 'none']),
@@ -321,6 +325,8 @@ export const UpdateAdminBookingResponse = zod.object({
   "pickupPostalCode": zod.string().nullish(),
   "pickupCity": zod.string().nullish(),
   "pickupTariffZone": zod.union([zod.literal('zone1'),zod.literal('zone2'),zod.literal('zone3'),zod.literal(null)]).nullish().describe('Tariff zone of the pickup location (if cheaper than home zone, used for pricing)'),
+  "pickupLat": zod.number().nullish().describe('Latitude of the pickup pin (set via map picker, alternative to address)'),
+  "pickupLng": zod.number().nullish().describe('Longitude of the pickup pin (set via map picker, alternative to address)'),
   "busName": zod.string().nullish().describe('Name of the assigned bus for the main child (if any)'),
   "photoPath": zod.string().nullish().describe('Object storage path of the child\'s photo'),
   "siblings": zod.array(zod.object({
@@ -637,6 +643,8 @@ export const UpdateBookingPhotoResponse = zod.object({
   "pickupPostalCode": zod.string().nullish(),
   "pickupCity": zod.string().nullish(),
   "pickupTariffZone": zod.union([zod.literal('zone1'),zod.literal('zone2'),zod.literal('zone3'),zod.literal(null)]).nullish().describe('Tariff zone of the pickup location (if cheaper than home zone, used for pricing)'),
+  "pickupLat": zod.number().nullish().describe('Latitude of the pickup pin (set via map picker, alternative to address)'),
+  "pickupLng": zod.number().nullish().describe('Longitude of the pickup pin (set via map picker, alternative to address)'),
   "busName": zod.string().nullish().describe('Name of the assigned bus for the main child (if any)'),
   "photoPath": zod.string().nullish().describe('Object storage path of the child\'s photo'),
   "siblings": zod.array(zod.object({
