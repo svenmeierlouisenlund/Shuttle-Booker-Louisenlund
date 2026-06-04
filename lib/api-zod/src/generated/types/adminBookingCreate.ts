@@ -8,6 +8,7 @@
 import type { BookingStatus } from './bookingStatus';
 import type { BookingType } from './bookingType';
 import type { RouteOption } from './routeOption';
+import type { SiblingInput } from './siblingInput';
 import type { TariffZone } from './tariffZone';
 
 export interface AdminBookingCreate {
@@ -34,4 +35,6 @@ export interface AdminBookingCreate {
   /** @nullable */
   adminNotes?: string | null;
   status?: BookingStatus;
+  /** @maxItems 3 */
+  siblings?: SiblingInput[];
 }

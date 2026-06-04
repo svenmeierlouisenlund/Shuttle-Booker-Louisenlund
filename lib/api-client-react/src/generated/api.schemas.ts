@@ -84,6 +84,8 @@ export interface AdminBookingCreate {
   /** @nullable */
   adminNotes?: string | null;
   status?: BookingStatus;
+  /** @maxItems 3 */
+  siblings?: SiblingInput[];
 }
 
 export interface BookingInput {
