@@ -1166,6 +1166,22 @@ components:
           type: object
           additionalProperties:
             type: integer
+        busOccupancy:
+          type: array
+          items:
+            type: object
+            required: [id, name, capacity, assigned, freeSeats]
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              capacity:
+                type: integer
+              assigned:
+                type: integer
+              freeSeats:
+                type: integer
         recentBookings:
           type: array
           items:

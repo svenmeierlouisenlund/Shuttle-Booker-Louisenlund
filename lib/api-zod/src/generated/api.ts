@@ -369,6 +369,13 @@ export const GetAdminStatsResponse = zod.object({
   "freeSeats": zod.number(),
   "waitlistCount": zod.number(),
   "byCity": zod.record(zod.string(), zod.number()),
+  "busOccupancy": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "capacity": zod.number(),
+  "assigned": zod.number(),
+  "freeSeats": zod.number()
+})).optional(),
   "recentBookings": zod.array(zod.object({
   "id": zod.number(),
   "referenceNumber": zod.string(),
