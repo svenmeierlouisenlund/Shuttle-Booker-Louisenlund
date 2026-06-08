@@ -10,7 +10,7 @@ import { useParams, useLocation, Link } from "wouter";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import {
   Loader2, Bus, ArrowLeft, Phone, User, MapPin, Users,
-  Pencil, Check, X, Navigation, Home, School, ExternalLink,
+  Pencil, Check, X, Navigation, Home, School, ExternalLink, Clock,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { useIsReadOnly } from "@/hooks/use-read-only";
@@ -188,9 +188,17 @@ interface PassengerDetail {
   status: string;
 }
 
+interface ReturnTimeEntry {
+  type: "booking" | "sibling";
+  id: number;
+  weekday: string;
+  returnTime: string;
+}
+
 interface BusDetailResponse {
   bus: BusDetail;
   passengers: PassengerDetail[];
+  returnTimeAssignments: ReturnTimeEntry[];
 }
 
 // ── Pickup stop (siblings grouped) ────────────────────────────────────────────
@@ -622,7 +630,7 @@ export default function BusDetail() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<"passengers" | "route">("passengers");
+  const [activeTab, setActiveTab] = useState<"passengers" | "route" | "returntimes">("passengers");
   const [selectedPassenger, setSelectedPassenger] = useState<PassengerDetail | null>(null);
 
   const { data, isLoading, error } = useQuery<BusDetailResponse>({
@@ -653,6 +661,23 @@ export default function BusDetail() {
       queryClient.invalidateQueries({ queryKey: ["bus-detail", busId] });
       queryClient.invalidateQueries({ queryKey: ["admin-buses"] });
     },
+    onError: (err: Error) => toast({ title: "Fehler", description: err.message, variant: "destructive" }),
+  });
+
+  const returnTimeMutation = useMutation({
+    mutationFn: async (payload: { type: "booking" | "sibling"; id: number; weekday: string; returnTime: string | null }) => {
+      const res = await fetch(`/api/admin/buses/${busId}/return-times`, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? "Fehler");
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["bus-detail", busId] }),
     onError: (err: Error) => toast({ title: "Fehler", description: err.message, variant: "destructive" }),
   });
 
@@ -796,6 +821,19 @@ export default function BusDetail() {
                     Routenplanung
                   </span>
                 </button>
+                <button
+                  onClick={() => setActiveTab("returntimes")}
+                  className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                    activeTab === "returntimes"
+                      ? "border-[#004289] text-[#004289]"
+                      : "border-transparent text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5" />
+                    Rückfahrtzeiten
+                  </span>
+                </button>
               </div>
             </CardHeader>
             <CardContent className="pt-4">
@@ -907,6 +945,95 @@ export default function BusDetail() {
                   )}
                 </div>
               )}
+
+              {activeTab === "returntimes" && (() => {
+                const rta = data.returnTimeAssignments ?? [];
+                // Build lookup: key = `${type}-${id}-${weekday}` → returnTime
+                const rtaMap = new Map<string, string>();
+                for (const r of rta) rtaMap.set(`${r.type}-${r.id}-${r.weekday}`, r.returnTime);
+
+                const WEEKDAYS: { key: string; label: string }[] = [
+                  { key: "mon", label: "Mo" },
+                  { key: "tue", label: "Di" },
+                  { key: "wed", label: "Mi" },
+                  { key: "thu", label: "Do" },
+                  { key: "fri", label: "Fr" },
+                ];
+                const TIMES = ["14:30", "16:30"];
+
+                // Only show passengers with a return route
+                const returnPassengers = passengers.filter(p => p.returnRoute !== "none");
+
+                if (returnPassengers.length === 0) {
+                  return (
+                    <p className="text-sm text-gray-400 italic text-center py-6">
+                      Keine Schüler mit Rückfahrt zugeordnet.
+                    </p>
+                  );
+                }
+
+                return (
+                  <div className="overflow-x-auto">
+                    <p className="text-xs text-gray-500 mb-3">
+                      Klicken Sie auf eine Zeit um sie zu setzen — nochmal klicken hebt die Auswahl auf.
+                    </p>
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr>
+                          <th className="text-left text-xs font-medium text-gray-500 pb-2 pr-3 min-w-[140px]">Schüler</th>
+                          {WEEKDAYS.map(d => (
+                            <th key={d.key} className="text-center text-xs font-medium text-gray-500 pb-2 px-1 min-w-[80px]">{d.label}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {returnPassengers.map(p => (
+                          <tr key={`${p.type}-${p.id}`}>
+                            <td className="py-2 pr-3">
+                              <div className="flex items-center gap-1.5">
+                                {p.type === "sibling" && <span className="text-gray-300 text-xs">↳</span>}
+                                <span className="font-medium text-gray-800 text-xs leading-tight">{p.childName}</span>
+                                <DestBadge gradeYear={p.gradeYear} />
+                              </div>
+                            </td>
+                            {WEEKDAYS.map(d => {
+                              const current = rtaMap.get(`${p.type}-${p.id}-${d.key}`);
+                              return (
+                                <td key={d.key} className="py-1.5 px-1">
+                                  <div className="flex flex-col gap-0.5 items-center">
+                                    {TIMES.map(t => {
+                                      const active = current === t;
+                                      return (
+                                        <button
+                                          key={t}
+                                          disabled={isReadOnly || returnTimeMutation.isPending}
+                                          onClick={() => returnTimeMutation.mutate({
+                                            type: p.type,
+                                            id: p.id,
+                                            weekday: d.key,
+                                            returnTime: active ? null : t,
+                                          })}
+                                          className={`text-[11px] px-2 py-0.5 rounded font-medium transition-colors w-full ${
+                                            active
+                                              ? "bg-[#004289] text-white"
+                                              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                                          } ${isReadOnly ? "cursor-default opacity-60" : "cursor-pointer"}`}
+                                        >
+                                          {t}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         </div>
