@@ -440,6 +440,7 @@ const STATUS_IMPORT_MAP: Record<string, string> = {
   "Geprüft": "reviewed", "reviewed": "reviewed",
   "Bestätigt": "confirmed", "confirmed": "confirmed",
   "Rückfrage offen": "query_open", "query_open": "query_open",
+  "Warteliste": "waitlisted", "waitlisted": "waitlisted",
 };
 const GRADE_MAP: Record<string, string> = {
   "MYP 5": "MYP5", "MYP 4": "MYP4", "MYP 3": "MYP3",
@@ -473,6 +474,11 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
   }
 
   const importPricingConfig = await getPricingConfig();
+
+  // Load all buses once for bus assignment lookup (name → id, case-insensitive)
+  const allBuses = await db.select({ id: busesTable.id, name: busesTable.name }).from(busesTable);
+  const busNameToId = new Map<string, number>();
+  for (const b of allBuses) busNameToId.set(b.name.toLowerCase().trim(), b.id);
 
   let allRows: unknown[][];
   try {
@@ -583,7 +589,8 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
       adminNotes = "Importiert aus Vorjahresdaten";
       typ = "hauptkind"; // determined later by seenParentEmails
     }
-    return { typ, refNum, childName, childAddress, childPostalCode, childCity, studentNumber, gradeYear, parentName, parentEmail, parentPhone, tariffZone, bookingType, outboundRoute, returnRoute, status, adminNotes };
+    const busName = isNewFormat ? cleanStr(colVal(row, "bus")) : "";
+    return { typ, refNum, childName, childAddress, childPostalCode, childCity, studentNumber, gradeYear, parentName, parentEmail, parentPhone, tariffZone, bookingType, outboundRoute, returnRoute, status, adminNotes, busName };
   }
 
   // ── New format: two-pass (Hauptkind first, then Geschwister) ─────────────
@@ -617,11 +624,18 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
         while ((await db.select({ id: siblingsTable.id }).from(siblingsTable).where(eq(siblingsTable.referenceNumber, sibRef1)).limit(1)).length > 0) {
           sibRef1 = genRef();
         }
-        await db.insert(siblingsTable).values({
+        const [insertedSib1] = await db.insert(siblingsTable).values({
           bookingId: mainId, referenceNumber: sibRef1, childName: f.childName, studentNumber: f.studentNumber,
           gradeYear: f.gradeYear, outboundRoute: f.outboundRoute as any, returnRoute: f.returnRoute as any,
-          priceCents: Math.round(sibPriceCents * 0.8),
-        });
+          priceCents: Math.round(sibPriceCents * 0.8), status: f.status as any,
+        }).returning({ id: siblingsTable.id });
+        if (f.busName) {
+          const busId = busNameToId.get(f.busName.toLowerCase().trim());
+          if (busId) {
+            const existingAssign = await db.select({ id: siblingBusAssignmentsTable.id }).from(siblingBusAssignmentsTable).where(eq(siblingBusAssignmentsTable.siblingId, insertedSib1.id)).limit(1);
+            if (existingAssign.length === 0) await db.insert(siblingBusAssignmentsTable).values({ busId, siblingId: insertedSib1.id });
+          }
+        }
         importedParentNames.add(f.parentName);
         imported++;
         continue;
@@ -657,6 +671,13 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
 
       if (isNewFormat) refToBookingId.set(f.refNum, inserted.id);
       else seenParentEmails.set(f.parentEmail, inserted.id);
+      if (f.busName) {
+        const busId = busNameToId.get(f.busName.toLowerCase().trim());
+        if (busId) {
+          const existingAssign = await db.select({ id: busAssignmentsTable.id }).from(busAssignmentsTable).where(eq(busAssignmentsTable.bookingId, inserted.id)).limit(1);
+          if (existingAssign.length === 0) await db.insert(busAssignmentsTable).values({ busId, bookingId: inserted.id });
+        }
+      }
       importedParentNames.add(f.parentName);
       imported++;
     } catch (err: any) {
@@ -705,11 +726,18 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
         while ((await db.select({ id: siblingsTable.id }).from(siblingsTable).where(eq(siblingsTable.referenceNumber, sibRef2)).limit(1)).length > 0) {
           sibRef2 = genRef();
         }
-        await db.insert(siblingsTable).values({
+        const [insertedSib2] = await db.insert(siblingsTable).values({
           bookingId: mainId, referenceNumber: sibRef2, childName: f.childName, studentNumber: f.studentNumber,
           gradeYear: f.gradeYear, outboundRoute: f.outboundRoute as any, returnRoute: f.returnRoute as any,
-          priceCents: Math.round(sibPriceCents * 0.8),
-        });
+          priceCents: Math.round(sibPriceCents * 0.8), status: f.status as any,
+        }).returning({ id: siblingsTable.id });
+        if (f.busName) {
+          const busId = busNameToId.get(f.busName.toLowerCase().trim());
+          if (busId) {
+            const existingAssign = await db.select({ id: siblingBusAssignmentsTable.id }).from(siblingBusAssignmentsTable).where(eq(siblingBusAssignmentsTable.siblingId, insertedSib2.id)).limit(1);
+            if (existingAssign.length === 0) await db.insert(siblingBusAssignmentsTable).values({ busId, siblingId: insertedSib2.id });
+          }
+        }
         importedParentNames.add(f.parentName);
         imported++;
       } catch (err: any) {
@@ -753,6 +781,29 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
     siblingsByBooking[s.bookingId].push(s);
   }
 
+  // Bus assignments for bookings
+  const bookingBusMap: Record<number, string> = {};
+  if (exportBookingIds.length > 0) {
+    const baRows = await db
+      .select({ bookingId: busAssignmentsTable.bookingId, busName: busesTable.name })
+      .from(busAssignmentsTable)
+      .innerJoin(busesTable, eq(busAssignmentsTable.busId, busesTable.id))
+      .where(inArray(busAssignmentsTable.bookingId, exportBookingIds));
+    for (const r of baRows) bookingBusMap[r.bookingId] = r.busName;
+  }
+
+  // Bus assignments for siblings
+  const siblingBusMapExport: Record<number, string> = {};
+  const allSiblingIds = siblingRows.map(s => s.id);
+  if (allSiblingIds.length > 0) {
+    const sbaRows = await db
+      .select({ siblingId: siblingBusAssignmentsTable.siblingId, busName: busesTable.name })
+      .from(siblingBusAssignmentsTable)
+      .innerJoin(busesTable, eq(siblingBusAssignmentsTable.busId, busesTable.id))
+      .where(inArray(siblingBusAssignmentsTable.siblingId, allSiblingIds));
+    for (const r of sbaRows) siblingBusMapExport[r.siblingId] = r.busName;
+  }
+
   const headers = [
     "Referenznummer",
     "Typ",
@@ -771,6 +822,7 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
     "Rückfahrt",
     "Kosten (€)",
     "Status",
+    "Bus",
     "Notizen",
     "Eingegangen am",
   ];
@@ -796,6 +848,7 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
       zoneLabels[b.returnRoute] ?? b.returnRoute,
       b.priceCents != null ? b.priceCents / 100 : "",
       statusLabels[b.status] ?? b.status,
+      bookingBusMap[b.id] ?? "",
       b.adminNotes ?? "",
       b.createdAt.toLocaleDateString("de-DE"),
     ]);
@@ -819,6 +872,7 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
         zoneLabels[s.returnRoute] ?? s.returnRoute,
         s.priceCents != null ? s.priceCents / 100 : "",
         statusLabels[s.status] ?? s.status,
+        siblingBusMapExport[s.id] ?? "",
         b.adminNotes ?? "",
         b.createdAt.toLocaleDateString("de-DE"),
       ]);
@@ -831,7 +885,7 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("Buchungen");
 
-    const colWidths = [18, 12, 28, 35, 8, 18, 14, 12, 28, 30, 16, 14, 32, 14, 14, 12, 18, 40, 16];
+    const colWidths = [18, 12, 28, 35, 8, 18, 14, 12, 28, 30, 16, 14, 32, 14, 14, 12, 18, 22, 40, 16];
     ws.columns = colWidths.map((width) => ({ width }));
 
     const headerRow = ws.addRow(headers);
