@@ -26,6 +26,8 @@ export default function AdminDashboard() {
 
   const maxCityCount = topCities[0]?.[1] ?? 1;
 
+  const busOccupancy = stats?.busOccupancy ?? [];
+
   return (
     <AdminLayout>
       <div className="space-y-8">
@@ -103,6 +105,49 @@ export default function AdminDashboard() {
             </Card>
           </div>
         )}
+
+        {isLoading ? (
+          <Skeleton className="h-48" />
+        ) : busOccupancy.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-medium flex items-center gap-2">
+                <BusFront className="h-4 w-4" />
+                Belegung der Busse
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {busOccupancy.map((bus) => {
+                  const pct = bus.capacity > 0 ? (bus.assigned / bus.capacity) * 100 : 0;
+                  const full = bus.freeSeats <= 0;
+                  return (
+                    <div key={bus.id} className="flex items-center gap-3">
+                      <div className="w-20 text-sm text-right text-muted-foreground truncate shrink-0">
+                        {bus.name}
+                      </div>
+                      <div className="flex-1 h-5 bg-muted rounded-sm overflow-hidden">
+                        <div
+                          className={`h-full rounded-sm transition-all ${full ? "bg-destructive" : "bg-primary"}`}
+                          style={{ width: `${Math.min(pct, 100)}%` }}
+                        />
+                      </div>
+                      <div className="w-28 text-sm text-right shrink-0 tabular-nums">
+                        <span className="font-medium">{bus.assigned}</span>
+                        <span className="text-muted-foreground">/{bus.capacity}</span>
+                        {bus.freeSeats > 0 ? (
+                          <span className="text-muted-foreground ml-1">({bus.freeSeats} frei)</span>
+                        ) : (
+                          <span className="text-destructive ml-1 font-medium">voll</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
 
         {isLoading ? (
           <Skeleton className="h-64" />

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AdminBooking } from './adminBooking';
+import type { AdminStatsBusOccupancyItem } from './adminStatsBusOccupancyItem';
 import type { AdminStatsByBookingType } from './adminStatsByBookingType';
 import type { AdminStatsByCity } from './adminStatsByCity';
 import type { AdminStatsByGradeYear } from './adminStatsByGradeYear';
@@ -23,5 +24,6 @@ export interface AdminStats {
   freeSeats: number;
   waitlistCount: number;
   byCity: AdminStatsByCity;
+  busOccupancy?: AdminStatsBusOccupancyItem[];
   recentBookings: AdminBooking[];
 }

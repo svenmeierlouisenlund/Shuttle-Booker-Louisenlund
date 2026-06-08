@@ -356,6 +356,36 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
     .where(eq(siblingsTable.status, "waitlisted"));
   const waitlistCount = Number(waitMain?.cnt ?? 0) + Number(waitSib?.cnt ?? 0);
 
+  // Per-bus occupancy
+  const allRegularBuses = await db
+    .select({ id: busesTable.id, name: busesTable.name, capacity: busesTable.capacity })
+    .from(busesTable)
+    .where(eq(busesTable.isWaitlistBus, false))
+    .orderBy(busesTable.id);
+
+  const busMainAssignRows = await db
+    .select({ busId: busAssignmentsTable.busId, cnt: count() })
+    .from(busAssignmentsTable)
+    .innerJoin(busesTable, eq(busAssignmentsTable.busId, busesTable.id))
+    .where(eq(busesTable.isWaitlistBus, false))
+    .groupBy(busAssignmentsTable.busId);
+  const busSibAssignRows = await db
+    .select({ busId: siblingBusAssignmentsTable.busId, cnt: count() })
+    .from(siblingBusAssignmentsTable)
+    .innerJoin(busesTable, eq(siblingBusAssignmentsTable.busId, busesTable.id))
+    .where(eq(busesTable.isWaitlistBus, false))
+    .groupBy(siblingBusAssignmentsTable.busId);
+
+  const busMainMap: Record<number, number> = {};
+  for (const r of busMainAssignRows) busMainMap[r.busId] = Number(r.cnt);
+  const busSibMap: Record<number, number> = {};
+  for (const r of busSibAssignRows) busSibMap[r.busId] = Number(r.cnt);
+
+  const busOccupancy = allRegularBuses.map(b => {
+    const assigned = (busMainMap[b.id] ?? 0) + (busSibMap[b.id] ?? 0);
+    return { id: b.id, name: b.name, capacity: b.capacity, assigned, freeSeats: b.capacity - assigned };
+  });
+
   // City distribution: main bookings + siblings (siblings use parent booking's city)
   const byCityRows = await db.execute(sql`
     SELECT child_city, COUNT(*) AS cnt
@@ -419,6 +449,7 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
     freeSeats,
     waitlistCount,
     byCity,
+    busOccupancy,
     recentBookings,
   });
 });
