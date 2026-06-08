@@ -123,7 +123,7 @@ export default function AdminDashboard() {
                   const full = bus.freeSeats <= 0;
                   return (
                     <div key={bus.id} className="flex items-center gap-3">
-                      <div className="w-20 text-sm text-right text-muted-foreground truncate shrink-0">
+                      <div className="w-32 text-sm text-right text-muted-foreground shrink-0">
                         {bus.name}
                       </div>
                       <div className="flex-1 h-5 bg-muted rounded-sm overflow-hidden">
