@@ -381,9 +381,30 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
   const busSibMap: Record<number, number> = {};
   for (const r of busSibAssignRows) busSibMap[r.busId] = Number(r.cnt);
 
+  // Return time counts per bus per weekday per time slot
+  const rtaGroupRows = await db
+    .select({
+      busId: returnTimeAssignmentsTable.busId,
+      weekday: returnTimeAssignmentsTable.weekday,
+      returnTime: returnTimeAssignmentsTable.returnTime,
+      cnt: count(),
+    })
+    .from(returnTimeAssignmentsTable)
+    .innerJoin(busesTable, eq(returnTimeAssignmentsTable.busId, busesTable.id))
+    .where(eq(busesTable.isWaitlistBus, false))
+    .groupBy(returnTimeAssignmentsTable.busId, returnTimeAssignmentsTable.weekday, returnTimeAssignmentsTable.returnTime);
+
+  // Build nested map: busId → weekday → returnTime → count
+  const rtaByBus: Record<number, Record<string, Record<string, number>>> = {};
+  for (const r of rtaGroupRows) {
+    if (!rtaByBus[r.busId]) rtaByBus[r.busId] = {};
+    if (!rtaByBus[r.busId][r.weekday]) rtaByBus[r.busId][r.weekday] = {};
+    rtaByBus[r.busId][r.weekday][r.returnTime] = Number(r.cnt);
+  }
+
   const busOccupancy = allRegularBuses.map(b => {
     const assigned = (busMainMap[b.id] ?? 0) + (busSibMap[b.id] ?? 0);
-    return { id: b.id, name: b.name, capacity: b.capacity, assigned, freeSeats: b.capacity - assigned };
+    return { id: b.id, name: b.name, capacity: b.capacity, assigned, freeSeats: b.capacity - assigned, returnTimes: rtaByBus[b.id] ?? {} };
   });
 
   // City distribution: main bookings + siblings (siblings use parent booking's city)

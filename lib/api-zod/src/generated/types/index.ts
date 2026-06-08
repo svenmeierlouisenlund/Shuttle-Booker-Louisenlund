@@ -15,6 +15,7 @@ export * from './adminCredentials';
 export * from './adminSession';
 export * from './adminStats';
 export * from './adminStatsBusOccupancyItem';
+export * from './adminStatsBusOccupancyItemReturnTimes';
 export * from './adminStatsByBookingType';
 export * from './adminStatsByCity';
 export * from './adminStatsByGradeYear';
