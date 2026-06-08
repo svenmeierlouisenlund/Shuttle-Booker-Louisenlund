@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "Ch0OX7hy5XYQzYVhMDCtd"
+uri = "file://regionalshuttle-frontend.tar.gz"
+type = "unspecified"
+title = "Regionalshuttle Frontend (HTML/CSS/JS)"
