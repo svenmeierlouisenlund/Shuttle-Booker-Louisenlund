@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { Router, type Request, type Response, type NextFunction } from "express";
 import { db } from "@workspace/db";
-import { bookingsTable, siblingsTable, notificationEmailsTable, smtpConfigTable, pricingConfigTable, busesTable, busAssignmentsTable, siblingBusAssignmentsTable, adminUsersTable } from "@workspace/db";
+import { bookingsTable, siblingsTable, notificationEmailsTable, smtpConfigTable, pricingConfigTable, busesTable, busAssignmentsTable, siblingBusAssignmentsTable, adminUsersTable, returnTimeAssignmentsTable } from "@workspace/db";
 import {
   ListAdminBookingsQueryParams,
   UpdateAdminBookingBody,
@@ -2121,7 +2121,77 @@ router.get("/admin/buses/:busId", requireAuth, async (req, res) => {
   const passengers = [...bookingPassengers, ...siblingPassengers]
     .sort((a, b) => (a.childPostalCode ?? "").localeCompare(b.childPostalCode ?? ""));
 
-  res.json({ bus, passengers });
+  // Load return time assignments for this bus
+  const bookingIds = bookingPassengers.map(p => p.id);
+  const siblingIds = siblingPassengers.map(p => p.id);
+
+  const rtaRows: { type: string; id: number; weekday: string; returnTime: string }[] = [];
+  if (bookingIds.length > 0) {
+    const rows = await db
+      .select({ bookingId: returnTimeAssignmentsTable.bookingId, weekday: returnTimeAssignmentsTable.weekday, returnTime: returnTimeAssignmentsTable.returnTime })
+      .from(returnTimeAssignmentsTable)
+      .where(and(eq(returnTimeAssignmentsTable.busId, busId), inArray(returnTimeAssignmentsTable.bookingId, bookingIds)));
+    for (const r of rows) if (r.bookingId != null) rtaRows.push({ type: "booking", id: r.bookingId, weekday: r.weekday, returnTime: r.returnTime });
+  }
+  if (siblingIds.length > 0) {
+    const rows = await db
+      .select({ siblingId: returnTimeAssignmentsTable.siblingId, weekday: returnTimeAssignmentsTable.weekday, returnTime: returnTimeAssignmentsTable.returnTime })
+      .from(returnTimeAssignmentsTable)
+      .where(and(eq(returnTimeAssignmentsTable.busId, busId), inArray(returnTimeAssignmentsTable.siblingId, siblingIds)));
+    for (const r of rows) if (r.siblingId != null) rtaRows.push({ type: "sibling", id: r.siblingId, weekday: r.weekday, returnTime: r.returnTime });
+  }
+
+  res.json({ bus, passengers, returnTimeAssignments: rtaRows });
+});
+
+// PUT /admin/buses/:busId/return-times — set or clear a return time for one (child, weekday)
+router.put("/admin/buses/:busId/return-times", requireAuth, async (req, res) => {
+  const busId = parseInt(String(req.params.busId), 10);
+  if (isNaN(busId)) { res.status(400).json({ error: "Ungültige Bus-ID" }); return; }
+
+  const { type, id, weekday, returnTime } = req.body as {
+    type?: string; id?: number; weekday?: string; returnTime?: string | null;
+  };
+
+  const VALID_WEEKDAYS = ["mon", "tue", "wed", "thu", "fri"];
+  const VALID_TIMES = ["14:30", "16:30"];
+
+  if (!type || !["booking", "sibling"].includes(type)) {
+    res.status(400).json({ error: "Ungültiger Typ" }); return;
+  }
+  if (!id || typeof id !== "number") {
+    res.status(400).json({ error: "Ungültige ID" }); return;
+  }
+  if (!weekday || !VALID_WEEKDAYS.includes(weekday)) {
+    res.status(400).json({ error: "Ungültiger Wochentag" }); return;
+  }
+  if (returnTime !== null && returnTime !== undefined && !VALID_TIMES.includes(returnTime)) {
+    res.status(400).json({ error: "Ungültige Rückfahrtzeit" }); return;
+  }
+
+  // Delete existing entry for this (child, weekday)
+  if (type === "booking") {
+    await db.delete(returnTimeAssignmentsTable).where(
+      and(eq(returnTimeAssignmentsTable.busId, busId), eq(returnTimeAssignmentsTable.bookingId, id), eq(returnTimeAssignmentsTable.weekday, weekday))
+    );
+  } else {
+    await db.delete(returnTimeAssignmentsTable).where(
+      and(eq(returnTimeAssignmentsTable.busId, busId), eq(returnTimeAssignmentsTable.siblingId, id), eq(returnTimeAssignmentsTable.weekday, weekday))
+    );
+  }
+
+  // Insert new entry if returnTime is given
+  if (returnTime) {
+    await db.insert(returnTimeAssignmentsTable).values({
+      busId,
+      bookingId: type === "booking" ? id : null,
+      siblingId: type === "sibling" ? id : null,
+      weekday,
+      returnTime,
+    });
+  }
+
+  res.json({ ok: true });
 });
 
 router.post("/admin/buses", requireAuth, async (req, res) => {

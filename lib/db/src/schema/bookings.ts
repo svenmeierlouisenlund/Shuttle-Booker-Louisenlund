@@ -152,9 +152,20 @@ export const siblingBusAssignmentsTable = pgTable("sibling_bus_assignments", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const returnTimeAssignmentsTable = pgTable("return_time_assignments", {
+  id: serial("id").primaryKey(),
+  busId: integer("bus_id").notNull().references(() => busesTable.id, { onDelete: "cascade" }),
+  bookingId: integer("booking_id").references(() => bookingsTable.id, { onDelete: "cascade" }),
+  siblingId: integer("sibling_id").references(() => siblingsTable.id, { onDelete: "cascade" }),
+  weekday: text("weekday").notNull(), // mon|tue|wed|thu|fri
+  returnTime: text("return_time").notNull(), // "14:30"|"16:30"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export type Bus = typeof busesTable.$inferSelect;
 export type BusAssignment = typeof busAssignmentsTable.$inferSelect;
 export type SiblingBusAssignment = typeof siblingBusAssignmentsTable.$inferSelect;
+export type ReturnTimeAssignment = typeof returnTimeAssignmentsTable.$inferSelect;
 
 export const userRoleEnum = pgEnum("user_role", [
   "admin",
