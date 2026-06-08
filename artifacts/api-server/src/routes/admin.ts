@@ -590,7 +590,15 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
       typ = "hauptkind"; // determined later by seenParentEmails
     }
     const busName = isNewFormat ? cleanStr(colVal(row, "bus")) : "";
-    return { typ, refNum, childName, childAddress, childPostalCode, childCity, studentNumber, gradeYear, parentName, parentEmail, parentPhone, tariffZone, bookingType, outboundRoute, returnRoute, status, adminNotes, busName };
+    const pickupAddress = isNewFormat ? cleanStr(colVal(row, "sammelpunkt-straße", "sammelpunkt-strasse")) : "";
+    const pickupPostalCode = isNewFormat ? cleanStr(colVal(row, "sammelpunkt-plz")) : "";
+    const pickupCity = isNewFormat ? cleanStr(colVal(row, "sammelpunkt-ort")) : "";
+    const pickupTariffZone = isNewFormat ? (ZONE_MAP[cleanStr(colVal(row, "sammelpunkt-tarifzone"))] ?? null) : null;
+    const pickupLatRaw = isNewFormat ? cleanStr(colVal(row, "sammelpunkt-lat")) : "";
+    const pickupLngRaw = isNewFormat ? cleanStr(colVal(row, "sammelpunkt-lng")) : "";
+    const pickupLat = pickupLatRaw ? parseFloat(pickupLatRaw) || null : null;
+    const pickupLng = pickupLngRaw ? parseFloat(pickupLngRaw) || null : null;
+    return { typ, refNum, childName, childAddress, childPostalCode, childCity, studentNumber, gradeYear, parentName, parentEmail, parentPhone, tariffZone, bookingType, outboundRoute, returnRoute, status, adminNotes, busName, pickupAddress, pickupPostalCode, pickupCity, pickupTariffZone, pickupLat, pickupLng };
   }
 
   // ── New format: two-pass (Hauptkind first, then Geschwister) ─────────────
@@ -667,6 +675,9 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
         parentPhone: f.parentPhone, tariffZone: f.tariffZone as any, bookingType: f.bookingType,
         outboundRoute: f.outboundRoute as any, returnRoute: f.returnRoute as any,
         signatureName: f.parentName, status: f.status as any, priceCents, adminNotes: f.adminNotes,
+        pickupAddress: f.pickupAddress || null, pickupPostalCode: f.pickupPostalCode || null,
+        pickupCity: f.pickupCity || null, pickupTariffZone: f.pickupTariffZone as any ?? null,
+        pickupLat: f.pickupLat, pickupLng: f.pickupLng,
       }).returning({ id: bookingsTable.id });
 
       if (isNewFormat) refToBookingId.set(f.refNum, inserted.id);
@@ -824,6 +835,12 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
     "Status",
     "Bus",
     "Notizen",
+    "Sammelpunkt-Straße",
+    "Sammelpunkt-PLZ",
+    "Sammelpunkt-Ort",
+    "Sammelpunkt-Tarifzone",
+    "Sammelpunkt-Lat",
+    "Sammelpunkt-Lng",
     "Eingegangen am",
   ];
 
@@ -850,6 +867,12 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
       statusLabels[b.status] ?? b.status,
       bookingBusMap[b.id] ?? "",
       b.adminNotes ?? "",
+      b.pickupAddress ?? "",
+      b.pickupPostalCode ?? "",
+      b.pickupCity ?? "",
+      b.pickupTariffZone ? (zoneLabels[b.pickupTariffZone] ?? b.pickupTariffZone) : "",
+      b.pickupLat != null ? b.pickupLat : "",
+      b.pickupLng != null ? b.pickupLng : "",
       b.createdAt.toLocaleDateString("de-DE"),
     ]);
     // Sibling rows — use parent booking's referenceNumber so re-import can resolve the link
@@ -874,6 +897,7 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
         statusLabels[s.status] ?? s.status,
         siblingBusMapExport[s.id] ?? "",
         b.adminNotes ?? "",
+        "", "", "", "", "", "",
         b.createdAt.toLocaleDateString("de-DE"),
       ]);
     }
@@ -885,7 +909,7 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("Buchungen");
 
-    const colWidths = [18, 12, 28, 35, 8, 18, 14, 12, 28, 30, 16, 14, 32, 14, 14, 12, 18, 22, 40, 16];
+    const colWidths = [18, 12, 28, 35, 8, 18, 14, 12, 28, 30, 16, 14, 32, 14, 14, 12, 18, 22, 40, 30, 8, 18, 16, 14, 14, 16];
     ws.columns = colWidths.map((width) => ({ width }));
 
     const headerRow = ws.addRow(headers);
