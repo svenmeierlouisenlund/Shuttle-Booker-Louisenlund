@@ -767,9 +767,8 @@ export default function AdminBookingsList() {
                   <Select value={newBookingFields.bookingType} onValueChange={v => setNewBookingFields(f => ({ ...f, bookingType: v }))}>
                     <SelectTrigger id="nb-bookingType"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="full_year">Ganzes Schuljahr</SelectItem>
-                      <SelectItem value="half_year_1">1. Halbjahr</SelectItem>
-                      <SelectItem value="half_year_2">2. Halbjahr</SelectItem>
+                      <SelectItem value="full_year">Gesamtes Schuljahr 2026/27</SelectItem>
+                      <SelectItem value="first_half">1. Schulhalbjahr 2026/27</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -942,7 +941,7 @@ export default function AdminBookingsList() {
                   await queryClient.invalidateQueries({ queryKey: ["/api/admin/bookings"] });
                   setNewBookingOpen(false);
                   toast({ title: "Buchung erstellt", description: `Buchung ${result.referenceNumber} wurde erfolgreich angelegt.` });
-                  navigate(`/bookings/${result.id}`);
+                  navigate(`/admin/bookings/${result.id}`);
                 } catch (err: any) {
                   const msg = err?.response?.data?.error ?? err?.message ?? "Unbekannter Fehler.";
                   setNewBookingError(msg);
