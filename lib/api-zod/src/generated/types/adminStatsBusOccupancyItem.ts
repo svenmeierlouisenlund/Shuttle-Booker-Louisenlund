@@ -5,6 +5,7 @@
  * Regionalshuttle Buchungssystem - Stiftung Louisenlund
  * OpenAPI spec version: 0.1.0
  */
+import type { AdminStatsBusOccupancyItemReturnTimes } from './adminStatsBusOccupancyItemReturnTimes';
 
 export type AdminStatsBusOccupancyItem = {
   id: number;
@@ -12,4 +13,5 @@ export type AdminStatsBusOccupancyItem = {
   capacity: number;
   assigned: number;
   freeSeats: number;
+  returnTimes: AdminStatsBusOccupancyItemReturnTimes;
 };

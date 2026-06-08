@@ -389,12 +389,15 @@ export type AdminStatsByGradeYear = {[key: string]: number};
 
 export type AdminStatsByCity = {[key: string]: number};
 
+export type AdminStatsBusOccupancyItemReturnTimes = {[key: string]: {[key: string]: number}};
+
 export type AdminStatsBusOccupancyItem = {
   id: number;
   name: string;
   capacity: number;
   assigned: number;
   freeSeats: number;
+  returnTimes: AdminStatsBusOccupancyItemReturnTimes;
 };
 
 export interface AdminStats {

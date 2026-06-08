@@ -1170,7 +1170,7 @@ components:
           type: array
           items:
             type: object
-            required: [id, name, capacity, assigned, freeSeats]
+            required: [id, name, capacity, assigned, freeSeats, returnTimes]
             properties:
               id:
                 type: integer
@@ -1182,6 +1182,12 @@ components:
                 type: integer
               freeSeats:
                 type: integer
+              returnTimes:
+                type: object
+                additionalProperties:
+                  type: object
+                  additionalProperties:
+                    type: integer
         recentBookings:
           type: array
           items:
