@@ -1,4 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
+
+const ZoneMap = lazy(() => import("@/components/zone-map").then(m => ({ default: m.ZoneMap })));
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -416,16 +418,15 @@ export default function BookingForm() {
               Die Karte unten zeigt die Zoneneinteilung.
             </p>
             <div className="rounded-md overflow-hidden border border-gray-200">
-              <iframe
-                src="https://www.google.com/maps/d/embed?mid=1vPST9Agi2z_2eFKFFRueE9TUfPlYAT8"
-                width="100%"
-                height="360"
-                style={{ border: 0, display: "block" }}
-                allowFullScreen
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                title="Karte der Tarifzonen"
-              />
+              <Suspense fallback={<div className="flex items-center justify-center bg-gray-50 text-sm text-muted-foreground" style={{ height: 360 }}>Karte wird geladen …</div>}>
+                <ZoneMap selectedZone={form.watch("tariffZone") || null} height={360} />
+              </Suspense>
+            </div>
+            <div className="flex gap-4 text-xs text-muted-foreground flex-wrap">
+              <span className="flex items-center gap-1.5"><span className="inline-block w-4 h-3 rounded-sm" style={{ background: "#FFD600", border: "1.5px solid #b8860b" }} />Tarifzone 1</span>
+              <span className="flex items-center gap-1.5"><span className="inline-block w-4 h-3 rounded-sm" style={{ background: "#558B2F", border: "1.5px solid #2d6a1f" }} />Tarifzone 2</span>
+              <span className="flex items-center gap-1.5"><span className="inline-block w-4 h-3 rounded-sm" style={{ background: "#A52714", border: "1.5px solid #7f1a0a" }} />Tarifzone 3</span>
+              <span className="flex items-center gap-1.5 ml-2"><span className="inline-block w-3 h-3 rounded-full" style={{ background: "#004289", border: "2px solid white", boxShadow: "0 0 0 1px #004289" }} />Stiftung Louisenlund</span>
             </div>
 
             {/* PLZ-based zone suggestion */}
