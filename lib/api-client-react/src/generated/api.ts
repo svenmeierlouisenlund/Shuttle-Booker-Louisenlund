@@ -33,6 +33,7 @@ import type {
   BookingImportRequest,
   BookingInput,
   BookingStatusUpdate,
+  BuchhaltungNotifyRequest,
   CalculateRoutes200,
   DeleteBookingResponse,
   ErrorResponse,
@@ -45,6 +46,7 @@ import type {
   NotificationEmailInput,
   NotificationEmailList,
   PhotoUpdate,
+  PostAdminBuchhaltungNotify200,
   Sibling,
   SmtpConfig,
   SmtpConfigUpdate,
@@ -891,6 +893,77 @@ export function useGetAdminStats<TData = Awaited<ReturnType<typeof getAdminStats
 
 
 
+
+export const getPostAdminBuchhaltungNotifyUrl = () => {
+
+
+
+
+  return `/api/admin/buchhaltung-notify`
+}
+
+/**
+ * @summary Mark confirmed bookings as acknowledged by Buchhaltung
+ */
+export const postAdminBuchhaltungNotify = async (buchhaltungNotifyRequest: BuchhaltungNotifyRequest, options?: RequestInit): Promise<PostAdminBuchhaltungNotify200> => {
+
+  return customFetch<PostAdminBuchhaltungNotify200>(getPostAdminBuchhaltungNotifyUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      buchhaltungNotifyRequest,)
+  }
+);}
+
+
+
+
+export const getPostAdminBuchhaltungNotifyMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminBuchhaltungNotify>>, TError,{data: BodyType<BuchhaltungNotifyRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof postAdminBuchhaltungNotify>>, TError,{data: BodyType<BuchhaltungNotifyRequest>}, TContext> => {
+
+const mutationKey = ['postAdminBuchhaltungNotify'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAdminBuchhaltungNotify>>, {data: BodyType<BuchhaltungNotifyRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  postAdminBuchhaltungNotify(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostAdminBuchhaltungNotifyMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminBuchhaltungNotify>>>
+    export type PostAdminBuchhaltungNotifyMutationBody = BodyType<BuchhaltungNotifyRequest>
+    export type PostAdminBuchhaltungNotifyMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark confirmed bookings as acknowledged by Buchhaltung
+ */
+export const usePostAdminBuchhaltungNotify = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminBuchhaltungNotify>>, TError,{data: BodyType<BuchhaltungNotifyRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof postAdminBuchhaltungNotify>>,
+        TError,
+        {data: BodyType<BuchhaltungNotifyRequest>},
+        TContext
+      > => {
+      return useMutation(getPostAdminBuchhaltungNotifyMutationOptions(options));
+    }
 
 export const getAdminLoginUrl = () => {
 

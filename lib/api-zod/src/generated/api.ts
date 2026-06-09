@@ -413,7 +413,27 @@ export const GetAdminStatsResponse = zod.object({
   "busName": zod.string().nullish().describe('Name of the assigned bus (if any)'),
   "photoPath": zod.string().nullish().describe('Object storage path of the child\'s photo')
 })).optional()
+})),
+  "pendingBuchhaltung": zod.array(zod.object({
+  "id": zod.number(),
+  "referenceNumber": zod.string(),
+  "childName": zod.string(),
+  "parentName": zod.string(),
+  "priceCents": zod.number(),
+  "confirmedAt": zod.string()
 }))
+})
+
+
+/**
+ * @summary Mark confirmed bookings as acknowledged by Buchhaltung
+ */
+export const PostAdminBuchhaltungNotifyBody = zod.object({
+  "ids": zod.array(zod.number())
+})
+
+export const PostAdminBuchhaltungNotifyResponse = zod.object({
+  "ok": zod.boolean()
 })
 
 

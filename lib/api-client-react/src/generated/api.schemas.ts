@@ -400,6 +400,15 @@ export type AdminStatsBusOccupancyItem = {
   returnTimes: AdminStatsBusOccupancyItemReturnTimes;
 };
 
+export type AdminStatsPendingBuchhaltungItem = {
+  id: number;
+  referenceNumber: string;
+  childName: string;
+  parentName: string;
+  priceCents: number;
+  confirmedAt: string;
+};
+
 export interface AdminStats {
   totalBookings: number;
   byStatus: AdminStatsByStatus;
@@ -413,6 +422,11 @@ export interface AdminStats {
   byCity: AdminStatsByCity;
   busOccupancy?: AdminStatsBusOccupancyItem[];
   recentBookings: AdminBooking[];
+  pendingBuchhaltung: AdminStatsPendingBuchhaltungItem[];
+}
+
+export interface BuchhaltungNotifyRequest {
+  ids: number[];
 }
 
 export interface NotificationEmail {
@@ -642,5 +656,9 @@ bookingType?: string | null;
  * @nullable
  */
 status?: string | null;
+};
+
+export type PostAdminBuchhaltungNotify200 = {
+  ok: boolean;
 };
 
