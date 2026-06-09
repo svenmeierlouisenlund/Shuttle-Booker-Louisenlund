@@ -1641,12 +1641,47 @@ router.post("/admin/buchhaltung-notify", requireAuth, async (req, res) => {
     res.status(400).json({ error: "Ungültige Eingabe" });
     return;
   }
-  if (ids?.length) {
-    await db.update(bookingsTable).set({ buchhaltungNotified: true }).where(inArray(bookingsTable.id, ids as number[]));
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const noteText = `Buchung durch Buchhaltung durchgeführt am ${dateStr}.`;
+
+  function appendNote(existing: string | null | undefined): string {
+    const trimmed = (existing ?? "").trim();
+    return trimmed ? `${trimmed}\n${noteText}` : noteText;
   }
+
+  if (ids?.length) {
+    const bookings = await db
+      .select({ id: bookingsTable.id, adminNotes: bookingsTable.adminNotes })
+      .from(bookingsTable)
+      .where(inArray(bookingsTable.id, ids as number[]));
+    for (const b of bookings) {
+      await db.update(bookingsTable)
+        .set({ buchhaltungNotified: true, adminNotes: appendNote(b.adminNotes), updatedAt: now })
+        .where(eq(bookingsTable.id, b.id));
+    }
+  }
+
   if (siblingIds?.length) {
     await db.update(siblingsTable).set({ buchhaltungNotified: true }).where(inArray(siblingsTable.id, siblingIds as number[]));
+    // Append note to each unique parent booking
+    const siblings = await db
+      .select({ bookingId: siblingsTable.bookingId })
+      .from(siblingsTable)
+      .where(inArray(siblingsTable.id, siblingIds as number[]));
+    const uniqueBookingIds = [...new Set(siblings.map(s => s.bookingId))];
+    const parentBookings = await db
+      .select({ id: bookingsTable.id, adminNotes: bookingsTable.adminNotes })
+      .from(bookingsTable)
+      .where(inArray(bookingsTable.id, uniqueBookingIds));
+    for (const b of parentBookings) {
+      await db.update(bookingsTable)
+        .set({ adminNotes: appendNote(b.adminNotes), updatedAt: now })
+        .where(eq(bookingsTable.id, b.id));
+    }
   }
+
   res.json({ ok: true });
 });
 
