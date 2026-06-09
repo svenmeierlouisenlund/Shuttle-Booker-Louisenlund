@@ -477,37 +477,114 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
   const pendingSiblingRows = await db
     .select({
       id: siblingsTable.id,
+      bookingId: siblingsTable.bookingId,
       referenceNumber: siblingsTable.referenceNumber,
       childName: siblingsTable.childName,
       parentName: bookingsTable.parentName,
       priceCents: siblingsTable.priceCents,
-      confirmedAt: siblingsTable.createdAt, // use createdAt as proxy; updatedAt not on siblingsTable
+      confirmedAt: siblingsTable.createdAt,
     })
     .from(siblingsTable)
     .innerJoin(bookingsTable, eq(siblingsTable.bookingId, bookingsTable.id))
     .where(and(eq(siblingsTable.status, "confirmed"), eq(siblingsTable.buchhaltungNotified, false)))
     .orderBy(desc(siblingsTable.createdAt));
 
-  const pendingBuchhaltung = [
-    ...pendingMainRows.map(r => ({
-      id: r.id,
-      type: "booking" as const,
-      referenceNumber: r.referenceNumber,
-      childName: r.childName,
-      parentName: r.parentName,
-      priceCents: r.priceCents ?? 0,
-      confirmedAt: r.confirmedAt.toISOString(),
-    })),
-    ...pendingSiblingRows.map(r => ({
-      id: r.id,
-      type: "sibling" as const,
-      referenceNumber: r.referenceNumber,
-      childName: r.childName,
-      parentName: r.parentName,
-      priceCents: r.priceCents ?? 0,
-      confirmedAt: r.confirmedAt.toISOString(),
-    })),
-  ].sort((a, b) => b.confirmedAt.localeCompare(a.confirmedAt));
+  // All siblings of bookings that appear in pendingMainRows (to check family completeness)
+  const pendingMainIds = pendingMainRows.map(r => r.id);
+  const allSiblingsOfPending = pendingMainIds.length > 0
+    ? await db.select({ id: siblingsTable.id, bookingId: siblingsTable.bookingId })
+        .from(siblingsTable)
+        .where(inArray(siblingsTable.bookingId, pendingMainIds))
+    : [];
+
+  // Build lookup: bookingId → all sibling IDs
+  const allSibsByBooking = new Map<number, number[]>();
+  for (const s of allSiblingsOfPending) {
+    if (!allSibsByBooking.has(s.bookingId)) allSibsByBooking.set(s.bookingId, []);
+    allSibsByBooking.get(s.bookingId)!.push(s.id);
+  }
+
+  // Build lookup: bookingId → confirmed+unnotified sibling rows
+  const pendingSibsByBooking = new Map<number, typeof pendingSiblingRows>();
+  for (const s of pendingSiblingRows) {
+    if (!pendingSibsByBooking.has(s.bookingId)) pendingSibsByBooking.set(s.bookingId, []);
+    pendingSibsByBooking.get(s.bookingId)!.push(s);
+  }
+
+  // Set of sibling IDs already grouped into a family (so we skip them in the individual list)
+  const groupedSiblingIds = new Set<number>();
+
+  const pendingBuchhaltung: Array<{
+    id: number;
+    type: "booking" | "sibling" | "family";
+    referenceNumber: string;
+    childName: string;
+    childNames: string[] | null;
+    parentName: string;
+    priceCents: number;
+    confirmedAt: string;
+    ids: number[] | null;
+    siblingIds: number[] | null;
+  }> = [];
+
+  for (const r of pendingMainRows) {
+    const allSibIds = allSibsByBooking.get(r.id) ?? [];
+    const pendingSibs = pendingSibsByBooking.get(r.id) ?? [];
+
+    if (allSibIds.length > 0 && pendingSibs.length === allSibIds.length) {
+      // All siblings are also confirmed+unnotified → group as family
+      const sibIds = pendingSibs.map(s => s.id);
+      sibIds.forEach(id => groupedSiblingIds.add(id));
+      const totalPrice = (r.priceCents ?? 0) + pendingSibs.reduce((sum, s) => sum + (s.priceCents ?? 0), 0);
+      const allNames = [r.childName, ...pendingSibs.map(s => s.childName)];
+      pendingBuchhaltung.push({
+        id: r.id,
+        type: "family",
+        referenceNumber: r.referenceNumber,
+        childName: r.childName,
+        childNames: allNames,
+        parentName: r.parentName,
+        priceCents: totalPrice,
+        confirmedAt: r.confirmedAt.toISOString(),
+        ids: [r.id],
+        siblingIds: sibIds,
+      });
+    } else {
+      // Main booking appears individually
+      pendingBuchhaltung.push({
+        id: r.id,
+        type: "booking",
+        referenceNumber: r.referenceNumber,
+        childName: r.childName,
+        childNames: null,
+        parentName: r.parentName,
+        priceCents: r.priceCents ?? 0,
+        confirmedAt: r.confirmedAt.toISOString(),
+        ids: null,
+        siblingIds: null,
+      });
+    }
+  }
+
+  // Add confirmed+unnotified siblings that were NOT grouped into a family
+  for (const s of pendingSiblingRows) {
+    if (!groupedSiblingIds.has(s.id)) {
+      pendingBuchhaltung.push({
+        id: s.id,
+        type: "sibling",
+        referenceNumber: s.referenceNumber,
+        childName: s.childName,
+        childNames: null,
+        parentName: s.parentName,
+        priceCents: s.priceCents ?? 0,
+        confirmedAt: s.confirmedAt.toISOString(),
+        ids: null,
+        siblingIds: null,
+      });
+    }
+  }
+
+  pendingBuchhaltung.sort((a, b) => b.confirmedAt.localeCompare(a.confirmedAt));
 
   res.json({
     totalBookings: total,

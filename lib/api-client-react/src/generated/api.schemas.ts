@@ -405,9 +405,12 @@ export type AdminStatsPendingBuchhaltungItem = {
   type: string;
   referenceNumber: string;
   childName: string;
+  childNames?: string[] | null;
   parentName: string;
   priceCents: number;
   confirmedAt: string;
+  ids?: number[] | null;
+  siblingIds?: number[] | null;
 };
 
 export interface AdminStats {
