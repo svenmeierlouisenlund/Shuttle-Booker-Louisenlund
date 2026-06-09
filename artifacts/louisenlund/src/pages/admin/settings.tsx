@@ -63,7 +63,7 @@ type Role = "admin" | "buchhaltung" | "schulbuero" | "fahrer";
 
 // ── User management card ───────────────────────────────────────────────────────
 
-function UserManagement({ currentUserId }: { currentUserId?: number }) {
+function UserManagement({ currentUsername }: { currentUsername?: string }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: usersData, isLoading: usersLoading } = useListAdminUsers();
@@ -176,7 +176,7 @@ function UserManagement({ currentUserId }: { currentUserId?: number }) {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-sm font-semibold text-gray-900">{u.username}</span>
-                        {u.id === currentUserId && (
+                        {u.username === currentUsername && (
                           <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-blue-50 text-blue-600 border-blue-200">
                             Ich
                           </Badge>
@@ -212,8 +212,8 @@ function UserManagement({ currentUserId }: { currentUserId?: number }) {
                       title={u.isActive ? "Deaktivieren" : "Aktivieren"}
                       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors
                         ${u.isActive ? "bg-[#004289]" : "bg-gray-300"}
-                        ${u.id === currentUserId ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
-                      disabled={u.id === currentUserId}
+                        ${u.username === currentUsername ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                      disabled={u.username === currentUsername}
                     >
                       <span
                         className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform
@@ -226,7 +226,7 @@ function UserManagement({ currentUserId }: { currentUserId?: number }) {
                       className="h-7 w-7 p-0 text-gray-300 hover:text-red-500 hover:bg-red-50"
                       title="Löschen"
                       onClick={() => setConfirmDeleteId(u.id)}
-                      disabled={u.id === currentUserId}
+                      disabled={u.username === currentUsername}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
@@ -553,7 +553,7 @@ export default function AdminSettings() {
         <h1 className="text-2xl font-serif font-semibold text-primary">Einstellungen</h1>
 
         {/* User Management — admin only */}
-        {isAdmin && <UserManagement currentUserId={undefined} />}
+        {isAdmin && <UserManagement currentUsername={me?.username ?? undefined} />}
 
         {/* SMTP Config */}
         <Card>
@@ -794,14 +794,12 @@ export default function AdminSettings() {
             )}
           </CardContent>
         </Card>
-      </div>
-
-      {/* ── Backup & Restore (admin only) ──────────────────────────────────── */}
-      {me?.role === "admin" && (
-        <Card className="shadow-sm">
+        {/* ── Backup & Restore (admin only) ──────────────────────────────── */}
+        {me?.role === "admin" && (
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <HardDriveDownload className="w-4 h-4 text-[#004289]" />
+              <HardDriveDownload className="w-4 h-4 text-primary" />
               Datensicherung
             </CardTitle>
             <CardDescription>
@@ -855,7 +853,8 @@ export default function AdminSettings() {
             </div>
           </CardContent>
         </Card>
-      )}
+        )}
+      </div>
 
       {/* Restore confirmation dialog */}
       <Dialog open={confirmRestoreOpen} onOpenChange={setConfirmRestoreOpen}>
