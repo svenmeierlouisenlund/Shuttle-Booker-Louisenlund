@@ -7,5 +7,6 @@
  */
 
 export interface BuchhaltungNotifyRequest {
-  ids: number[];
+  ids?: number[];
+  siblingIds?: number[];
 }

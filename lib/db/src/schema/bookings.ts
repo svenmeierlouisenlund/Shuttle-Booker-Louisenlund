@@ -87,6 +87,7 @@ export const siblingsTable = pgTable("siblings", {
   priceCents: integer("price_cents"),
   photoPath: text("photo_path"),
   status: bookingStatusEnum("status").notNull().default("received"),
+  buchhaltungNotified: boolean("buchhaltung_notified").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

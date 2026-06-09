@@ -416,6 +416,7 @@ export const GetAdminStatsResponse = zod.object({
 })),
   "pendingBuchhaltung": zod.array(zod.object({
   "id": zod.number(),
+  "type": zod.string(),
   "referenceNumber": zod.string(),
   "childName": zod.string(),
   "parentName": zod.string(),
@@ -429,7 +430,8 @@ export const GetAdminStatsResponse = zod.object({
  * @summary Mark confirmed bookings as acknowledged by Buchhaltung
  */
 export const PostAdminBuchhaltungNotifyBody = zod.object({
-  "ids": zod.array(zod.number())
+  "ids": zod.array(zod.number()).optional(),
+  "siblingIds": zod.array(zod.number()).optional()
 })
 
 export const PostAdminBuchhaltungNotifyResponse = zod.object({

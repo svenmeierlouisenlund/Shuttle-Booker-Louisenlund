@@ -402,6 +402,7 @@ export type AdminStatsBusOccupancyItem = {
 
 export type AdminStatsPendingBuchhaltungItem = {
   id: number;
+  type: string;
   referenceNumber: string;
   childName: string;
   parentName: string;
@@ -426,7 +427,8 @@ export interface AdminStats {
 }
 
 export interface BuchhaltungNotifyRequest {
-  ids: number[];
+  ids?: number[];
+  siblingIds?: number[];
 }
 
 export interface NotificationEmail {
