@@ -107,7 +107,12 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-blue-200 text-xs hidden sm:inline-block">Angemeldet</span>
+            <div className="hidden sm:flex flex-col items-end leading-tight">
+              <span className="text-white text-xs font-medium">{me.username}</span>
+              <span className="text-blue-300 text-[10px]">
+                {{ admin: "Admin", buchhaltung: "Buchhaltung", schulbuero: "Schulbüro", fahrer: "Fahrer" }[me.role ?? ""] ?? me.role}
+              </span>
+            </div>
             <Button
               variant="outline"
               size="sm"
