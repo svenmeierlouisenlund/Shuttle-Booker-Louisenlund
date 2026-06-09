@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Redirect } from "wouter";
 import { AdminLayout } from "@/components/admin-layout";
 import {
@@ -27,7 +27,8 @@ import {
 } from "@/components/ui/dialog";
 import {
   Trash2, Plus, Mail, Loader2, CheckCircle2, AlertCircle, Eye, EyeOff,
-  Send, Server, Users, Pencil, ShieldCheck, Key,
+  Send, Server, Users, Pencil, ShieldCheck, Key, Download, Upload,
+  HardDriveDownload, AlertTriangle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
@@ -417,6 +418,39 @@ export default function AdminSettings() {
   const [newEmail, setNewEmail] = useState("");
   const [newLabel, setNewLabel] = useState("");
 
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  const [confirmRestoreOpen, setConfirmRestoreOpen] = useState(false);
+  const restoreFileRef = useRef<HTMLInputElement>(null);
+
+  const handleRestore = async () => {
+    if (!restoreFile) return;
+    setRestoring(true);
+    setConfirmRestoreOpen(false);
+    try {
+      const formData = new FormData();
+      formData.append("backup", restoreFile);
+      const res = await fetch("/api/admin/restore", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json() as { error?: string };
+        throw new Error(err.error ?? "Unbekannter Fehler");
+      }
+      toast({ title: "Wiederherstellung erfolgreich", description: "Alle Daten wurden aus der Sicherung wiederhergestellt." });
+      setRestoreFile(null);
+      if (restoreFileRef.current) restoreFileRef.current.value = "";
+      queryClient.invalidateQueries();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unbekannter Fehler";
+      toast({ title: "Fehler beim Wiederherstellen", description: msg, variant: "destructive" });
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpPort, setSmtpPort] = useState("587");
   const [smtpUser, setSmtpUser] = useState("");
@@ -761,6 +795,98 @@ export default function AdminSettings() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Backup & Restore (admin only) ──────────────────────────────────── */}
+      {me?.role === "admin" && (
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <HardDriveDownload className="w-4 h-4 text-[#004289]" />
+              Datensicherung
+            </CardTitle>
+            <CardDescription>
+              Backup aller Daten herunterladen oder aus einer Sicherungsdatei wiederherstellen.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Download */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">Backup erstellen</h4>
+              <p className="text-xs text-muted-foreground">
+                Lädt alle Buchungen, Nutzerkonten, Busse, Konfigurationen und sonstigen Daten als JSON-Datei herunter.
+              </p>
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => window.open("/api/admin/backup", "_blank")}
+              >
+                <Download className="w-4 h-4" />
+                Backup herunterladen
+              </Button>
+            </div>
+
+            {/* Restore */}
+            <div className="border-t pt-5 space-y-2">
+              <h4 className="text-sm font-medium text-red-700">Wiederherstellen</h4>
+              <p className="text-xs text-muted-foreground">
+                <strong>Achtung:</strong> Alle vorhandenen Daten werden vollständig durch den Stand der Sicherungsdatei ersetzt.
+                Dieser Vorgang kann nicht rückgängig gemacht werden.
+              </p>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  ref={restoreFileRef}
+                  onChange={(e) => setRestoreFile(e.target.files?.[0] ?? null)}
+                  className="text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border file:border-gray-300 file:text-xs file:font-medium file:bg-white file:text-gray-700 hover:file:bg-gray-50 cursor-pointer"
+                />
+                <Button
+                  variant="destructive"
+                  disabled={!restoreFile || restoring}
+                  onClick={() => setConfirmRestoreOpen(true)}
+                  className="gap-2 shrink-0"
+                >
+                  {restoring
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <Upload className="w-4 h-4" />}
+                  Wiederherstellen
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Restore confirmation dialog */}
+      <Dialog open={confirmRestoreOpen} onOpenChange={setConfirmRestoreOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <AlertTriangle className="w-5 h-5" />
+              Daten wirklich wiederherstellen?
+            </DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-2 text-sm text-gray-600">
+                <p>
+                  Alle aktuellen Daten (Buchungen, Nutzerkonten, Busse, Konfiguration) werden gelöscht
+                  und durch den Stand der Datei <strong className="text-gray-800">{restoreFile?.name}</strong> ersetzt.
+                </p>
+                <p>Dieser Vorgang kann <strong>nicht</strong> rückgängig gemacht werden.</p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmRestoreOpen(false)}>
+              Abbrechen
+            </Button>
+            <Button variant="destructive" onClick={handleRestore} disabled={restoring}>
+              {restoring && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              Jetzt wiederherstellen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </AdminLayout>
   );
 }

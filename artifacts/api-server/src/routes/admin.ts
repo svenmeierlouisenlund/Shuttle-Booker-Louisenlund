@@ -2558,4 +2558,130 @@ router.delete("/admin/buses/:busId/assign/sibling/:siblingId", requireAuth, asyn
   res.json({ success: true });
 });
 
+// ── Backup & Restore ──────────────────────────────────────────────────────────
+
+router.get("/admin/backup", requireAuth, requireAdmin, async (_req, res) => {
+  const [
+    bookings, siblings, buses, busAssignments, siblingBusAssignments,
+    returnTimeAssignments, adminUsers, notificationEmails, smtpConfigs, pricingConfigs,
+  ] = await Promise.all([
+    db.select().from(bookingsTable).orderBy(bookingsTable.id),
+    db.select().from(siblingsTable).orderBy(siblingsTable.id),
+    db.select().from(busesTable).orderBy(busesTable.id),
+    db.select().from(busAssignmentsTable).orderBy(busAssignmentsTable.id),
+    db.select().from(siblingBusAssignmentsTable).orderBy(siblingBusAssignmentsTable.id),
+    db.select().from(returnTimeAssignmentsTable).orderBy(returnTimeAssignmentsTable.id),
+    db.select().from(adminUsersTable).orderBy(adminUsersTable.id),
+    db.select().from(notificationEmailsTable).orderBy(notificationEmailsTable.id),
+    db.select().from(smtpConfigTable),
+    db.select().from(pricingConfigTable),
+  ]);
+
+  const backup = {
+    version: 1,
+    createdAt: new Date().toISOString(),
+    data: {
+      bookings,
+      siblings,
+      buses,
+      busAssignments,
+      siblingBusAssignments,
+      returnTimeAssignments,
+      adminUsers,
+      notificationEmails,
+      smtpConfig: smtpConfigs[0] ?? null,
+      pricingConfig: pricingConfigs[0] ?? null,
+    },
+  };
+
+  const filename = `louisenlund-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.setHeader("Content-Type", "application/json");
+  res.json(backup);
+});
+
+router.post("/admin/restore", requireAuth, requireAdmin, upload.single("backup"), async (req, res) => {
+  if (!req.file) {
+    res.status(400).json({ error: "Keine Backup-Datei hochgeladen" });
+    return;
+  }
+
+  let backup: {
+    version: number;
+    data: {
+      bookings?: (typeof bookingsTable.$inferSelect)[];
+      siblings?: (typeof siblingsTable.$inferSelect)[];
+      buses?: (typeof busesTable.$inferSelect)[];
+      busAssignments?: (typeof busAssignmentsTable.$inferSelect)[];
+      siblingBusAssignments?: (typeof siblingBusAssignmentsTable.$inferSelect)[];
+      returnTimeAssignments?: (typeof returnTimeAssignmentsTable.$inferSelect)[];
+      adminUsers?: (typeof adminUsersTable.$inferSelect)[];
+      notificationEmails?: (typeof notificationEmailsTable.$inferSelect)[];
+      smtpConfig?: typeof smtpConfigTable.$inferSelect | null;
+      pricingConfig?: typeof pricingConfigTable.$inferSelect | null;
+    };
+  };
+
+  try {
+    backup = JSON.parse(req.file.buffer.toString("utf-8")) as typeof backup;
+  } catch {
+    res.status(400).json({ error: "Ungültige Backup-Datei (kein gültiges JSON)" });
+    return;
+  }
+
+  if (!backup?.version || !backup?.data) {
+    res.status(400).json({ error: "Unbekanntes Backup-Format" });
+    return;
+  }
+
+  try {
+    await db.transaction(async (tx) => {
+      // Delete in reverse FK order
+      await tx.delete(returnTimeAssignmentsTable);
+      await tx.delete(siblingBusAssignmentsTable);
+      await tx.delete(busAssignmentsTable);
+      await tx.delete(siblingsTable);
+      await tx.delete(bookingsTable);
+      await tx.delete(busesTable);
+      await tx.delete(notificationEmailsTable);
+      await tx.delete(adminUsersTable);
+      await tx.delete(smtpConfigTable);
+      await tx.delete(pricingConfigTable);
+
+      const { data: d } = backup;
+
+      // Insert in FK order
+      if (d.adminUsers?.length)             await tx.insert(adminUsersTable).values(d.adminUsers);
+      if (d.buses?.length)                  await tx.insert(busesTable).values(d.buses);
+      if (d.notificationEmails?.length)     await tx.insert(notificationEmailsTable).values(d.notificationEmails);
+      if (d.bookings?.length)               await tx.insert(bookingsTable).values(d.bookings);
+      if (d.siblings?.length)               await tx.insert(siblingsTable).values(d.siblings);
+      if (d.busAssignments?.length)         await tx.insert(busAssignmentsTable).values(d.busAssignments);
+      if (d.siblingBusAssignments?.length)  await tx.insert(siblingBusAssignmentsTable).values(d.siblingBusAssignments);
+      if (d.returnTimeAssignments?.length)  await tx.insert(returnTimeAssignmentsTable).values(d.returnTimeAssignments);
+      if (d.smtpConfig)                     await tx.insert(smtpConfigTable).values(d.smtpConfig);
+      if (d.pricingConfig)                  await tx.insert(pricingConfigTable).values(d.pricingConfig);
+    });
+
+    // Reset sequences so new inserts don't collide with restored IDs
+    const tables: [string, string][] = [
+      ["bookings", "id"], ["siblings", "id"], ["buses", "id"],
+      ["bus_assignments", "id"], ["sibling_bus_assignments", "id"],
+      ["return_time_assignments", "id"], ["admin_users", "id"],
+      ["notification_emails", "id"],
+    ];
+    for (const [table, col] of tables) {
+      await db.execute(
+        sql.raw(`SELECT setval(pg_get_serial_sequence('${table}', '${col}'), (SELECT COALESCE(MAX(${col}) + 1, 1) FROM "${table}"), false)`)
+      );
+    }
+
+    req.log.info("Database restored from backup");
+    res.json({ ok: true, restoredAt: new Date().toISOString() });
+  } catch (err) {
+    req.log.error(err, "Restore failed");
+    res.status(500).json({ error: "Fehler beim Wiederherstellen der Daten" });
+  }
+});
+
 export default router;
