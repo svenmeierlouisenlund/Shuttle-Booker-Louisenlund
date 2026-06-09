@@ -734,6 +734,7 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
   const rows = allRows.slice(1) as unknown[][];
 
   let imported = 0;
+  let updated = 0;
   let skipped = 0;
   const errors: string[] = [];
   const importedParentNames = new Set<string>();
@@ -805,7 +806,15 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
     const pickupLngRaw = isNewFormat ? cleanStr(colVal(row, "sammelpunkt-lng")) : "";
     const pickupLat = pickupLatRaw ? parseFloat(pickupLatRaw) || null : null;
     const pickupLng = pickupLngRaw ? parseFloat(pickupLngRaw) || null : null;
-    return { typ, refNum, childName, childAddress, childPostalCode, childCity, studentNumber, gradeYear, parentName, parentEmail, parentPhone, tariffZone, bookingType, outboundRoute, returnRoute, status, adminNotes, busName, pickupAddress, pickupPostalCode, pickupCity, pickupTariffZone, pickupLat, pickupLng };
+    const distanceKmRaw = isNewFormat ? cleanStr(colVal(row, "entfernung (km)", "entfernung")) : "";
+    const distanceKm = distanceKmRaw ? parseFloat(distanceKmRaw.replace(",", ".")) || null : null;
+    const durationMinutesRaw = isNewFormat ? cleanStr(colVal(row, "fahrtzeit (min.)", "fahrtzeit")) : "";
+    const durationMinutes = durationMinutesRaw ? parseInt(durationMinutesRaw) || null : null;
+    const buchhaltungNotifiedRaw = isNewFormat ? cleanStr(colVal(row, "buchhaltung benachrichtigt")) : "";
+    const buchhaltungNotified: boolean | null = buchhaltungNotifiedRaw
+      ? buchhaltungNotifiedRaw.toLowerCase() === "ja" || buchhaltungNotifiedRaw.toLowerCase() === "true" || buchhaltungNotifiedRaw === "1"
+      : null;
+    return { typ, refNum, childName, childAddress, childPostalCode, childCity, studentNumber, gradeYear, parentName, parentEmail, parentPhone, tariffZone, bookingType, outboundRoute, returnRoute, status, adminNotes, busName, pickupAddress, pickupPostalCode, pickupCity, pickupTariffZone, pickupLat, pickupLng, distanceKm, durationMinutes, buchhaltungNotified };
   }
 
   // ── New format: two-pass (Hauptkind first, then Geschwister) ─────────────
@@ -856,17 +865,49 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
         continue;
       }
 
-      // Hauptkind: check for duplicate
-      const existing = await db.select({ id: bookingsTable.id }).from(bookingsTable)
-        .where(and(eq(bookingsTable.childName, f.childName), eq(bookingsTable.parentEmail, f.parentEmail))).limit(1);
+      // Hauptkind: check for existing (by refNum first, then name+email fallback)
+      let existingBookingId: number | null = null;
+      if (isNewFormat && f.refNum) {
+        const found = await db.select({ id: bookingsTable.id }).from(bookingsTable)
+          .where(eq(bookingsTable.referenceNumber, f.refNum)).limit(1);
+        if (found.length > 0) existingBookingId = found[0].id;
+      }
+      if (existingBookingId === null) {
+        const found = await db.select({ id: bookingsTable.id }).from(bookingsTable)
+          .where(and(eq(bookingsTable.childName, f.childName), eq(bookingsTable.parentEmail, f.parentEmail))).limit(1);
+        if (found.length > 0) existingBookingId = found[0].id;
+      }
 
-      if (existing.length > 0) {
-        if (isNewFormat) refToBookingId.set(f.refNum, existing[0].id);
-        else seenParentEmails.set(f.parentEmail, existing[0].id);
-        skipped++;
+      if (existingBookingId !== null) {
+        // UPDATE existing booking: restore status, notes, pickup, routing
+        await db.update(bookingsTable).set({
+          status: f.status as any,
+          adminNotes: f.adminNotes || null,
+          pickupAddress: f.pickupAddress || null,
+          pickupPostalCode: f.pickupPostalCode || null,
+          pickupCity: f.pickupCity || null,
+          pickupTariffZone: (f.pickupTariffZone as any) ?? null,
+          pickupLat: f.pickupLat,
+          pickupLng: f.pickupLng,
+          ...(f.distanceKm !== null ? { distanceKm: f.distanceKm } : {}),
+          ...(f.durationMinutes !== null ? { durationMinutes: f.durationMinutes } : {}),
+          ...(f.buchhaltungNotified !== null ? { buchhaltungNotified: f.buchhaltungNotified } : {}),
+          updatedAt: new Date(),
+        }).where(eq(bookingsTable.id, existingBookingId));
+        // Replace bus assignment
+        await db.delete(busAssignmentsTable).where(eq(busAssignmentsTable.bookingId, existingBookingId));
+        if (f.busName) {
+          const busId = busNameToId.get(f.busName.toLowerCase().trim());
+          if (busId) await db.insert(busAssignmentsTable).values({ busId, bookingId: existingBookingId });
+        }
+        if (isNewFormat) refToBookingId.set(f.refNum, existingBookingId);
+        else seenParentEmails.set(f.parentEmail, existingBookingId);
+        importedParentNames.add(f.parentName);
+        updated++;
         continue;
       }
 
+      // INSERT new booking
       // Use the ref from the file if present; otherwise always generate a fresh one.
       let newRef = (isNewFormat && f.refNum) ? f.refNum : genRef();
       // Ensure uniqueness in DB (covers both kept and generated refs)
@@ -885,16 +926,16 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
         pickupAddress: f.pickupAddress || null, pickupPostalCode: f.pickupPostalCode || null,
         pickupCity: f.pickupCity || null, pickupTariffZone: f.pickupTariffZone as any ?? null,
         pickupLat: f.pickupLat, pickupLng: f.pickupLng,
+        ...(f.distanceKm !== null ? { distanceKm: f.distanceKm } : {}),
+        ...(f.durationMinutes !== null ? { durationMinutes: f.durationMinutes } : {}),
+        ...(f.buchhaltungNotified !== null ? { buchhaltungNotified: f.buchhaltungNotified } : {}),
       }).returning({ id: bookingsTable.id });
 
       if (isNewFormat) refToBookingId.set(f.refNum, inserted.id);
       else seenParentEmails.set(f.parentEmail, inserted.id);
       if (f.busName) {
         const busId = busNameToId.get(f.busName.toLowerCase().trim());
-        if (busId) {
-          const existingAssign = await db.select({ id: busAssignmentsTable.id }).from(busAssignmentsTable).where(eq(busAssignmentsTable.bookingId, inserted.id)).limit(1);
-          if (existingAssign.length === 0) await db.insert(busAssignmentsTable).values({ busId, bookingId: inserted.id });
-        }
+        if (busId) await db.insert(busAssignmentsTable).values({ busId, bookingId: inserted.id });
       }
       importedParentNames.add(f.parentName);
       imported++;
@@ -937,7 +978,22 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
 
         const existingSib = await db.select({ id: siblingsTable.id }).from(siblingsTable)
           .where(and(eq(siblingsTable.bookingId, mainId), eq(siblingsTable.childName, f.childName))).limit(1);
-        if (existingSib.length > 0) { skipped++; continue; }
+        if (existingSib.length > 0) {
+          // UPDATE existing sibling: restore status and bus
+          const sibId = existingSib[0].id;
+          await db.update(siblingsTable).set({
+            status: f.status as any,
+            ...(f.buchhaltungNotified !== null ? { buchhaltungNotified: f.buchhaltungNotified } : {}),
+          }).where(eq(siblingsTable.id, sibId));
+          await db.delete(siblingBusAssignmentsTable).where(eq(siblingBusAssignmentsTable.siblingId, sibId));
+          if (f.busName) {
+            const busId = busNameToId.get(f.busName.toLowerCase().trim());
+            if (busId) await db.insert(siblingBusAssignmentsTable).values({ busId, siblingId: sibId });
+          }
+          importedParentNames.add(f.parentName);
+          updated++;
+          continue;
+        }
 
         const sibPriceCents = calcBookingPriceFromConfig(importPricingConfig, f.tariffZone as any, f.bookingType, f.outboundRoute as any, f.returnRoute as any);
         let sibRef2 = genRef();
@@ -948,13 +1004,11 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
           bookingId: mainId, referenceNumber: sibRef2, childName: f.childName, studentNumber: f.studentNumber,
           gradeYear: f.gradeYear, outboundRoute: f.outboundRoute as any, returnRoute: f.returnRoute as any,
           priceCents: Math.round(sibPriceCents * 0.8), status: f.status as any,
+          ...(f.buchhaltungNotified !== null ? { buchhaltungNotified: f.buchhaltungNotified } : {}),
         }).returning({ id: siblingsTable.id });
         if (f.busName) {
           const busId = busNameToId.get(f.busName.toLowerCase().trim());
-          if (busId) {
-            const existingAssign = await db.select({ id: siblingBusAssignmentsTable.id }).from(siblingBusAssignmentsTable).where(eq(siblingBusAssignmentsTable.siblingId, insertedSib2.id)).limit(1);
-            if (existingAssign.length === 0) await db.insert(siblingBusAssignmentsTable).values({ busId, siblingId: insertedSib2.id });
-          }
+          if (busId) await db.insert(siblingBusAssignmentsTable).values({ busId, siblingId: insertedSib2.id });
         }
         importedParentNames.add(f.parentName);
         imported++;
@@ -970,7 +1024,7 @@ router.post("/admin/import", requireAuth, upload.single("file"), async (req, res
     await recalcFamilyPrices(parentName);
   }
 
-  res.json({ imported, skipped, total: imported + skipped, errors });
+  res.json({ imported, updated, skipped, total: imported + updated + skipped, errors });
 });
 
 router.get("/admin/bookings/export", requireAuth, async (req, res) => {
@@ -1049,6 +1103,9 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
     "Sammelpunkt-Lat",
     "Sammelpunkt-Lng",
     "Eingegangen am",
+    "Entfernung (km)",
+    "Fahrtzeit (Min.)",
+    "Buchhaltung benachrichtigt",
   ];
 
   const dataRows: (string | number | null)[][] = [];
@@ -1081,6 +1138,9 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
       b.pickupLat != null ? b.pickupLat : "",
       b.pickupLng != null ? b.pickupLng : "",
       b.createdAt.toLocaleDateString("de-DE"),
+      b.distanceKm != null ? b.distanceKm : "",
+      b.durationMinutes != null ? b.durationMinutes : "",
+      b.buchhaltungNotified ? "Ja" : "Nein",
     ]);
     // Sibling rows — use parent booking's referenceNumber so re-import can resolve the link
     for (const s of siblingsByBooking[b.id] ?? []) {
@@ -1106,6 +1166,9 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
         b.adminNotes ?? "",
         "", "", "", "", "", "",
         b.createdAt.toLocaleDateString("de-DE"),
+        "",
+        "",
+        s.buchhaltungNotified ? "Ja" : "Nein",
       ]);
     }
   }
@@ -1116,7 +1179,7 @@ router.get("/admin/bookings/export", requireAuth, async (req, res) => {
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet("Buchungen");
 
-    const colWidths = [18, 12, 28, 35, 8, 18, 14, 12, 28, 30, 16, 14, 32, 14, 14, 12, 18, 22, 40, 30, 8, 18, 16, 14, 14, 16];
+    const colWidths = [18, 12, 28, 35, 8, 18, 14, 12, 28, 30, 16, 14, 32, 14, 14, 12, 18, 22, 40, 30, 8, 18, 16, 14, 14, 16, 14, 14, 24];
     ws.columns = colWidths.map((width) => ({ width }));
 
     const headerRow = ws.addRow(headers);

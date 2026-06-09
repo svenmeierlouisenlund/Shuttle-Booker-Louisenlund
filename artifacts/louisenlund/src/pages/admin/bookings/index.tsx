@@ -61,6 +61,7 @@ function fmtPrice(cents: number | null | undefined): string {
 
 type ImportResult = {
   imported: number;
+  updated: number;
   skipped: number;
   total: number;
   errors: string[];
@@ -601,7 +602,12 @@ export default function AdminBookingsList() {
               <Alert className="border-green-200 bg-green-50">
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
                 <AlertDescription className="text-green-800">
-                  <span className="font-medium">{importResult.imported} Buchungen importiert</span>
+                  <span className="font-medium">
+                    {importResult.imported > 0 && `${importResult.imported} neu importiert`}
+                    {importResult.imported > 0 && importResult.updated > 0 && ", "}
+                    {importResult.updated > 0 && `${importResult.updated} aktualisiert`}
+                    {importResult.imported === 0 && importResult.updated === 0 && "Keine Änderungen"}
+                  </span>
                   {importResult.skipped > 0 && `, ${importResult.skipped} übersprungen`}
                   {importResult.errors.length > 0 && (
                     <ul className="mt-1 text-xs list-disc list-inside">
