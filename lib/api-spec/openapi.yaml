@@ -1230,12 +1230,27 @@ components:
                 type: string
               childName:
                 type: string
+              childNames:
+                type: array
+                nullable: true
+                items:
+                  type: string
               parentName:
                 type: string
               priceCents:
                 type: integer
               confirmedAt:
                 type: string
+              ids:
+                type: array
+                nullable: true
+                items:
+                  type: integer
+              siblingIds:
+                type: array
+                nullable: true
+                items:
+                  type: integer
 
     BuchhaltungNotifyRequest:
       type: object

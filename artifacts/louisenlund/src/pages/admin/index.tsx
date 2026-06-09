@@ -45,9 +45,12 @@ type PendingBuchhaltungItem = {
   type: string;
   referenceNumber: string;
   childName: string;
+  childNames?: string[] | null;
   parentName: string;
   priceCents: number;
   confirmedAt: string;
+  ids?: number[] | null;
+  siblingIds?: number[] | null;
 };
 
 function BusRow({ bus }: { bus: BusEntry }) {
@@ -169,8 +172,18 @@ function BuchhaltungPanel({ items }: { items: PendingBuchhaltungItem[] }) {
   }
 
   function buildPayload(subset: PendingBuchhaltungItem[]) {
-    const ids = subset.filter(i => i.type === "booking").map(i => i.id);
-    const siblingIds = subset.filter(i => i.type === "sibling").map(i => i.id);
+    const ids: number[] = [];
+    const siblingIds: number[] = [];
+    for (const item of subset) {
+      if (item.type === "family") {
+        if (item.ids) ids.push(...item.ids);
+        if (item.siblingIds) siblingIds.push(...item.siblingIds);
+      } else if (item.type === "booking") {
+        ids.push(item.id);
+      } else {
+        siblingIds.push(item.id);
+      }
+    }
     return { ...(ids.length ? { ids } : {}), ...(siblingIds.length ? { siblingIds } : {}) };
   }
 
@@ -222,29 +235,57 @@ function BuchhaltungPanel({ items }: { items: PendingBuchhaltungItem[] }) {
           {items.map(item => (
             <div
               key={itemKey(item)}
-              className="flex items-center gap-3 bg-white rounded-md border border-amber-100 px-3 py-2.5"
+              className={`flex items-start gap-3 rounded-md border px-3 py-2.5 ${
+                item.type === "family"
+                  ? "bg-green-50 border-green-200"
+                  : "bg-white border-amber-100"
+              }`}
             >
               <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2 flex-wrap">
+                {/* Header row */}
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-mono text-gray-400">{item.referenceNumber}</span>
-                  <span className="text-sm font-medium text-gray-800 truncate">{item.childName}</span>
-                  {item.type === "sibling" && (
+                  {item.type === "family" ? (
+                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 border border-green-200 font-semibold shrink-0">
+                      Familie · Gesamtkosten
+                    </span>
+                  ) : item.type === "sibling" ? (
                     <span className="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100 font-medium shrink-0">
                       Geschwisterkind
                     </span>
-                  )}
+                  ) : null}
                 </div>
-                <div className="flex items-center gap-3 mt-0.5">
+
+                {/* Names */}
+                {item.type === "family" && item.childNames ? (
+                  <div className="flex flex-wrap gap-x-2 mt-0.5">
+                    {item.childNames.map((name, i) => (
+                      <span key={i} className="text-sm font-medium text-gray-800">{name}{i < item.childNames!.length - 1 ? "," : ""}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm font-medium text-gray-800 mt-0.5">{item.childName}</div>
+                )}
+
+                {/* Meta */}
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className="text-xs text-gray-500">Erziehungsberechtigte/r: {item.parentName}</span>
                   <span className="text-xs text-gray-400">·</span>
                   <span className="text-xs text-gray-500">Bestätigt am {formatDate(item.confirmedAt)}</span>
                 </div>
               </div>
-              <div className="shrink-0 text-right">
-                <div className="text-sm font-semibold text-gray-800">{formatEuro(item.priceCents)}</div>
+
+              <div className="shrink-0 text-right pt-0.5">
+                <div className={`text-sm font-semibold ${item.type === "family" ? "text-green-700" : "text-gray-800"}`}>
+                  {formatEuro(item.priceCents)}
+                </div>
+                {item.type === "family" && item.childNames && (
+                  <div className="text-[11px] text-gray-400">{item.childNames.length} Kinder</div>
+                )}
               </div>
-              <div className="shrink-0 flex items-center">
-                <Link href={`/admin/bookings/${item.type === "sibling" ? "" : ""}${item.id}`}>
+
+              <div className="shrink-0 flex items-center pt-0.5">
+                <Link href={`/admin/bookings/${item.id}`}>
                   <Button variant="ghost" size="sm" className="text-xs h-7 text-gray-500 hover:text-gray-700 px-2">
                     Öffnen
                   </Button>

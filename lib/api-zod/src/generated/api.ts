@@ -419,9 +419,12 @@ export const GetAdminStatsResponse = zod.object({
   "type": zod.string(),
   "referenceNumber": zod.string(),
   "childName": zod.string(),
+  "childNames": zod.array(zod.string()).nullish(),
   "parentName": zod.string(),
   "priceCents": zod.number(),
-  "confirmedAt": zod.string()
+  "confirmedAt": zod.string(),
+  "ids": zod.array(zod.number()).nullish(),
+  "siblingIds": zod.array(zod.number()).nullish()
 }))
 })
 
