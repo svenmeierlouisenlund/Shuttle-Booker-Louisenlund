@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, KeyRound, AlertTriangle } from "lucide-react";
+import { Loader2, KeyRound, AlertTriangle, CheckCircle2, ArrowRight } from "lucide-react";
 import logo from "@assets/Logo_-_Stiftung_Louisenlund_Print_1780387424925.png";
 
 export default function ChangePassword() {
@@ -21,6 +21,7 @@ export default function ChangePassword() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   if (isLoading) {
     return (
@@ -54,8 +55,12 @@ export default function ChangePassword() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetAdminMeQueryKey() });
-          toast({ title: "Passwort geändert", description: "Ihr Passwort wurde erfolgreich aktualisiert." });
-          navigate("/admin");
+          if (isMandatory) {
+            setSuccess(true);
+          } else {
+            toast({ title: "Passwort geändert", description: "Ihr Passwort wurde erfolgreich aktualisiert." });
+            navigate("/admin");
+          }
         },
         onError: (err: unknown) => {
           const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error;
@@ -90,6 +95,28 @@ export default function ChangePassword() {
       </header>
 
       <main className="flex-1 flex items-start justify-center pt-16 px-4">
+        {success ? (
+          <Card className="w-full max-w-md shadow-lg">
+            <CardContent className="pt-8 pb-8 flex flex-col items-center text-center gap-5">
+              <div className="w-16 h-16 rounded-full bg-green-50 border-2 border-green-200 flex items-center justify-center">
+                <CheckCircle2 className="w-8 h-8 text-green-600" />
+              </div>
+              <div className="space-y-1.5">
+                <h2 className="text-xl font-semibold text-gray-900">Passwort erfolgreich geändert</h2>
+                <p className="text-sm text-muted-foreground">
+                  Ihr neues Passwort ist ab sofort aktiv. Sie können sich jetzt am Administrationsbereich anmelden.
+                </p>
+              </div>
+              <Button
+                className="bg-[#004289] hover:bg-[#003070] gap-2 mt-2"
+                onClick={() => navigate("/admin")}
+              >
+                Zum Dashboard
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
         <Card className="w-full max-w-md shadow-lg">
           <CardHeader className="space-y-1">
             <div className="flex items-center gap-2">
@@ -165,6 +192,7 @@ export default function ChangePassword() {
             </form>
           </CardContent>
         </Card>
+        )}
       </main>
     </div>
   );
