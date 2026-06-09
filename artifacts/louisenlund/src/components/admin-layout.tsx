@@ -1,6 +1,6 @@
 import { useGetAdminMe, useAdminLogout } from "@workspace/api-client-react";
-import { Redirect } from "wouter";
-import { Loader2, MapPin, Euro, Bus } from "lucide-react";
+import { Redirect, useLocation } from "wouter";
+import { Loader2, MapPin, Euro, Bus, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import logo from "@assets/Logo_-_Stiftung_Louisenlund_Print_1780387424925.png";
@@ -8,6 +8,7 @@ import logo from "@assets/Logo_-_Stiftung_Louisenlund_Print_1780387424925.png";
 export function AdminLayout({ children }: { children: React.ReactNode }) {
   const { data: me, isLoading } = useGetAdminMe();
   const logout = useAdminLogout();
+  const [location] = useLocation();
 
   if (isLoading) {
     return (
@@ -19,6 +20,10 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
   if (!me?.authenticated) {
     return <Redirect to="/admin/login" />;
+  }
+
+  if (me.mustChangePassword && location !== "/admin/change-password") {
+    return <Redirect to="/admin/change-password" />;
   }
 
   const isFahrer = me?.role === "fahrer";
@@ -113,6 +118,16 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                 {{ admin: "Admin", buchhaltung: "Buchhaltung", schulbuero: "Schulbüro", fahrer: "Fahrer" }[me.role ?? ""] ?? me.role}
               </span>
             </div>
+            <Link href="/admin/change-password">
+              <Button
+                variant="ghost"
+                size="sm"
+                title="Passwort ändern"
+                className="text-blue-100 hover:text-white hover:bg-white/10 px-2"
+              >
+                <KeyRound className="w-4 h-4" />
+              </Button>
+            </Link>
             <Button
               variant="outline"
               size="sm"

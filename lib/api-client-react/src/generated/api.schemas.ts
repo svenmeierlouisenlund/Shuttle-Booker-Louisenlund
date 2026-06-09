@@ -478,6 +478,14 @@ export interface AdminSession {
   username?: string | null;
   /** @nullable */
   role?: string | null;
+  /** @nullable */
+  mustChangePassword?: boolean | null;
+}
+
+export interface ChangePasswordBody {
+  currentPassword: string;
+  /** @minLength 8 */
+  newPassword: string;
 }
 
 export type AdminUserRole = typeof AdminUserRole[keyof typeof AdminUserRole];
