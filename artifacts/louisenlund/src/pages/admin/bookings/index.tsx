@@ -40,6 +40,15 @@ const tariffZoneMap: Record<string, string> = {
   zone3: "Tarifzone 3"
 };
 
+const zoneRanks: Record<string, number> = { zone1: 1, zone2: 2, zone3: 3 };
+
+function effectiveZone(tariffZone: string, pickupTariffZone?: string | null): { zone: string; fromPickup: boolean } {
+  if (pickupTariffZone && (zoneRanks[pickupTariffZone] ?? 99) < (zoneRanks[tariffZone] ?? 99)) {
+    return { zone: pickupTariffZone, fromPickup: true };
+  }
+  return { zone: tariffZone, fromPickup: false };
+}
+
 const bookingTypeMap: Record<string, string> = {
   full_year: "Gesamtes Schuljahr 2026/27",
   first_half: "1. Schulhalbjahr 2026/27"
@@ -458,7 +467,9 @@ export default function AdminBookingsList() {
                         </TableCell>
                         <TableCell className="truncate">{booking.gradeYear}</TableCell>
                         <TableCell className="truncate">{booking.parentName}</TableCell>
-                        <TableCell className="truncate">{tariffZoneMap[booking.tariffZone]}</TableCell>
+                        <TableCell className="truncate">
+                          {(() => { const ez = effectiveZone(booking.tariffZone, (booking as any).pickupTariffZone); return ez.fromPickup ? <span title={`Abholort-Zone (Wohnort: ${tariffZoneMap[booking.tariffZone]})`} className="inline-flex items-center gap-1">{tariffZoneMap[ez.zone]}<span className="text-[10px] text-blue-600 font-semibold leading-none border border-blue-300 bg-blue-50 rounded px-0.5">A</span></span> : tariffZoneMap[ez.zone]; })()}
+                        </TableCell>
                         <TableCell className="truncate" title={bookingTypeMap[booking.bookingType]}>
                           {bookingTypeMap[booking.bookingType]}
                         </TableCell>
@@ -491,7 +502,9 @@ export default function AdminBookingsList() {
                           </TableCell>
                           <TableCell className="truncate">{sibling.gradeYear}</TableCell>
                           <TableCell className="truncate text-muted-foreground">{booking.parentName}</TableCell>
-                          <TableCell className="truncate text-muted-foreground">{tariffZoneMap[booking.tariffZone]}</TableCell>
+                          <TableCell className="truncate text-muted-foreground">
+                            {(() => { const ez = effectiveZone(booking.tariffZone, (booking as any).pickupTariffZone); return ez.fromPickup ? <span title={`Abholort-Zone (Wohnort: ${tariffZoneMap[booking.tariffZone]})`} className="inline-flex items-center gap-1">{tariffZoneMap[ez.zone]}<span className="text-[10px] text-blue-600 font-semibold leading-none border border-blue-300 bg-blue-50 rounded px-0.5">A</span></span> : tariffZoneMap[ez.zone]; })()}
+                          </TableCell>
                           <TableCell className="truncate text-muted-foreground" title={bookingTypeMap[booking.bookingType]}>
                             {bookingTypeMap[booking.bookingType]}
                           </TableCell>
