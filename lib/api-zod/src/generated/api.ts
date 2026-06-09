@@ -453,7 +453,8 @@ export const AdminLoginBody = zod.object({
 export const AdminLoginResponse = zod.object({
   "authenticated": zod.boolean(),
   "username": zod.string().nullish(),
-  "role": zod.string().nullish()
+  "role": zod.string().nullish(),
+  "mustChangePassword": zod.boolean().nullish()
 })
 
 
@@ -463,7 +464,21 @@ export const AdminLoginResponse = zod.object({
 export const GetAdminMeResponse = zod.object({
   "authenticated": zod.boolean(),
   "username": zod.string().nullish(),
-  "role": zod.string().nullish()
+  "role": zod.string().nullish(),
+  "mustChangePassword": zod.boolean().nullish()
+})
+
+
+/**
+ * @summary Change own password
+ */
+export const changeAdminPasswordBodyNewPasswordMin = 8;
+
+
+
+export const ChangeAdminPasswordBody = zod.object({
+  "currentPassword": zod.string(),
+  "newPassword": zod.string().min(changeAdminPasswordBodyNewPasswordMin)
 })
 
 

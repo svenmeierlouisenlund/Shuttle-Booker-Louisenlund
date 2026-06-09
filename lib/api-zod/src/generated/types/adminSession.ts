@@ -12,4 +12,6 @@ export interface AdminSession {
   username?: string | null;
   /** @nullable */
   role?: string | null;
+  /** @nullable */
+  mustChangePassword?: boolean | null;
 }

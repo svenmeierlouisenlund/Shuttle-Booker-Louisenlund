@@ -11,6 +11,7 @@ import {
   CreateAdminUserBody,
   UpdateAdminUserBody,
   CreateAdminBookingBody,
+  ChangeAdminPasswordBody,
 } from "@workspace/api-zod";
 import { eq, and, count, sum, desc, sql, inArray, or, ne } from "drizzle-orm";
 import ExcelJS from "exceljs";
@@ -60,7 +61,7 @@ function makePasswordHash(password: string): string {
 
 // ── In-memory session store ────────────────────────────────────────────────────
 
-interface SessionData { userId: number; username: string; role: string; }
+interface SessionData { userId: number; username: string; role: string; mustChangePassword: boolean; }
 const sessions = new Map<string, SessionData>();
 
 function getSession(req: Request): SessionData | undefined {
@@ -96,6 +97,7 @@ async function seedAdminUser(): Promise<void> {
         passwordHash: makePasswordHash(ADMIN_PASSWORD),
         role: "admin",
         isActive: true,
+        mustChangePassword: false,
       });
     }
   } catch (err) {
@@ -109,7 +111,7 @@ seedAdminUser();
 // Global write-access guard: schulbuero and fahrer are read-only
 router.use((req, res, next) => {
   if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
-  const exempt = new Set(["/admin/login", "/admin/logout", "/admin/seed-bookings"]);
+  const exempt = new Set(["/admin/login", "/admin/logout", "/admin/seed-bookings", "/admin/me/password"]);
   if (exempt.has(req.path)) return next();
   const session = getSession(req);
   if (session && (session.role === "schulbuero" || session.role === "fahrer")) {
@@ -171,14 +173,14 @@ router.post("/admin/login", async (req, res) => {
     return;
   }
   const token = crypto.randomUUID();
-  sessions.set(token, { userId: user.id, username: user.username, role: user.role });
+  sessions.set(token, { userId: user.id, username: user.username, role: user.role, mustChangePassword: user.mustChangePassword });
   res.cookie(SESSION_TOKEN, token, {
     httpOnly: true,
     secure: false,
     sameSite: "lax",
     maxAge: 24 * 60 * 60 * 1000,
   });
-  res.json({ authenticated: true, username: user.username, role: user.role });
+  res.json({ authenticated: true, username: user.username, role: user.role, mustChangePassword: user.mustChangePassword });
 });
 
 router.post("/admin/logout", (req, res) => {
@@ -191,10 +193,34 @@ router.post("/admin/logout", (req, res) => {
 router.get("/admin/me", (req, res) => {
   const session = getSession(req);
   if (session) {
-    res.json({ authenticated: true, username: session.username, role: session.role });
+    res.json({ authenticated: true, username: session.username, role: session.role, mustChangePassword: session.mustChangePassword });
   } else {
     res.status(401).json({ authenticated: false });
   }
+});
+
+router.patch("/admin/me/password", requireAuth, async (req, res) => {
+  const parsed = ChangeAdminPasswordBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Ungültige Eingabe" });
+    return;
+  }
+  const session = getSession(req)!;
+  const [user] = await db.select()
+    .from(adminUsersTable)
+    .where(eq(adminUsersTable.id, session.userId))
+    .limit(1);
+  if (!user || !verifyPassword(parsed.data.currentPassword, user.passwordHash)) {
+    res.status(401).json({ error: "Aktuelles Passwort ist falsch" });
+    return;
+  }
+  await db.update(adminUsersTable)
+    .set({ passwordHash: makePasswordHash(parsed.data.newPassword), mustChangePassword: false, updatedAt: new Date() })
+    .where(eq(adminUsersTable.id, session.userId));
+  // Update in-memory session so mustChangePassword is cleared immediately
+  const token = req.cookies?.[SESSION_TOKEN];
+  if (token) sessions.set(token, { ...session, mustChangePassword: false });
+  res.json({ ok: true });
 });
 
 // ── User management ────────────────────────────────────────────────────────────
@@ -228,6 +254,7 @@ router.post("/admin/users", requireAuth, requireAdmin, async (req, res) => {
     passwordHash: makePasswordHash(password),
     role: role as "admin" | "buchhaltung" | "schulbuero" | "fahrer",
     isActive: true,
+    mustChangePassword: true,
   }).returning({
     id: adminUsersTable.id,
     username: adminUsersTable.username,

@@ -356,6 +356,25 @@ paths:
         "401":
           description: Not authenticated
 
+  /admin/me/password:
+    patch:
+      operationId: changeAdminPassword
+      tags: [admin]
+      summary: Change own password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordBody"
+      responses:
+        "200":
+          description: Password changed
+        "400":
+          description: Validation error
+        "401":
+          description: Current password wrong
+
   /admin/users:
     get:
       operationId: listAdminUsers
@@ -1354,6 +1373,20 @@ components:
           type: ["string", "null"]
         role:
           type: ["string", "null"]
+        mustChangePassword:
+          type: ["boolean", "null"]
+
+    ChangePasswordBody:
+      type: object
+      required:
+        - currentPassword
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
 
     AdminUser:
       type: object

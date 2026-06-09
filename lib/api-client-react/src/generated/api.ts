@@ -35,6 +35,7 @@ import type {
   BookingStatusUpdate,
   BuchhaltungNotifyRequest,
   CalculateRoutes200,
+  ChangePasswordBody,
   DeleteBookingResponse,
   ErrorResponse,
   ExportBookingsParams,
@@ -1182,6 +1183,77 @@ export function useGetAdminMe<TData = Awaited<ReturnType<typeof getAdminMe>>, TE
 
 
 
+
+export const getChangeAdminPasswordUrl = () => {
+
+
+
+
+  return `/api/admin/me/password`
+}
+
+/**
+ * @summary Change own password
+ */
+export const changeAdminPassword = async (changePasswordBody: ChangePasswordBody, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getChangeAdminPasswordUrl(),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      changePasswordBody,)
+  }
+);}
+
+
+
+
+export const getChangeAdminPasswordMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changeAdminPassword>>, TError,{data: BodyType<ChangePasswordBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof changeAdminPassword>>, TError,{data: BodyType<ChangePasswordBody>}, TContext> => {
+
+const mutationKey = ['changeAdminPassword'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof changeAdminPassword>>, {data: BodyType<ChangePasswordBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  changeAdminPassword(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ChangeAdminPasswordMutationResult = NonNullable<Awaited<ReturnType<typeof changeAdminPassword>>>
+    export type ChangeAdminPasswordMutationBody = BodyType<ChangePasswordBody>
+    export type ChangeAdminPasswordMutationError = ErrorType<void>
+
+    /**
+ * @summary Change own password
+ */
+export const useChangeAdminPassword = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof changeAdminPassword>>, TError,{data: BodyType<ChangePasswordBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof changeAdminPassword>>,
+        TError,
+        {data: BodyType<ChangePasswordBody>},
+        TContext
+      > => {
+      return useMutation(getChangeAdminPasswordMutationOptions(options));
+    }
 
 export const getListAdminUsersUrl = () => {
 

@@ -41,6 +41,7 @@ export * from './bookingStatusUpdateTariffZone';
 export * from './bookingType';
 export * from './buchhaltungNotifyRequest';
 export * from './calculateRoutes200';
+export * from './changePasswordBody';
 export * from './deleteBookingResponse';
 export * from './errorEnvelope';
 export * from './errorResponse';
