@@ -429,7 +429,7 @@ export default function BookingForm() {
               <span className="flex items-center gap-1.5 ml-2"><span className="inline-block w-3 h-3 rounded-full" style={{ background: "#004289", border: "2px solid white", boxShadow: "0 0 0 1px #004289" }} />Stiftung Louisenlund</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              Liegt Ihr Abholort in einer <strong className="text-foreground">günstigeren Tarifzone</strong> als Ihr Wohnort, werden die Kosten der günstigeren Zone zugrunde gelegt. Den Abholort können Sie im nächsten Schritt angeben.
+              Liegt der von der Verwaltung vorgegebene Abholort in einer <strong className="text-foreground">günstigeren Tarifzone</strong> als Ihr Wohnort, werden die Kosten der günstigeren Zone zugrunde gelegt.
             </p>
 
             {/* PLZ-based zone suggestion */}
