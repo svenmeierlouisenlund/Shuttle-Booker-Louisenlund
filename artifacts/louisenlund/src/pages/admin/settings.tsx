@@ -603,6 +603,20 @@ export default function AdminSettings() {
                   </div>
                 </div>
 
+                {(smtpHost.includes("office365") || smtpHost.includes("outlook") || smtpHost.includes("microsoft")) && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800 space-y-1.5">
+                    <p className="font-semibold">Microsoft 365 mit Zwei-Faktor-Authentifizierung</p>
+                    <p>Normales Kennwort funktioniert nicht, wenn MFA aktiv ist. Erstellen Sie stattdessen ein <strong>App-Kennwort</strong>:</p>
+                    <ol className="list-decimal list-inside space-y-0.5 pl-1">
+                      <li>Gehen Sie zu <strong>account.microsoft.com/security</strong></li>
+                      <li>→ <strong>Erweiterte Sicherheitsoptionen</strong></li>
+                      <li>→ <strong>App-Kennwörter</strong> → „Neues App-Kennwort erstellen"</li>
+                      <li>Den 16-stelligen Code oben als Passwort eintragen</li>
+                    </ol>
+                    <p className="text-amber-600">Falls „App-Kennwörter" nicht sichtbar ist, muss ein M365-Administrator zuerst <strong>SMTP AUTH</strong> für das Postfach aktivieren: <span className="font-mono">Admin Center → Benutzer → [Konto] → E-Mail → E-Mail-Apps verwalten → Authentifiziertes SMTP ✓</span></p>
+                  </div>
+                )}
+
                 <div className="space-y-1.5">
                   <Label htmlFor="smtp-from">Absenderadresse</Label>
                   <Input id="smtp-from" type="email" placeholder="noreply@louisenlund.de" value={smtpFrom} onChange={e => setSmtpFrom(e.target.value)} />
