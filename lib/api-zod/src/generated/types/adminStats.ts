@@ -12,6 +12,7 @@ import type { AdminStatsByCity } from './adminStatsByCity';
 import type { AdminStatsByGradeYear } from './adminStatsByGradeYear';
 import type { AdminStatsByStatus } from './adminStatsByStatus';
 import type { AdminStatsByTariffZone } from './adminStatsByTariffZone';
+import type { AdminStatsPendingBuchhaltungItem } from './adminStatsPendingBuchhaltungItem';
 
 export interface AdminStats {
   totalBookings: number;
@@ -26,4 +27,5 @@ export interface AdminStats {
   byCity: AdminStatsByCity;
   busOccupancy?: AdminStatsBusOccupancyItem[];
   recentBookings: AdminBooking[];
+  pendingBuchhaltung: AdminStatsPendingBuchhaltungItem[];
 }

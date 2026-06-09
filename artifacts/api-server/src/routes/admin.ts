@@ -459,6 +459,29 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
     priceCents: b.priceCents,
   }));
 
+  // Bookings confirmed but not yet acknowledged by Buchhaltung
+  const pendingBuchhaltungRows = await db
+    .select({
+      id: bookingsTable.id,
+      referenceNumber: bookingsTable.referenceNumber,
+      childName: bookingsTable.childName,
+      parentName: bookingsTable.parentName,
+      priceCents: bookingsTable.priceCents,
+      confirmedAt: bookingsTable.updatedAt,
+    })
+    .from(bookingsTable)
+    .where(and(eq(bookingsTable.status, "confirmed"), eq(bookingsTable.buchhaltungNotified, false)))
+    .orderBy(desc(bookingsTable.updatedAt));
+
+  const pendingBuchhaltung = pendingBuchhaltungRows.map(r => ({
+    id: r.id,
+    referenceNumber: r.referenceNumber,
+    childName: r.childName,
+    parentName: r.parentName,
+    priceCents: r.priceCents ?? 0,
+    confirmedAt: r.confirmedAt.toISOString(),
+  }));
+
   res.json({
     totalBookings: total,
     byStatus,
@@ -472,6 +495,7 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
     byCity,
     busOccupancy,
     recentBookings,
+    pendingBuchhaltung,
   });
 });
 
@@ -1505,6 +1529,19 @@ router.get("/admin/bookings/:id", requireAuth, async (req, res) => {
   });
 });
 
+router.post("/admin/buchhaltung-notify", requireAuth, async (req, res) => {
+  const { ids } = req.body ?? {};
+  if (!Array.isArray(ids) || ids.length === 0 || !ids.every((id: unknown) => typeof id === "number" && Number.isInteger(id) && id > 0)) {
+    res.status(400).json({ error: "Ungültige Eingabe" });
+    return;
+  }
+  await db
+    .update(bookingsTable)
+    .set({ buchhaltungNotified: true })
+    .where(inArray(bookingsTable.id, ids as number[]));
+  res.json({ ok: true });
+});
+
 router.patch("/admin/bookings/:id/photo", requireAuth, async (req, res) => {
   const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) { res.status(400).json({ error: "Ungültige ID" }); return; }
@@ -1553,7 +1590,13 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
 
   const d = parsed.data;
   const updates: Record<string, unknown> = { updatedAt: new Date() };
-  if (d.status !== undefined) updates.status = d.status;
+  if (d.status !== undefined) {
+    updates.status = d.status;
+    // When confirming: reset buchhaltung notification flag
+    if (d.status === "confirmed" && current.status !== "confirmed") {
+      updates.buchhaltungNotified = false;
+    }
+  }
   if (d.adminNotes !== undefined) updates.adminNotes = d.adminNotes;
   if (d.childName !== undefined) updates.childName = d.childName;
   if (d.studentNumber !== undefined) updates.studentNumber = d.studentNumber ?? null;

@@ -60,6 +60,7 @@ export const bookingsTable = pgTable("bookings", {
   distanceKm: real("distance_km"),
   durationMinutes: integer("duration_minutes"),
   status: bookingStatusEnum("status").notNull().default("received"),
+  buchhaltungNotified: boolean("buchhaltung_notified").notNull().default(true),
   adminNotes: text("admin_notes"),
   photoPath: text("photo_path"),
   pickupAddress: text("pickup_address"),

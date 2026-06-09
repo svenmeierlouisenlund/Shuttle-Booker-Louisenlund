@@ -1,12 +1,14 @@
-import { useGetAdminStats } from "@workspace/api-client-react";
+import { useGetAdminStats, usePostAdminBuchhaltungNotify } from "@workspace/api-client-react";
 import { AdminLayout } from "@/components/admin-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Users, Euro, BusFront, Clock, MapPin, ChevronDown, ChevronUp, Sun } from "lucide-react";
-import { useIsFahrer } from "@/hooks/use-read-only";
+import { Users, Euro, BusFront, Clock, MapPin, ChevronDown, ChevronUp, Sun, CheckCircle2, Bell } from "lucide-react";
+import { useIsFahrer, useAdminRole } from "@/hooks/use-read-only";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { getGetAdminStatsQueryKey } from "@workspace/api-client-react";
 
 function formatEuro(cents: number) {
   return new Intl.NumberFormat("de-DE", {
@@ -14,6 +16,10 @@ function formatEuro(cents: number) {
     currency: "EUR",
     minimumFractionDigits: 2,
   }).format(cents / 100);
+}
+
+function formatDate(iso: string) {
+  return new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(iso));
 }
 
 const WEEKDAYS = [
@@ -34,24 +40,28 @@ type BusEntry = {
   returnTimes: Record<string, Record<string, number>>;
 };
 
+type PendingBuchhaltungItem = {
+  id: number;
+  referenceNumber: string;
+  childName: string;
+  parentName: string;
+  priceCents: number;
+  confirmedAt: string;
+};
+
 function BusRow({ bus }: { bus: BusEntry }) {
   const [open, setOpen] = useState(false);
   const pct = bus.capacity > 0 ? (bus.assigned / bus.capacity) * 100 : 0;
   const full = bus.freeSeats <= 0;
-
-  // Check if any return times are set
   const hasReturnTimes = Object.keys(bus.returnTimes).length > 0;
 
   return (
     <div className="rounded-md border border-gray-100 overflow-hidden">
-      {/* Main row — always visible */}
       <button
         className="w-full flex items-center gap-3 px-3 py-2 hover:bg-gray-50 transition-colors text-left"
         onClick={() => setOpen(o => !o)}
       >
-        <div className="w-32 text-sm text-right text-muted-foreground shrink-0">
-          {bus.name}
-        </div>
+        <div className="w-32 text-sm text-right text-muted-foreground shrink-0">{bus.name}</div>
         <div className="flex-1 h-4 bg-muted rounded-sm overflow-hidden">
           <div
             className={`h-full rounded-sm transition-all ${full ? "bg-destructive" : "bg-primary"}`}
@@ -72,10 +82,8 @@ function BusRow({ bus }: { bus: BusEntry }) {
         </div>
       </button>
 
-      {/* Expanded detail */}
       {open && (
         <div className="border-t border-gray-100 bg-gray-50 px-4 py-3 space-y-4">
-          {/* Morning */}
           <div>
             <div className="flex items-center gap-1.5 mb-1.5">
               <Sun className="w-3.5 h-3.5 text-amber-500" />
@@ -95,7 +103,6 @@ function BusRow({ bus }: { bus: BusEntry }) {
             </div>
           </div>
 
-          {/* Return times */}
           <div>
             <div className="flex items-center gap-1.5 mb-2">
               <Clock className="w-3.5 h-3.5 text-[#004289]" />
@@ -151,15 +158,111 @@ function BusRow({ bus }: { bus: BusEntry }) {
   );
 }
 
+function BuchhaltungPanel({ items }: { items: PendingBuchhaltungItem[] }) {
+  const queryClient = useQueryClient();
+  const notify = usePostAdminBuchhaltungNotify();
+  const [dismissing, setDismissing] = useState<Set<number>>(new Set());
+
+  async function markOne(id: number) {
+    setDismissing(s => new Set(s).add(id));
+    await notify.mutateAsync({ data: { ids: [id] } });
+    await queryClient.invalidateQueries({ queryKey: getGetAdminStatsQueryKey() });
+    setDismissing(s => { const n = new Set(s); n.delete(id); return n; });
+  }
+
+  async function markAll() {
+    const ids = items.map(i => i.id);
+    setDismissing(new Set(ids));
+    await notify.mutateAsync({ data: { ids } });
+    await queryClient.invalidateQueries({ queryKey: getGetAdminStatsQueryKey() });
+    setDismissing(new Set());
+  }
+
+  return (
+    <Card className="border-amber-200 bg-amber-50">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base font-medium flex items-center gap-2 text-amber-800">
+            <Bell className="h-4 w-4" />
+            Bestätigte Buchungen – Kosten können eingezogen werden
+            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500 text-white text-xs font-bold">
+              {items.length}
+            </span>
+          </CardTitle>
+          {items.length > 1 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs h-7 border-amber-300 text-amber-700 hover:bg-amber-100"
+              onClick={markAll}
+              disabled={notify.isPending}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+              Alle als erledigt markieren
+            </Button>
+          )}
+        </div>
+        <p className="text-xs text-amber-700 mt-1">
+          Die folgenden Buchungen wurden bestätigt. Bitte ziehen Sie die Kosten ein und markieren Sie sie anschließend als erledigt.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-2">
+          {items.map(item => (
+            <div
+              key={item.id}
+              className="flex items-center gap-3 bg-white rounded-md border border-amber-100 px-3 py-2.5"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xs font-mono text-gray-400">{item.referenceNumber}</span>
+                  <span className="text-sm font-medium text-gray-800 truncate">{item.childName}</span>
+                </div>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <span className="text-xs text-gray-500">Erziehungsberechtigte/r: {item.parentName}</span>
+                  <span className="text-xs text-gray-400">·</span>
+                  <span className="text-xs text-gray-500">Bestätigt am {formatDate(item.confirmedAt)}</span>
+                </div>
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="text-sm font-semibold text-gray-800">{formatEuro(item.priceCents)}</div>
+              </div>
+              <div className="shrink-0">
+                <Link href={`/admin/bookings/${item.id}`}>
+                  <Button variant="ghost" size="sm" className="text-xs h-7 text-gray-500 hover:text-gray-700 px-2">
+                    Öffnen
+                  </Button>
+                </Link>
+                <Button
+                  size="sm"
+                  className="text-xs h-7 bg-amber-500 hover:bg-amber-600 text-white ml-1"
+                  onClick={() => markOne(item.id)}
+                  disabled={dismissing.has(item.id) || notify.isPending}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                  Erledigt
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminDashboard() {
   const { data: stats, isLoading } = useGetAdminStats();
   const isFahrer = useIsFahrer();
+  const role = useAdminRole();
+  const showBuchhaltungPanel = role === "buchhaltung" || role === "admin";
 
   const topCities = stats?.byCity
     ? Object.entries(stats.byCity).sort((a, b) => b[1] - a[1])
     : [];
   const maxCityCount = topCities[0]?.[1] ?? 1;
   const busOccupancy = (stats?.busOccupancy ?? []) as BusEntry[];
+  const pendingBuchhaltung = (stats?.pendingBuchhaltung ?? []) as PendingBuchhaltungItem[];
 
   return (
     <AdminLayout>
@@ -170,6 +273,11 @@ export default function AdminDashboard() {
             <Button>Alle Buchungen</Button>
           </Link>
         </div>
+
+        {/* Buchhaltung notification panel */}
+        {!isLoading && showBuchhaltungPanel && pendingBuchhaltung.length > 0 && (
+          <BuchhaltungPanel items={pendingBuchhaltung} />
+        )}
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

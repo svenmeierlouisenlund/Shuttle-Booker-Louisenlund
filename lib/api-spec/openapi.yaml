@@ -288,6 +288,29 @@ paths:
               schema:
                 $ref: "#/components/schemas/AdminStats"
 
+  /admin/buchhaltung-notify:
+    post:
+      operationId: postAdminBuchhaltungNotify
+      tags: [admin]
+      summary: Mark confirmed bookings as acknowledged by Buchhaltung
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuchhaltungNotifyRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok:
+                    type: boolean
+
   /admin/login:
     post:
       operationId: adminLogin
@@ -1135,6 +1158,7 @@ components:
         - freeSeats
         - waitlistCount
         - byCity
+        - pendingBuchhaltung
       properties:
         totalBookings:
           type: integer
@@ -1192,6 +1216,33 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminBooking"
+        pendingBuchhaltung:
+          type: array
+          items:
+            type: object
+            required: [id, referenceNumber, childName, parentName, priceCents, confirmedAt]
+            properties:
+              id:
+                type: integer
+              referenceNumber:
+                type: string
+              childName:
+                type: string
+              parentName:
+                type: string
+              priceCents:
+                type: integer
+              confirmedAt:
+                type: string
+
+    BuchhaltungNotifyRequest:
+      type: object
+      required: [ids]
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
 
     NotificationEmail:
       type: object
