@@ -23,6 +23,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
 
   const isFahrer = me?.role === "fahrer";
   const isLimitedRole = me?.role === "fahrer" || me?.role === "schulbuero";
+  const hiddenSettings = isLimitedRole || me?.role === "buchhaltung";
 
   const handleLogout = () => {
     logout.mutate(undefined, {
@@ -92,7 +93,7 @@ export function AdminLayout({ children }: { children: React.ReactNode }) {
                   Busse
                 </Button>
               </Link>
-              {!isLimitedRole && (
+              {!hiddenSettings && (
                 <Link href="/admin/settings">
                   <Button
                     variant="ghost"

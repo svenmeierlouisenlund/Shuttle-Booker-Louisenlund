@@ -5,6 +5,11 @@ export function useIsReadOnly(): boolean {
   return data?.role === "schulbuero" || data?.role === "fahrer";
 }
 
+export function useIsBusReadOnly(): boolean {
+  const { data } = useGetAdminMe();
+  return data?.role === "schulbuero" || data?.role === "fahrer" || data?.role === "buchhaltung";
+}
+
 export function useIsFahrer(): boolean {
   const { data } = useGetAdminMe();
   return data?.role === "fahrer";
