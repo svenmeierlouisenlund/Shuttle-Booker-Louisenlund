@@ -1220,10 +1220,12 @@ components:
           type: array
           items:
             type: object
-            required: [id, referenceNumber, childName, parentName, priceCents, confirmedAt]
+            required: [id, type, referenceNumber, childName, parentName, priceCents, confirmedAt]
             properties:
               id:
                 type: integer
+              type:
+                type: string
               referenceNumber:
                 type: string
               childName:
@@ -1237,12 +1239,16 @@ components:
 
     BuchhaltungNotifyRequest:
       type: object
-      required: [ids]
       properties:
         ids:
           type: array
           items:
             type: integer
+        siblingIds:
+          type: array
+          items:
+            type: integer
+      minProperties: 1
 
     NotificationEmail:
       type: object

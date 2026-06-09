@@ -42,6 +42,7 @@ type BusEntry = {
 
 type PendingBuchhaltungItem = {
   id: number;
+  type: string;
   referenceNumber: string;
   childName: string;
   parentName: string;
@@ -161,19 +162,29 @@ function BusRow({ bus }: { bus: BusEntry }) {
 function BuchhaltungPanel({ items }: { items: PendingBuchhaltungItem[] }) {
   const queryClient = useQueryClient();
   const notify = usePostAdminBuchhaltungNotify();
-  const [dismissing, setDismissing] = useState<Set<number>>(new Set());
+  const [dismissing, setDismissing] = useState<Set<string>>(new Set());
 
-  async function markOne(id: number) {
-    setDismissing(s => new Set(s).add(id));
-    await notify.mutateAsync({ data: { ids: [id] } });
+  function itemKey(item: PendingBuchhaltungItem) {
+    return `${item.type}-${item.id}`;
+  }
+
+  function buildPayload(subset: PendingBuchhaltungItem[]) {
+    const ids = subset.filter(i => i.type === "booking").map(i => i.id);
+    const siblingIds = subset.filter(i => i.type === "sibling").map(i => i.id);
+    return { ...(ids.length ? { ids } : {}), ...(siblingIds.length ? { siblingIds } : {}) };
+  }
+
+  async function markOne(item: PendingBuchhaltungItem) {
+    const key = itemKey(item);
+    setDismissing(s => new Set(s).add(key));
+    await notify.mutateAsync({ data: buildPayload([item]) });
     await queryClient.invalidateQueries({ queryKey: getGetAdminStatsQueryKey() });
-    setDismissing(s => { const n = new Set(s); n.delete(id); return n; });
+    setDismissing(s => { const n = new Set(s); n.delete(key); return n; });
   }
 
   async function markAll() {
-    const ids = items.map(i => i.id);
-    setDismissing(new Set(ids));
-    await notify.mutateAsync({ data: { ids } });
+    setDismissing(new Set(items.map(itemKey)));
+    await notify.mutateAsync({ data: buildPayload(items) });
     await queryClient.invalidateQueries({ queryKey: getGetAdminStatsQueryKey() });
     setDismissing(new Set());
   }
@@ -210,13 +221,18 @@ function BuchhaltungPanel({ items }: { items: PendingBuchhaltungItem[] }) {
         <div className="space-y-2">
           {items.map(item => (
             <div
-              key={item.id}
+              key={itemKey(item)}
               className="flex items-center gap-3 bg-white rounded-md border border-amber-100 px-3 py-2.5"
             >
               <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2">
+                <div className="flex items-baseline gap-2 flex-wrap">
                   <span className="text-xs font-mono text-gray-400">{item.referenceNumber}</span>
                   <span className="text-sm font-medium text-gray-800 truncate">{item.childName}</span>
+                  {item.type === "sibling" && (
+                    <span className="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 border border-blue-100 font-medium shrink-0">
+                      Geschwisterkind
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-3 mt-0.5">
                   <span className="text-xs text-gray-500">Erziehungsberechtigte/r: {item.parentName}</span>
@@ -227,8 +243,8 @@ function BuchhaltungPanel({ items }: { items: PendingBuchhaltungItem[] }) {
               <div className="shrink-0 text-right">
                 <div className="text-sm font-semibold text-gray-800">{formatEuro(item.priceCents)}</div>
               </div>
-              <div className="shrink-0">
-                <Link href={`/admin/bookings/${item.id}`}>
+              <div className="shrink-0 flex items-center">
+                <Link href={`/admin/bookings/${item.type === "sibling" ? "" : ""}${item.id}`}>
                   <Button variant="ghost" size="sm" className="text-xs h-7 text-gray-500 hover:text-gray-700 px-2">
                     Öffnen
                   </Button>
@@ -236,8 +252,8 @@ function BuchhaltungPanel({ items }: { items: PendingBuchhaltungItem[] }) {
                 <Button
                   size="sm"
                   className="text-xs h-7 bg-amber-500 hover:bg-amber-600 text-white ml-1"
-                  onClick={() => markOne(item.id)}
-                  disabled={dismissing.has(item.id) || notify.isPending}
+                  onClick={() => markOne(item)}
+                  disabled={dismissing.has(itemKey(item)) || notify.isPending}
                 >
                   <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
                   Erledigt

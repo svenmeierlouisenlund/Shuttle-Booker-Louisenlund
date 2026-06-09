@@ -8,6 +8,7 @@
 
 export type AdminStatsPendingBuchhaltungItem = {
   id: number;
+  type: string;
   referenceNumber: string;
   childName: string;
   parentName: string;

@@ -459,8 +459,8 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
     priceCents: b.priceCents,
   }));
 
-  // Bookings confirmed but not yet acknowledged by Buchhaltung
-  const pendingBuchhaltungRows = await db
+  // Main bookings confirmed but not yet acknowledged by Buchhaltung
+  const pendingMainRows = await db
     .select({
       id: bookingsTable.id,
       referenceNumber: bookingsTable.referenceNumber,
@@ -473,14 +473,41 @@ router.get("/admin/stats", requireAuth, async (req, res) => {
     .where(and(eq(bookingsTable.status, "confirmed"), eq(bookingsTable.buchhaltungNotified, false)))
     .orderBy(desc(bookingsTable.updatedAt));
 
-  const pendingBuchhaltung = pendingBuchhaltungRows.map(r => ({
-    id: r.id,
-    referenceNumber: r.referenceNumber,
-    childName: r.childName,
-    parentName: r.parentName,
-    priceCents: r.priceCents ?? 0,
-    confirmedAt: r.confirmedAt.toISOString(),
-  }));
+  // Sibling bookings confirmed but not yet acknowledged by Buchhaltung
+  const pendingSiblingRows = await db
+    .select({
+      id: siblingsTable.id,
+      referenceNumber: siblingsTable.referenceNumber,
+      childName: siblingsTable.childName,
+      parentName: bookingsTable.parentName,
+      priceCents: siblingsTable.priceCents,
+      confirmedAt: siblingsTable.createdAt, // use createdAt as proxy; updatedAt not on siblingsTable
+    })
+    .from(siblingsTable)
+    .innerJoin(bookingsTable, eq(siblingsTable.bookingId, bookingsTable.id))
+    .where(and(eq(siblingsTable.status, "confirmed"), eq(siblingsTable.buchhaltungNotified, false)))
+    .orderBy(desc(siblingsTable.createdAt));
+
+  const pendingBuchhaltung = [
+    ...pendingMainRows.map(r => ({
+      id: r.id,
+      type: "booking" as const,
+      referenceNumber: r.referenceNumber,
+      childName: r.childName,
+      parentName: r.parentName,
+      priceCents: r.priceCents ?? 0,
+      confirmedAt: r.confirmedAt.toISOString(),
+    })),
+    ...pendingSiblingRows.map(r => ({
+      id: r.id,
+      type: "sibling" as const,
+      referenceNumber: r.referenceNumber,
+      childName: r.childName,
+      parentName: r.parentName,
+      priceCents: r.priceCents ?? 0,
+      confirmedAt: r.confirmedAt.toISOString(),
+    })),
+  ].sort((a, b) => b.confirmedAt.localeCompare(a.confirmedAt));
 
   res.json({
     totalBookings: total,
@@ -1530,15 +1557,19 @@ router.get("/admin/bookings/:id", requireAuth, async (req, res) => {
 });
 
 router.post("/admin/buchhaltung-notify", requireAuth, async (req, res) => {
-  const { ids } = req.body ?? {};
-  if (!Array.isArray(ids) || ids.length === 0 || !ids.every((id: unknown) => typeof id === "number" && Number.isInteger(id) && id > 0)) {
+  const { ids, siblingIds } = req.body ?? {};
+  const isValidIds = (arr: unknown) =>
+    !arr || (Array.isArray(arr) && arr.every((id: unknown) => typeof id === "number" && Number.isInteger(id) && id > 0));
+  if (!isValidIds(ids) || !isValidIds(siblingIds) || (!ids?.length && !siblingIds?.length)) {
     res.status(400).json({ error: "Ungültige Eingabe" });
     return;
   }
-  await db
-    .update(bookingsTable)
-    .set({ buchhaltungNotified: true })
-    .where(inArray(bookingsTable.id, ids as number[]));
+  if (ids?.length) {
+    await db.update(bookingsTable).set({ buchhaltungNotified: true }).where(inArray(bookingsTable.id, ids as number[]));
+  }
+  if (siblingIds?.length) {
+    await db.update(siblingsTable).set({ buchhaltungNotified: true }).where(inArray(siblingsTable.id, siblingIds as number[]));
+  }
   res.json({ ok: true });
 });
 
@@ -1657,7 +1688,12 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
             returnRoute: su.returnRoute as any,
           };
           if (su.studentNumber !== undefined) sibSet.studentNumber = su.studentNumber ?? null;
-          if (su.status !== undefined) sibSet.status = su.status;
+          if (su.status !== undefined) {
+            sibSet.status = su.status;
+            if (su.status === "confirmed" && sib.status !== "confirmed") {
+              sibSet.buchhaltungNotified = false;
+            }
+          }
           await db.update(siblingsTable).set(sibSet).where(eq(siblingsTable.id, su.id));
           sib.outboundRoute = su.outboundRoute as any;
           sib.returnRoute = su.returnRoute as any;
@@ -1689,7 +1725,12 @@ router.patch("/admin/bookings/:id", requireAuth, async (req, res) => {
           returnRoute: su.returnRoute as any,
         };
         if (su.studentNumber !== undefined) sibSet.studentNumber = su.studentNumber ?? null;
-        if (su.status !== undefined) sibSet.status = su.status;
+        if (su.status !== undefined) {
+          sibSet.status = su.status;
+          if (su.status === "confirmed" && sib.status !== "confirmed") {
+            sibSet.buchhaltungNotified = false;
+          }
+        }
         await db.update(siblingsTable).set(sibSet).where(eq(siblingsTable.id, su.id));
         sib.outboundRoute = su.outboundRoute as any;
         sib.returnRoute = su.returnRoute as any;
