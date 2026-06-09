@@ -1,7 +1,7 @@
 import { AdminLayout } from "@/components/admin-layout";
 import { useParams, Link, useLocation } from "wouter";
 import { useGetAdminBooking, useUpdateAdminBooking, useDeleteAdminBooking, getGetAdminBookingQueryKey } from "@workspace/api-client-react";
-import { useIsReadOnly, useIsFahrer } from "@/hooks/use-read-only";
+import { useIsReadOnly, useIsFahrer, useAdminRole } from "@/hooks/use-read-only";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -368,6 +368,7 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
 export default function AdminBookingDetail() {
   const isReadOnly = useIsReadOnly();
   const isFahrer = useIsFahrer();
+  const role = useAdminRole();
   const params = useParams();
   const id = Number(params.id);
   const [, navigate] = useLocation();
@@ -616,7 +617,7 @@ export default function AdminBookingDetail() {
             {statusMap[booking.status]}
           </Badge>
           <div className="ml-auto flex items-center gap-2">
-            {!isReadOnly && (<AlertDialog>
+            {role === "admin" && (<AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700">
                   <Trash2 className="w-4 h-4 mr-2" />

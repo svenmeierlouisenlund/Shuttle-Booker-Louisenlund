@@ -13,7 +13,7 @@ import {
   Pencil, Check, X, Navigation, Home, School, ExternalLink, Clock,
 } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
-import { useIsReadOnly } from "@/hooks/use-read-only";
+import { useIsBusReadOnly } from "@/hooks/use-read-only";
 import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -624,7 +624,7 @@ function routeSummary(p: { outboundRoute: string; returnRoute: string }) {
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function BusDetail() {
-  const isReadOnly = useIsReadOnly();
+  const isReadOnly = useIsBusReadOnly();
   const params = useParams<{ id: string }>();
   const busId = parseInt(params.id ?? "", 10);
   const [, navigate] = useLocation();

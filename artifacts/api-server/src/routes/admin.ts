@@ -1521,7 +1521,7 @@ router.post("/admin/bookings/calculate-routes", requireAuth, async (req, res) =>
   });
 });
 
-router.delete("/admin/bookings/:id", requireAuth, async (req, res) => {
+router.delete("/admin/bookings/:id", requireAuth, requireAdmin, async (req, res) => {
   const id = parseInt(String(req.params.id), 10);
   if (isNaN(id)) {
     res.status(400).json({ error: "Ungültige ID" });
@@ -2409,6 +2409,17 @@ router.put("/admin/buses/:busId/return-times", requireAuth, async (req, res) => 
   }
 
   res.json({ ok: true });
+});
+
+// Buchhaltung darf Busse nur lesen
+router.use("/admin/buses", (req, _res, next) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+  const session = getSession(req);
+  if (session?.role === "buchhaltung") {
+    _res.status(403).json({ error: "Nur Leserechte für Busse" });
+    return;
+  }
+  next();
 });
 
 router.post("/admin/buses", requireAuth, async (req, res) => {

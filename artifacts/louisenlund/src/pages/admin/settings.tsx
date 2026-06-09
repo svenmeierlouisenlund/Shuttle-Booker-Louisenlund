@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Redirect } from "wouter";
 import { AdminLayout } from "@/components/admin-layout";
 import {
   useListNotificationEmails,
@@ -507,6 +508,10 @@ export default function AdminSettings() {
 
   const isAdmin = me?.role === "admin";
   const isReadOnly = me?.role === "schulbuero" || me?.role === "fahrer";
+
+  if (me?.role === "buchhaltung") {
+    return <Redirect to="/admin" />;
+  }
 
   return (
     <AdminLayout>

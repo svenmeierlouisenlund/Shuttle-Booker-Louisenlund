@@ -35,7 +35,7 @@ import {
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useState } from "react";
-import { useIsReadOnly } from "@/hooks/use-read-only";
+import { useIsBusReadOnly } from "@/hooks/use-read-only";
 
 // ── Destination helper ─────────────────────────────────────────────────────────
 const GRADES_HOF = new Set(["Jahrgang 1","Jahrgang 2","Jahrgang 3","Jahrgang 4","Jahrgang 5","Jahrgang 6","Jahrgang 7"]);
@@ -579,7 +579,7 @@ function WaitlistBusCard({ bus }: { bus: BusWithAssignments }) {
 // ── Main Page ───────────────────────────────────────────────────────────────────
 
 export default function AdminBuses() {
-  const isReadOnly = useIsReadOnly();
+  const isReadOnly = useIsBusReadOnly();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
